@@ -1,0 +1,12 @@
+[package]
+name = "boot"
+version = "0.1.0"
+authors = ["Mateusz Hurbol <mateusz.hurbol42@gmail.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+panic-abort = "0.3.1"
+r0 = "0.2.2"
+aarch64 = {path = "../aarch64"}
