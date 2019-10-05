@@ -1,24 +1,38 @@
 #![no_std]
 #![no_main]
 #![feature(asm)]
+
+// extern crate spin;
+
 mod gpio;
 mod mbox;
 mod uart;
 mod io;
 mod time;
 mod interupt;
+mod sync;
 
+#[cfg(any(feature = "raspi3", feature = "raspi2"))]
+const MMIO_BASE: u32 = 0x3E00_0000;
+#[cfg(feature = "raspi4")]
 const MMIO_BASE: u32 = 0xFE00_0000;
 
 
-use core::sync::atomic::{compiler_fence, Ordering, fence};
+use core::sync::atomic::{Ordering, fence};
 
 use io::UART as uart;
 
 unsafe fn kernel_entry() -> ! {
     let mut mbox = mbox::Mbox::new();
 
-    // set up serial console
+    // let u = uart::Uart;
+
+    // u.init(&mut mbox);
+    // u.puts("PRE Mutex");
+    // let uart = io::UART.lock();
+
+    //set up serial console
+
     match uart.init(&mut mbox) {
         Ok(_) => uart.puts("\n[0] UART is live!\n"),
         Err(_) => loop {
@@ -60,13 +74,13 @@ unsafe fn kernel_entry() -> ! {
     } else {
         uart.puts("[i] Unable to query serial!\n");
     }
-    println!("test for println");
-    //let (a,b) = scanln!(char,char);
-    println!("{:?} {:?}", 5, 10);
+    // println!("test for println");
+    // //let (a,b) = scanln!(char,char);
+    // println!("{:?} {:?}", 5, 10);
 
-    println!("Exception Level: {:?}", boot::mode::ExceptionLevel::get_current());
+    // println!("Exception Level: {:?}", boot::mode::ExceptionLevel::get_current());
     // echo everything back
-    loop {
+    loop { 
         uart.send(uart.getc());
     }
 }

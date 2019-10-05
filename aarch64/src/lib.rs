@@ -28,7 +28,7 @@ pub mod asm {
         unsafe {
             asm!("eret" : : : : "volatile");
         }
-        loop {}
+        loop { wfe(); }
     }
     #[inline(always)]
     ///Set Stack Pointer of Kernel Mode

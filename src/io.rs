@@ -1,11 +1,11 @@
-use crate::uart;
-
+use crate::uart::*;
+use crate::sync::*;
 use core::fmt;
 
-pub static mut UART : uart::Uart = uart::Uart::new();
+pub static mut UART : Uart = Uart::new(); //Mutex::new(Uart); //= Uart::new();
 
-impl fmt::Write for uart::Uart {
-    fn write_str(&mut self, s: &str) -> Result<(), fmt::Error>{
+impl fmt::Write for Uart {
+    fn write_str(&mut self, s: &str) -> Result<(), fmt::Error> {
         unsafe { UART.puts(s); }
         Ok(())
     }
