@@ -4,10 +4,9 @@ use crate::gpio;
 use crate::mbox;
 use core::{
     ops,
-    sync::atomic::{compiler_fence, Ordering},
+    sync::atomic::{fence, Ordering},
 };
 use register::{mmio::*, register_bitfields};
-use core::sync::atomic::fence;
 
 // PL011 UART registers.
 //

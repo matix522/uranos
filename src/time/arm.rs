@@ -1,6 +1,6 @@
 use core::ops::Deref;
 use register::mmio::*;
-const ARM_CLOCK_BASE : usize = 0x40000040; 
+const ARM_CLOCK_BASE : usize = 0x4000_0040; 
 
 pub struct Registers {
     route_clock: WriteOnly<u32>,

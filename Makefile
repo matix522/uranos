@@ -1,5 +1,5 @@
 
-TARGET = aarch64-unknown-none
+TARGET = aarch64-unknown-none-softfloat
 
 SOURCES = $(wildcard **/*.rs) $(wildcard **/*.S) link.ld
 

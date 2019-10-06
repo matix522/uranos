@@ -8,6 +8,7 @@ edition = "2018"
 
 [dependencies]
 boot = { path = "boot" }
+aarch64 = {path = "aarch64"}
 register = "0.3.3"
 #spin = "0.5.2"
 

@@ -103,13 +103,13 @@ pub fn blink () -> ! {
 
     unsafe {
     loop {
-        for _ in 0..150000 {
+        for _ in 0..150_000 {
             asm!("nop" :::: "volatile");
         }
         (*GPSET0).write(
             GPSET0::PIN21::Set
         );
-        for _ in 0..150000 {
+        for _ in 0..150_000 {
             asm!("nop" :::: "volatile");
         }
         (*GPCLR0).write(

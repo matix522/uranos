@@ -1,16 +1,16 @@
 #![no_std]
 #![no_main]
 #![feature(asm)]
-
+#![feature(global_asm)]
 // extern crate spin;
 
-mod gpio;
-mod mbox;
-mod uart;
-mod io;
-mod time;
-mod interupt;
-mod sync;
+pub mod gpio;
+pub mod mbox;
+pub mod uart;
+pub mod io;
+pub mod time;
+pub mod interupt;
+pub mod sync;
 
 #[cfg(any(feature = "raspi3", feature = "raspi2"))]
 const MMIO_BASE: u32 = 0x3E00_0000;
@@ -21,7 +21,9 @@ const MMIO_BASE: u32 = 0xFE00_0000;
 use core::sync::atomic::{Ordering, fence};
 
 use io::UART as uart;
-
+///
+/// # Safety 
+/// Function should only be passed into entry! macro 
 unsafe fn kernel_entry() -> ! {
     let mut mbox = mbox::Mbox::new();
 
@@ -36,7 +38,9 @@ unsafe fn kernel_entry() -> ! {
     match uart.init(&mut mbox) {
         Ok(_) => uart.puts("\n[0] UART is live!\n"),
         Err(_) => loop {
-            unsafe { asm!("wfe" :::: "volatile") }; // If UART fails, abort early
+            // unsafe { 
+                asm!("wfe" :::: "volatile") 
+                // }; // If UART fails, abort early
         },
     }
 
@@ -80,6 +84,7 @@ unsafe fn kernel_entry() -> ! {
 
     // println!("Exception Level: {:?}", boot::mode::ExceptionLevel::get_current());
     // echo everything back
+
     loop { 
         uart.send(uart.getc());
     }
@@ -88,5 +93,4 @@ unsafe fn kernel_entry() -> ! {
 //     gpio::setup();
 //     gpio::blink();
 // }
-
 boot::entry!(kernel_entry);

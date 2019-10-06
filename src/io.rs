@@ -1,5 +1,4 @@
 use crate::uart::*;
-use crate::sync::*;
 use core::fmt;
 
 pub static mut UART : Uart = Uart::new(); //Mutex::new(Uart); //= Uart::new();

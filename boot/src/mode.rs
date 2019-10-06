@@ -15,11 +15,11 @@ pub enum ExceptionLevel {
 
 
 const SCTLR_RESERVED: u64 = (3 << 28) | (3 << 22) | (1 << 20) | (1 << 11);
-const SCTLR_EE_LITTLE_ENDIAN: u64 = (0 << 25);
+const SCTLR_EE_LITTLE_ENDIAN: u64 = 0;
 
-const SCTLR_I_CACHE_DISABLED: u64 = (0 << 12);
-const SCTLR_D_CACHE_DISABLED: u64 = (0 << 2);
-const SCTLR_MMU_DISABLED: u64 = (0 << 0);
+const SCTLR_I_CACHE_DISABLED: u64 = 0;
+const SCTLR_D_CACHE_DISABLED: u64 = 0;
+const SCTLR_MMU_DISABLED: u64 = 0;
 
 
 const SCTLR_VALUE_MMU_DISABLED: u64 = (SCTLR_RESERVED
@@ -32,7 +32,7 @@ const HCR_RW: u64 = (1 << 31);
 const HCR_VALUE: u64 = HCR_RW;
 
 const SPSR_MASK_ALL: u64 = (7 << 6);
-const SPSR_EL1H: u64 = (5 << 0);
+const SPSR_EL1H: u64 = (5);
 const SPSR_VALUE: u64 = (SPSR_MASK_ALL | SPSR_EL1H);
 
 impl ExceptionLevel {

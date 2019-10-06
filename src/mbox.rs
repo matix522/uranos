@@ -127,3 +127,9 @@ impl Mbox {
         }
     }
 }
+
+impl Default for Mbox {
+    fn default() -> Self {
+        Self::new()
+    }
+} 
