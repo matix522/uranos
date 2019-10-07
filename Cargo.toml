@@ -16,7 +16,7 @@ register = "0.3.3"
 sysroot_path = "../xbuild_sysroot"
 
 [features]
-default = ["raspi4"]
+default = []
 
 raspi4 = []
 raspi3 = []

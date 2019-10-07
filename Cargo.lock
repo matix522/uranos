@@ -17,6 +17,7 @@ dependencies = [
 name = "kernel8"
 version = "0.1.0"
 dependencies = [
+ "aarch64 0.1.0",
  "boot 0.1.0",
  "register 0.3.3 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
