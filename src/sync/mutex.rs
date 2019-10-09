@@ -32,9 +32,9 @@ impl<'a, T> Drop for MutexGuard<'a, T> {
 }
 impl<T> Mutex<T> {
     ///Crates new mutex around provided data
-    pub fn new(data: T) -> Self {
+     pub const fn new(data: T) -> Self {
         Mutex {
-            lock: AtomicBool::from(false),
+            lock: AtomicBool::new(false),
             data: UnsafeCell::new(data),
         }
     }

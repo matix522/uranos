@@ -66,6 +66,30 @@ pub mod asm {
             asm!("msr elr_el2, $0" :  : "r"(spsr) : : "volatile");
         }
     }
-
-
+    #[inline(always)]
+    ///Set Configuration Register for Firmawre
+    pub fn set_el3_configuration_register_safe(scr: u64) {
+        unsafe {
+            asm!("msr scr_el3, $0" :  : "r"(scr) : : "volatile");
+        }
+    }
+    #[inline(always)]
+    ///Set Saved Program Status Register for Firmawre
+    pub fn set_el3_saved_program_status_register(spsr: u64) {
+        unsafe {
+            asm!("msr spsr_el3, $0" :  : "r"(spsr) : : "volatile");
+        }
+    }
+    #[inline(always)]
+    ///Set Saved Program Status Register for Firmawre
+    pub fn set_el3_exception_return_adrress(spsr: u64) {
+        unsafe {
+            asm!("msr elr_el3, $0" :  : "r"(spsr) : : "volatile");
+        }
+    }
+}
+#[inline(always)]
+///Enters into unending loop of wfe instructions
+pub fn halt() -> ! {
+    loop { asm::wfe(); }
 }
