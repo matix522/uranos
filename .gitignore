@@ -1,2 +1,4 @@
 /target
 **/*.rs.bk
+kernel8*
+**/Cargo.lock

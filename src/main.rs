@@ -17,6 +17,10 @@ const MMIO_BASE: u32 = 0x3F00_0000;
 #[cfg(feature = "raspi4")]
 const MMIO_BASE: u32 = 0xFE00_0000;
 
+extern "C" {
+    pub fn _boot_cores() -> !;
+}
+
 fn kernel_entry() -> ! {
     let mut mbox = mbox::Mbox::new();
     let uart = uart::Uart::new();
@@ -25,7 +29,7 @@ fn kernel_entry() -> ! {
     // u.init(&mut mbox);
     // u.puts("PRE Mutex");
     // let uart = io::UART.lock();
-
+        
     //set up serial console
     match uart.init(&mut mbox) {
         Ok(_) =>  uart.puts("\n[0] UART is live!\n"),
@@ -43,7 +47,15 @@ fn kernel_entry() -> ! {
 
     // println!("Exception Level: {:?}", boot::mode::ExceptionLevel::get_current());
     // // echo everything back
+    
 
+
+    unsafe{
+
+        println!("Boot cores: {:x} ", _boot_cores as *const () as u64 );
+        println!("reset: {:x} ",boot::reset as *const () as u64 );
+        println!("kernel: {:x} ",kernel_entry as *const () as u64 );
+    }
     loop { 
         uart.send(uart.getc());
     }
