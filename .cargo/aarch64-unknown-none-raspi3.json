@@ -1,8 +1,4 @@
 {
-  "rustflags" : [
-    "-C", "link-arg=-Tlink.ld",
-    "-C", "target-cpu=cortex-a53"
-  ], 
   "abi-blacklist": [
     "stdcall",
     "fastcall",

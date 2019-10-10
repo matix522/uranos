@@ -11,5 +11,5 @@ rustflags = [
 [target.aarch64-unknown-none-softfloat]
 rustflags = [
   "-C", "link-arg=-Tlink.ld",
-  "-C", "target-cpu=cortex-a72",
+  "-C", "target-cpu=cortex-a53",
 ] 
