@@ -4,7 +4,7 @@ use crate::gpio;
 use crate::mbox;
 use core::{
     ops,
-    sync::atomic::{fence, Ordering},
+    sync::atomic::{compiler_fence, Ordering},
 };
 use register::{mmio::*, register_bitfields};
 
@@ -149,7 +149,7 @@ impl Uart {
         // Insert a compiler fence that ensures that all stores to the
         // mbox buffer are finished before the GPU is signaled (which
         // is done by a store operation as well).
-        fence(Ordering::Release);
+        compiler_fence(Ordering::Release);
 
         if mbox.call(mbox::channel::PROP).is_err() {
             return Err(UartError::MailboxError); // Abort if UART clocks couldn't be set

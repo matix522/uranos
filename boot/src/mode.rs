@@ -1,5 +1,4 @@
 use aarch64::*;
-use core::hint::unreachable_unchecked;
 
 #[derive(Debug)]
 /// Level on which CPU is working
@@ -55,7 +54,7 @@ impl ExceptionLevel {
             1 => ExceptionLevel::Kernel,
             2 => ExceptionLevel::Hypervisor,
             3 => ExceptionLevel::Firmware,
-            _ => unsafe { unreachable_unchecked() }
+            _ => halt()
         }
     }
 
@@ -81,7 +80,7 @@ impl ExceptionLevel {
                 asm::set_el2_configuration_register(HCR_VALUE);
                 asm::set_el3_configuration_register_safe(SCR_VALUE);
                 asm::set_el3_saved_program_status_register(SPSR_VALUE);
-                asm::set_el3_exception_return_adrress(super::reset as *const () as u64);
+                asm::set_el3_exception_return_adrress(el1_entry as *const () as u64);
             }
         }
         asm::eret();

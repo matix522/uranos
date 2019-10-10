@@ -3,15 +3,14 @@
 #![no_std]
 #![feature(global_asm)]
 #![feature(asm)]
-#![feature(lang_items)]
 //! Low-level boot of the Raspberry's processor
 
-//extern crate panic_abort;
+extern crate panic_abort;
 extern crate aarch64;
 /// Module contains code for
 pub mod mode;
 
-use core::panic::PanicInfo;
+
 
 /// Type check the user-supplied entry function.
 #[macro_export]
@@ -23,7 +22,7 @@ macro_rules! entry {
         /// Function calling main rust kernel
         pub unsafe fn __main() -> ! {
             // type check the given path
-            let f: unsafe fn() -> ! = $path;
+            let f: fn() -> ! = $path;
 
             f()
         }
@@ -50,19 +49,20 @@ pub unsafe extern "C" fn reset() -> ! {
     extern "Rust" {
         fn main() -> !;
     }
-    mode::ExceptionLevel::drop_to_el1(main);
+    //mode::ExceptionLevel::drop_to_el1(main);
+    main();
 }
 
-/// Dummy Implementation
-#[panic_handler]
-fn panic(_: &PanicInfo) -> ! {
-    loop {
-        aarch64::asm::wfe();
-    }
-}
-/// Dummy Implementation
-#[lang = "eh_personality"]
-extern "C" fn eh_personality() {}
+// /// Dummy Implementation
+// #[panic_handler]
+// fn panic(_: &PanicInfo) -> ! {
+//     loop {
+//         aarch64::asm::wfe();
+//     }
+// }
+// /// Dummy Implementation
+// #[lang = "eh_personality"]
+// extern "C" fn eh_personality() {}
 
 // Disable all cores except core 0, and then jump to reset()
 global_asm!(include_str!("boot.S"));

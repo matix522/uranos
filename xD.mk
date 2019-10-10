@@ -22,18 +22,13 @@
 # SOFTWARE.
 #
 
-TARGET_RASPI3 = aarch64-unknown-none-raspi3
-TARGET_RASPI4 = aarch64-unknown-none-raspi4
+TARGET = aarch64-unknown-none-softfloat
 
 SOURCES = $(wildcard **/*.rs) $(wildcard **/*.S) link.ld
 
 
-XRUSTC_CMD_RASPI3   = cargo xbuild --target=.cargo/$(TARGET_RASPI3).json --release --features="raspi3"
-CARGO_OUTPUT_RASPI3 = target/$(TARGET_RASPI3)/release/kernel8
-
-
-XRUSTC_CMD_RASPI4   = cargo xbuild --target=.cargo/$(TARGET_RASPI4).json --release --features="raspi4"
-CARGO_OUTPUT_RASPI4 = target/$(TARGET_RASPI4)/release/kernel8
+XRUSTC_CMD   = cargo xrustc --target=$(TARGET) --release
+CARGO_OUTPUT = target/$(TARGET)/release/kernel8
 
 OBJCOPY        = cargo objcopy --
 OBJCOPY_PARAMS = --strip-all -O binary
@@ -43,49 +38,31 @@ CONTAINER_UTILS   = andrerichter/raspi3-utils
 DOCKER_CMD        = docker run -it --rm
 DOCKER_ARG_CURDIR = -v $(shell pwd):/work -w /work
 
-DOCKER_EXEC_QEMU     = qemu-system-aarch64 -M raspi3 -kernel kernel8-raspi3.img
+DOCKER_EXEC_QEMU     = qemu-system-aarch64 -M raspi3 -kernel kernel8.img
 
 .PHONY: all qemu clippy clean objdump nm
 
-all: clean kernel8-raspi4.img kernel8-raspi3.img
+all: clean kernel8.img
 
+$(CARGO_OUTPUT): $(SOURCES)
+	$(XRUSTC_CMD)
 
-#### RASPBERRY PI3 ####
-$(CARGO_OUTPUT_RASPI3): $(SOURCES)
-	$(XRUSTC_CMD_RASPI3)
+kernel8.img: $(CARGO_OUTPUT)
+	cp $< .
+	$(OBJCOPY) $(OBJCOPY_PARAMS) $< kernel8.img
 
-kernel8-raspi3.img: $(CARGO_OUTPUT_RASPI3)
-	cp $< ./kernel8-raspi3
-	$(OBJCOPY) $(OBJCOPY_PARAMS) kernel8-raspi3 kernel8-raspi3.img 
-
-objdump-raspi3:
-	cargo objdump --target .cargo/$(TARGET_RASPI3).json -- -disassemble -print-imm-hex kernel8-raspi3
-
-
-
-#### RASPBERRY PI4 ####
-$(CARGO_OUTPUT_RASPI4): $(SOURCES)
-	$(XRUSTC_CMD_RASPI4)
-
-kernel8-raspi4.img: $(CARGO_OUTPUT_RASPI4)
-	cp $< ./kernel8-raspi4
-	$(OBJCOPY) $(OBJCOPY_PARAMS) kernel8-raspi4 kernel8-raspi4.img
-
-objdump-raspi4:
-	cargo objdump --target .cargo/$(TARGET_RASPI4).json -- -disassemble -print-imm-hex kernel8-raspi4
-
-
-
-#### QEMU WITH PI3 ####
 qemu: all
 	$(DOCKER_CMD) $(DOCKER_ARG_CURDIR) $(CONTAINER_UTILS) \
-	$(DOCKER_EXEC_QEMU) -serial stdio
+	$(DOCKER_EXEC_QEMU) -serial null -serial stdio
 
 clippy:
 	cargo xclippy --target=$(TARGET)
 
 clean:
 	cargo clean
+
+objdump:
+	cargo objdump --target $(TARGET) -- -disassemble -print-imm-hex kernel8
 
 nm:
 	cargo nm --target $(TARGET) -- kernel8 | sort

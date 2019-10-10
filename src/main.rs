@@ -12,18 +12,14 @@ pub mod time;
 pub mod interupt;
 pub mod sync;
 
-#[cfg(any(feature = "raspi3", feature = "raspi2"))]
-const MMIO_BASE: u32 = 0x3E00_0000;
+#[cfg(not(feature = "raspi4"))]
+const MMIO_BASE: u32 = 0x3F00_0000;
 #[cfg(feature = "raspi4")]
 const MMIO_BASE: u32 = 0xFE00_0000;
 
-use io::UART;
-///
-/// # Safety 
-/// Function should only be passed into entry! macro 
-unsafe fn kernel_entry() -> ! {
+fn kernel_entry() -> ! {
     let mut mbox = mbox::Mbox::new();
-
+    let uart = uart::Uart::new();
     // let u = uart::Uart;
 
     // u.init(&mut mbox);
@@ -31,23 +27,25 @@ unsafe fn kernel_entry() -> ! {
     // let uart = io::UART.lock();
 
     //set up serial console
-    match UART.init(&mut mbox) {
-        Ok(_) =>  UART.puts("\n[0] UART is live!\n"),
+    match uart.init(&mut mbox) {
+        Ok(_) =>  uart.puts("\n[0] UART is live!\n"),
         Err(_) => loop {
-            // unsafe { 
+             unsafe { 
                 asm!("wfe" :::: "volatile") 
-                // }; // If UART fails, abort early
+                 }; // If UART fails, abort early
         },
     }
     
+    uart.puts("HELLO PIOTREK");
+    uart.getc();
+    uart.puts("\n\rXDDDDD");
+    // println!("{:?} {:?}", 5, 10);
 
-    println!("{:?} {:?}", 5, 10);
-
-    println!("Exception Level: {:?}", boot::mode::ExceptionLevel::get_current());
-    // echo everything back
+    // println!("Exception Level: {:?}", boot::mode::ExceptionLevel::get_current());
+    // // echo everything back
 
     loop { 
-        UART.send(UART.getc());
+        uart.send(uart.getc());
     }
 }
 // pub unsafe fn kernel_entry() -> ! {

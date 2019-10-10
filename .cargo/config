@@ -1,3 +1,13 @@
+[target.aarch64-unknown-none-raspi3]
+rustflags = [
+  "-C", "link-arg=-Tlink.ld",
+  "-C", "target-cpu=cortex-a53",
+] 
+[target.aarch64-unknown-none-raspi4]
+rustflags = [
+  "-C", "link-arg=-Tlink.ld",
+  "-C", "target-cpu=cortex-a72",
+] 
 [target.aarch64-unknown-none-softfloat]
 rustflags = [
   "-C", "link-arg=-Tlink.ld",
