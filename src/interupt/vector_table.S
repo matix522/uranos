@@ -36,6 +36,32 @@
     b      1b
 .endm
 
+.macro handle_invalid_entry type
+	kernel_entry
+	mov	x0, #\type
+	mrs	x1, esr_el1
+	mrs	x2, elr_el1
+	bl	show_invalid_entry_message
+	bl  blink
+.endm
+
+
+.global __irq_vector_init
+__irq_vector_init:
+    adr x0, __exception_vectors_start
+    msr vbar_el1, x0
+    ret
+
+.globl __enable_irq
+__enable_irq:
+    msr    daifclr, #2 
+    ret
+
+.globl __disable_irq
+__disable_irq:
+    msr    daifset, #2
+    ret
+
 // The vector definitions
 .section .vectors, "ax"
 .global __exception_vectors_start

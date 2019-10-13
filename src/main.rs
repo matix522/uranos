@@ -19,6 +19,7 @@ const MMIO_BASE: u32 = 0xFE00_0000;
 
 extern "C" {
     pub fn _boot_cores() -> !;
+    pub fn __irq_vector_init() -> !;
 }
 
 fn kernel_entry() -> ! {
@@ -40,6 +41,11 @@ fn kernel_entry() -> ! {
         },
     }
     
+    uart.puts("Initializing IRQ_vector_table\n\r");
+
+    interupt::
+
+
     uart.puts("HELLO PIOTREK");
     uart.getc();
     uart.puts("\n\rXDDDDD");

@@ -2,3 +2,6 @@
 **/*.rs.bk
 kernel8*
 **/Cargo.lock
+#All below our local ignores
+.gitignore
+flash-rpi3.sh
