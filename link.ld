@@ -26,6 +26,10 @@ SECTIONS
         *(COMMON)
         __bss_end = .;
     }
+    .end ALIGN(8):
+    {
+        __binary_end = .;
+    }
 
     /DISCARD/ : { *(.comment) *(.gnu*) *(.note*) *(.eh_frame*) }
 }
