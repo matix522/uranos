@@ -34,9 +34,6 @@ fn kernel_entry() -> ! {
         Err(_) => halt()  // If UART fails, abort early
     }
 
-    
-
-
     println!("Exception Level: {:?}", boot::mode::ExceptionLevel::get_current());
 
         uart.puts("Initializing IRQ_vector_table\n\r");
