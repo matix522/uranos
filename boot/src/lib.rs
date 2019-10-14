@@ -49,8 +49,8 @@ pub unsafe extern "C" fn reset() -> ! {
     extern "Rust" {
         fn main() -> !;
     }
-    //mode::ExceptionLevel::drop_to_el1(main);
-    main();
+    mode::ExceptionLevel::drop_to_el1(main);
+    //main();
 }
 
 // /// Dummy Implementation

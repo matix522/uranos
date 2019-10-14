@@ -12,6 +12,8 @@ pub mod time;
 pub mod interupt;
 pub mod sync;
 
+use aarch64::halt;
+
 #[cfg(not(feature = "raspi4"))]
 const MMIO_BASE: u32 = 0x3F00_0000;
 #[cfg(feature = "raspi4")]
@@ -19,7 +21,7 @@ const MMIO_BASE: u32 = 0xFE00_0000;
 
 extern "C" {
     pub fn _boot_cores() -> !;
-    pub fn __irq_vector_init() -> !;
+    pub static __exception_vectors_start: u64;
 }
 
 fn kernel_entry() -> ! {
@@ -33,28 +35,27 @@ fn kernel_entry() -> ! {
         
     //set up serial console
     match uart.init(&mut mbox) {
-        Ok(_) =>  uart.puts("\n[0] UART is live!\n"),
-        Err(_) => loop {
-             unsafe { 
-                asm!("wfe" :::: "volatile") 
-                 }; // If UART fails, abort early
-        },
+        Ok(_) =>  println!("[ Ok ] UART is live!"),
+        Err(_) => halt()  // If UART fails, abort early
+        
     }
+
     
     uart.puts("Initializing IRQ_vector_table\n\r");
+    unsafe { 
+        
+        let exception_vectors_start: u64 = &__exception_vectors_start as *const _ as u64;
+        println!("vector table at {:x}", exception_vectors_start);
+        interupt::set_vector_table_pointer(exception_vectors_start); 
+    }
+    interupt::daif_clr(2);
+    interupt::timer::ArmQemuTimer::interupt_after(interupt::timer::ArmQemuTimer::get_frequency());
+    interupt::timer::ArmQemuTimer::enable();
 
-    interupt::
+    println!("Exception Level: {:?}", boot::mode::ExceptionLevel::get_current());
 
-
-    uart.puts("HELLO PIOTREK");
-    uart.getc();
-    uart.puts("\n\rXDDDDD");
-    // println!("{:?} {:?}", 5, 10);
-
-    // println!("Exception Level: {:?}", boot::mode::ExceptionLevel::get_current());
-    // // echo everything back
-    
-
+        println!("time {}", interupt::timer::ArmQemuTimer::get_time());
+        println!("to interupt {}", interupt::timer::ArmQemuTimer::ticks_to_interupt());
 
     unsafe{
 
@@ -62,7 +63,11 @@ fn kernel_entry() -> ! {
         println!("reset: {:x} ",boot::reset as *const () as u64 );
         println!("kernel: {:x} ",kernel_entry as *const () as u64 );
     }
+
+    // echo everything back
     loop { 
+        println!("time {}", interupt::timer::ArmQemuTimer::get_time());
+        println!("to interupt {}", interupt::timer::ArmQemuTimer::ticks_to_interupt());
         uart.send(uart.getc());
     }
 }

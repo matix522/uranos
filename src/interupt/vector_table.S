@@ -19,11 +19,13 @@
     stp    x26, x27, [sp, #16 * 13]
     stp    x28, x29, [sp, #16 * 14]
 
-    mrs    x1,  elr_el1
-    mrs    x2,  spsr_el1
+
+    mrs    x1,  SPSR_EL1
+    mrs    x2,  ELR_EL1
+    mrs    x3,  ESR_EL1
 
     stp    x30, x1,  [sp, #16 * 15]
-    str    x2,       [sp, #16 * 16]
+    stp    x2,  x3,  [sp, #16 * 16]
 
     mov    x0,  sp
     bl     \handler
@@ -88,11 +90,12 @@ __exception_vectors_start:
 
 .global __restore_context
 __restore_context:
-    ldr    x19,      [sp, #16 * 16]
+    ldp    x19, x21, [sp, #16 * 16]
     ldp    x30, x20, [sp, #16 * 15]
 
-    msr    elr_el1, x19
-    msr    spsr_el1, x20
+    msr    ESR_EL1,  x21
+    msr    ELR_EL1,  x19
+    msr    SPSR_EL1, x20
 
     ldp    x0,  x1,  [sp, #16 * 0]
     ldp    x2,  x3,  [sp, #16 * 1]
