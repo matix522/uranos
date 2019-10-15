@@ -30,7 +30,7 @@ fn kernel_entry() -> ! {
     let uart = uart::Uart::new();
 
     match uart.init(&mut mbox) {
-        Ok(_) =>  println!("[ Ok ] UART is live!"),
+        Ok(_) =>  println!("\x1B[2J\x1B[2;1H[ Ok ] UART is live!"),
         Err(_) => halt()  // If UART fails, abort early
     }
 
@@ -43,21 +43,20 @@ fn kernel_entry() -> ! {
         println!("vector table at {:x}", exception_vectors_start);
         interupt::set_vector_table_pointer(exception_vectors_start); 
     }
+    use interupt::timer::ArmQemuTimer as Timer;
     interupt::daif_clr(2);
-    interupt::timer::ArmQemuTimer::interupt_after(interupt::timer::ArmQemuTimer::get_frequency());
-    interupt::timer::ArmQemuTimer::enable();
+    Timer::interupt_after(Timer::get_frequency());
+    Timer::enable();
 
     println!("Binary loaded at: {:x} ", _boot_cores as *const () as u64 );
 
-    println!("Binary ends at: {:x} ", unsafe { __binary_end } );
+    println!("Binary ends at: {:x} ", unsafe { &__binary_end as *const u64 as u64} );
 
     println!("Kernel Initialization complete.");
 
     // echo everything back
     
     loop { 
-        println!("time {}", interupt::timer::ArmQemuTimer::get_time());
-        println!("to interupt {}", interupt::timer::ArmQemuTimer::ticks_to_interupt());
         uart.send(uart.getc());
     }
 }

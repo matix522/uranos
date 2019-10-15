@@ -1,10 +1,9 @@
 use crate::println;
 use crate::gpio;
-
 use register::{mmio::*, register_bitfields};
 
 pub mod timer;
-
+pub mod handlers;
 pub enum Error{
     IrqNotEnabled
 }
@@ -32,11 +31,7 @@ pub struct ExceptionContext {
     elr_el1: u64,
     esr_el1: u64
 }
-#[no_mangle]
-pub unsafe extern "C" fn default_interupt_handler(context :&mut ExceptionContext) {
-    println!("Interupt Happened");
-    gpio::blink();
-}
+
 /// TODO DAIF TYPE
 pub fn daif_set(daif :u64) {
     unsafe {
