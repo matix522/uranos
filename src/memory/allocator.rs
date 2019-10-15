@@ -1,13 +1,13 @@
 use core::alloc::{GlobalAlloc, Layout};
+use core::cell::UnsafeCell;
 use core::mem::size_of;
 use core::ptr::null_mut;
-use core::cell::UnsafeCell;
 struct Block {
-    next : *mut Block,
-    data_size : usize,
+    next: *mut Block,
+    data_size: usize,
 }
-unsafe impl Send for Block{}
-unsafe impl Sync for Block{}
+unsafe impl Send for Block {}
+unsafe impl Sync for Block {}
 impl Block {
     pub fn size_of(&self) -> usize {
         size_of::<Self>() + self.data_size
@@ -33,12 +33,16 @@ impl MainAllocator {
 #[link_section = ".heap"]
 static A: MainAllocator = MainAllocator::new(0x100_0000);
 
-
-unsafe fn is_the_space_big_enough(base_address: *mut Block, required_size : usize, end_address: usize) -> bool {
-    base_address as usize + (*base_address).size_of() + required_size + size_of::<Block>() <= end_address
+unsafe fn is_the_space_big_enough(
+    base_address: *mut Block,
+    required_size: usize,
+    end_address: usize,
+) -> bool {
+    base_address as usize + (*base_address).size_of() + required_size + size_of::<Block>()
+        <= end_address
 }
 unsafe impl GlobalAlloc for MainAllocator {
-    unsafe fn alloc(&self, layout: Layout) -> *mut u8 { 
+    unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
         let mut previous = self.block_list();
         let mut current = (*previous).next;
 
@@ -66,7 +70,7 @@ unsafe impl GlobalAlloc for MainAllocator {
         }
         // ERROR_OOM
         return null_mut();
-    }    
+    }
     unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
         let block = ptr.offset(-(size_of::<Block>() as isize)) as *mut Block;
 
@@ -80,13 +84,19 @@ unsafe impl GlobalAlloc for MainAllocator {
 }
 
 impl MainAllocator {
-    pub const fn new(heap_size : u64) -> Self {
-        MainAllocator{ heap_size: heap_size as usize, first_block : Block {next : null_mut(), data_size : 0}}
+    pub const fn new(heap_size: u64) -> Self {
+        MainAllocator {
+            heap_size: heap_size as usize,
+            first_block: Block {
+                next: null_mut(),
+                data_size: 0,
+            },
+        }
     }
 }
 
 #[alloc_error_handler]
-pub fn bad_alloc(layout : core::alloc::Layout) -> !{
+pub fn bad_alloc(layout: core::alloc::Layout) -> ! {
     crate::println!("bad_alloc: {:?}", layout);
     aarch64::halt();
 }

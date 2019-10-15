@@ -1,4 +1,4 @@
-use super::{MMIO_BASE};
+use super::MMIO_BASE;
 use core::ops;
 use register::{
     mmio::{ReadOnly, WriteOnly},
@@ -38,7 +38,6 @@ pub type Result<T> = ::core::result::Result<T, MboxError>;
 pub mod channel {
     pub const PROP: u32 = 8;
 }
-
 
 // Tags
 pub mod tag {
@@ -132,4 +131,4 @@ impl Default for Mbox {
     fn default() -> Self {
         Self::new()
     }
-} 
+}

@@ -30,6 +30,7 @@ SECTIONS
     {
         __binary_end = .;
     }
+
     .heap ALIGN(8):
     {
         *(.heap .heap.*)

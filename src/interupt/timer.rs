@@ -1,15 +1,14 @@
-use register::{mmio::*, register_bitfields};
 use core::ops::Deref;
+use register::{mmio::*, register_bitfields};
 
 pub struct RegisterBlocArm {
     route_clock: WriteOnly<u32>,
 }
-const ARM_CLOCK_BASE : usize = 0x40000040; 
+const ARM_CLOCK_BASE: usize = 0x40000040;
 
 pub struct ArmQemuTimer;
 
 impl Deref for ArmQemuTimer {
-
     type Target = RegisterBlocArm;
 
     fn deref(&self) -> &Self::Target {
@@ -17,16 +16,16 @@ impl Deref for ArmQemuTimer {
     }
 }
 impl ArmQemuTimer {
-    pub fn enable(){
+    pub fn enable() {
         ArmQemuTimer.route_clock.set(0x8);
-        let val : u32 = 1;
+        let val: u32 = 1;
         unsafe {
             asm!("msr cntv_ctl_el0, $0" : : "r"(val) : : "volatile");
         }
     }
-    pub fn disable(){
+    pub fn disable() {
         ArmQemuTimer.route_clock.set(0x0);
-        let val : u32 = 0;
+        let val: u32 = 0;
         unsafe {
             asm!("msr cntv_ctl_el0, $0" : : "r"(val) : : "volatile");
         }
@@ -38,9 +37,9 @@ impl ArmQemuTimer {
         }
         frequency
     }
-    pub fn interupt_after(ticks : u32) {
+    pub fn interupt_after(ticks: u32) {
         unsafe {
-        	asm!("msr cntv_tval_el0, $0" : : "r"(ticks) : : "volatile");
+            asm!("msr cntv_tval_el0, $0" : : "r"(ticks) : : "volatile");
         }
     }
     pub fn ticks_to_interupt() -> u32 {
@@ -53,7 +52,7 @@ impl ArmQemuTimer {
     pub fn get_time() -> u64 {
         let ticks;
         unsafe {
-	        asm!("mrs $0, cntvct_el0" : "=r" (ticks));
+            asm!("mrs $0, cntvct_el0" : "=r" (ticks));
         }
         ticks
     }

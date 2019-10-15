@@ -1,7 +1,6 @@
 use super::MMIO_BASE;
 use register::{mmio::ReadWrite, mmio::WriteOnly, register_bitfields};
 
-
 register_bitfields! {
     u32,
     GPFSEL1 [
@@ -63,7 +62,6 @@ register_bitfields! {
     ]
 }
 
-
 pub const GPFSEL1: *const ReadWrite<u32, GPFSEL1::Register> =
     (MMIO_BASE + 0x0020_0004) as *const ReadWrite<u32, GPFSEL1::Register>;
 
@@ -99,22 +97,17 @@ pub fn setup() {
     }
 }
 
-pub fn blink () -> ! {
-
+pub fn blink() -> ! {
     unsafe {
-    loop {
-        for _ in 0..150_000 {
-            asm!("nop" :::: "volatile");
+        loop {
+            for _ in 0..150_000 {
+                asm!("nop" :::: "volatile");
+            }
+            (*GPSET0).write(GPSET0::PIN21::Set);
+            for _ in 0..150_000 {
+                asm!("nop" :::: "volatile");
+            }
+            (*GPCLR0).write(GPCLR0::PIN21::Reset);
         }
-        (*GPSET0).write(
-            GPSET0::PIN21::Set
-        );
-        for _ in 0..150_000 {
-            asm!("nop" :::: "volatile");
-        }
-        (*GPCLR0).write(
-            GPCLR0::PIN21::Reset
-        );
-    }
     }
 }
