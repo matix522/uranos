@@ -2,7 +2,10 @@
 #![no_main]
 #![feature(asm)]
 #![feature(global_asm)]
+#![feature(alloc_error_handler)]
+
 // extern crate spin;
+extern crate alloc;
 
 pub mod gpio;
 pub mod mbox;
@@ -11,6 +14,7 @@ pub mod io;
 pub mod time;
 pub mod interupt;
 pub mod sync;
+pub mod memory;
 
 use aarch64::*;
 

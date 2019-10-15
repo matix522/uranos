@@ -11,7 +11,6 @@ extern crate aarch64;
 pub mod mode;
 
 
-
 /// Type check the user-supplied entry function.
 #[macro_export]
 macro_rules! entry {
