@@ -23,6 +23,9 @@ const MMIO_BASE: u32 = 0x3F00_0000;
 #[cfg(feature = "raspi4")]
 const MMIO_BASE: u32 = 0xFE00_0000;
 
+
+use alloc::vec::Vec;
+
 extern "C" {
     pub fn _boot_cores() -> !;
     pub static __exception_vectors_start: u64;
@@ -40,26 +43,34 @@ fn kernel_entry() -> ! {
 
     println!("Exception Level: {:?}", boot::mode::ExceptionLevel::get_current());
 
-        uart.puts("Initializing IRQ_vector_table\n\r");
+    println!("Binary loaded at: {:x} - {:x}", _boot_cores as *const () as u64,unsafe { &__binary_end as *const u64 as u64});
+    println!("Init Task Stack: {:x} - {:x}", _boot_cores as *const () as u64, 0);
+    println!("Main Heap: {:x} - {:x}", memory::allocator::heap_start(), memory::allocator::heap_end());
+
+    print!("Initializing Interupt Vector Table: ");
     unsafe { 
         
         let exception_vectors_start: u64 = &__exception_vectors_start as *const _ as u64;
-        println!("vector table at {:x}", exception_vectors_start);
+        println!("{:x}", exception_vectors_start);
         interupt::set_vector_table_pointer(exception_vectors_start); 
     }
-    use interupt::timer::ArmQemuTimer as Timer;
-    interupt::daif_clr(2);
-    Timer::interupt_after(Timer::get_frequency());
-    Timer::enable();
-
-    println!("Binary loaded at: {:x} ", _boot_cores as *const () as u64 );
-
-    println!("Binary ends at: {:x} ", unsafe { &__binary_end as *const u64 as u64} );
+    // use interupt::timer::ArmQemuTimer as Timer;
+    // interupt::daif_clr(2);
+    // Timer::interupt_after(Timer::get_frequency());
+    // Timer::enable();
 
     println!("Kernel Initialization complete.");
 
+    let mut vector = Vec::new();
+    for i in 0..20 {
+        vector.push(i);
+    }
+    for i in &vector {
+        print!("{} ", i);
+    }
+    println!("");
+    core::mem::drop(vector);
     // echo everything back
-    
     loop { 
         uart.send(uart.getc());
     }
