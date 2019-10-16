@@ -1,4 +1,4 @@
-use super::{MMIO_BASE};
+use super::MMIO_BASE;
 use core::ops;
 use register::{
     mmio::{ReadOnly, WriteOnly},
@@ -39,12 +39,13 @@ pub mod channel {
     pub const PROP: u32 = 8;
 }
 
-
 // Tags
 pub mod tag {
     pub const GETSERIAL: u32 = 0x10004;
     pub const SETCLKRATE: u32 = 0x38002;
     pub const LAST: u32 = 0;
+    pub const ALLOCATE_FRAMEBUFFER: u32 = 0x40001;
+    pub const SET_PHYSICAL_SIZE: u32 = 0x48003;
 }
 
 // Clocks
@@ -132,4 +133,4 @@ impl Default for Mbox {
     fn default() -> Self {
         Self::new()
     }
-} 
+}

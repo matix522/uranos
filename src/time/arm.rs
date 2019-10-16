@@ -1,6 +1,6 @@
 use core::ops::Deref;
 use register::mmio::*;
-const ARM_CLOCK_BASE : usize = 0x4000_0040; 
+const ARM_CLOCK_BASE: usize = 0x4000_0040;
 
 pub struct Registers {
     route_clock: WriteOnly<u32>,
@@ -16,16 +16,16 @@ impl Deref for ArmTimer {
 }
 
 impl super::Timer for ArmTimer {
-    fn enable(){
+    fn enable() {
         ArmTimer.route_clock.set(0x8);
-        let val : u32 = 1;
+        let val: u32 = 1;
         unsafe {
             asm!("msr cntv_ctl_el0, $0" : : "r"(val) : : "volatile");
         }
     }
-    fn disable(){
+    fn disable() {
         ArmTimer.route_clock.set(0x0);
-        let val : u32 = 0;
+        let val: u32 = 0;
         unsafe {
             asm!("msr cntv_ctl_el0, $0" : : "r"(val) : : "volatile");
         }
@@ -37,16 +37,16 @@ impl super::Timer for ArmTimer {
         }
         frequency
     }
-    fn interupt_after(ticks : u32) -> Result<(), super::Error> {
+    fn interupt_after(ticks: u32) -> Result<(), super::Error> {
         unsafe {
-        	asm!("msr cntv_tval_el0, $0" : : "r"(ticks) : : "volatile");
+            asm!("msr cntv_tval_el0, $0" : : "r"(ticks) : : "volatile");
         }
         Ok(())
     }
     fn get_time() -> u64 {
         let ticks;
         unsafe {
-	        asm!("mrs $0, cntvct_el0" : "=r" (ticks));
+            asm!("mrs $0, cntvct_el0" : "=r" (ticks));
         }
         ticks
     }

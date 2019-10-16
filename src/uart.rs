@@ -1,4 +1,3 @@
-
 use super::MMIO_BASE;
 use crate::gpio;
 use crate::mbox;
@@ -93,16 +92,16 @@ const UART_BASE: u32 = MMIO_BASE + 0x20_1000;
 #[allow(non_snake_case)]
 #[repr(C)]
 pub struct RegisterBlock {
-    DR: ReadWrite<u32>,                                                 // 0x00
-    __reserved_0: [u32; 5],                                             // 0x04
-    FLAG_REGISTER: ReadOnly<u32, FR::Register>,                         // 0x18
-    __reserved_1: [u32; 2],                                             // 0x1c
-    IBRD: WriteOnly<u32, IBRD::Register>,                               // 0x24
-    FBRD: WriteOnly<u32, FBRD::Register>,                               // 0x28
-    LINE_CONTROL_REGISTER: WriteOnly<u32, LCR::Register>,               // 0x2C
-    CONTROL_REGISTER: WriteOnly<u32, CR::Register>,                     // 0x30
-    __reserved_2: [u32; 4],                                             // 0x34
-    INTERUPT_CLEAR_REGISTER: WriteOnly<u32, ICR::Register>,             // 0x44
+    DR: ReadWrite<u32>,                                     // 0x00
+    __reserved_0: [u32; 5],                                 // 0x04
+    FLAG_REGISTER: ReadOnly<u32, FR::Register>,             // 0x18
+    __reserved_1: [u32; 2],                                 // 0x1c
+    IBRD: WriteOnly<u32, IBRD::Register>,                   // 0x24
+    FBRD: WriteOnly<u32, FBRD::Register>,                   // 0x28
+    LINE_CONTROL_REGISTER: WriteOnly<u32, LCR::Register>,   // 0x2C
+    CONTROL_REGISTER: WriteOnly<u32, CR::Register>,         // 0x30
+    __reserved_2: [u32; 4],                                 // 0x34
+    INTERUPT_CLEAR_REGISTER: WriteOnly<u32, ICR::Register>, // 0x44
 }
 
 pub enum UartError {
