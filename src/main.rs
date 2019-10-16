@@ -31,6 +31,27 @@ extern "C" {
     static mut __binary_end: u64;
 }
 
+
+
+// pub fn init_f(){
+//     loop {
+//         println!("Hello from init task!");
+//         for i in 1..10000 {
+//             unsafe{asm!{"nop" :::: "volatile"}}
+//         }
+//     }
+// }
+
+
+// pub fn test_task_f(){
+//     loop {
+//         println!("Hello from test task!");
+//         for i in 1..10000 {
+//             unsafe{asm!{"nop" :::: "volatile"}}
+//         }
+//     }
+// }
+
 fn kernel_entry() -> ! {
     let mut mbox = mbox::Mbox::new();
     let uart = uart::Uart::new();
@@ -51,10 +72,6 @@ fn kernel_entry() -> ! {
         println!("vector table at {:x}", exception_vectors_start);
         interupt::set_vector_table_pointer(exception_vectors_start);
     }
-    use interupt::timer::ArmQemuTimer as Timer;
-    interupt::daif_clr(2);
-    Timer::interupt_after(Timer::get_frequency());
-    Timer::enable();
 
     println!("Binary loaded at: {:x} ", _boot_cores as *const () as u64);
 
@@ -65,6 +82,14 @@ fn kernel_entry() -> ! {
     println!("Kernel Initialization complete.");
 
     // echo everything back
+
+    // let init : scheduler::TaskContext = scheduler::TaskContext::new(init_f, 0);
+    // let another : scheduler::TaskContext = scheduler::TaskContext::new(test_task_f, 0);
+
+    // init.start();
+    // another.start();
+
+    // scheduler::schedule_first();
 
     loop {
         uart.send(uart.getc());

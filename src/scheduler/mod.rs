@@ -11,6 +11,8 @@ use alloc::vec::Vec;
 pub enum TaskError {
     /// Limit of tasks has been reached when trying to add next task
     TaskLimitReached,
+    /// Referenced to task out of bounds of array
+    InvalidTaskReference,
 }
 
 #[repr(C)]
@@ -40,6 +42,7 @@ pub struct TaskContext {
     /// General Purpose Registers
     gpr: GPR,
     task_state: TaskStates,
+    counter : i64,
     priority: u32,
     preemption_count: u32,
     stack: Option<Box<[u8]>>,
@@ -61,13 +64,15 @@ impl TaskContext {
                 lr: 0,
             },
             task_state: TaskStates::NotStarted,
+            counter: 0,            
             priority: 0,
             preemption_count: 0,
             stack: None,
         }
     }
 
-    fn new(start_function: fn(), priority: u32) -> Self {
+    /// create new task
+    pub fn new(start_function: fn(), priority: u32) -> Self {
         let mut task = Self::empty();
         let stack = Box::new([0; TASK_STACK_SIZE]);
         task.priority = priority;
@@ -77,7 +82,8 @@ impl TaskContext {
         task
     }
 
-    fn start(mut self) -> Result<(), TaskError> {
+    /// Adds task to task vector and set state to running
+    pub fn start(mut self) -> Result<(), TaskError> {
         self.task_state = TaskStates::Running;
         unsafe {
             if TASKS.len() >= MAX_TASK_COUNT {
@@ -89,10 +95,72 @@ impl TaskContext {
     }
 }
 
+/// Scheduling algorithm choosing next task and switching to it
+pub fn schedule() -> () {
+    let mut next_task_found : bool = false;
+    let mut next_task_pid : usize = 0;
+    unsafe{
+        while !next_task_found {
+            for i in 0..TASKS.len() {
+                let curr_task : &mut TaskContext = &mut TASKS[i];
+                match curr_task.task_state {
+                    TaskStates::Running => {
+                        if curr_task.counter > 0 {
+                            curr_task.counter = 0;
+                            continue;
+                        } else {
+                            curr_task .counter = 1;
+                            next_task_pid = i;
+                            next_task_found = true;
+                            break;
+                        }
+                        
+                    }
+                    _ => {
+                        continue;
+                    }
+                }
+            }
+        }
+        change_task(next_task_pid);
+    }
+
+}
+
+// pub fn schedule_first(){
+
+// }
+
+
+extern "C" {
+    fn cpu_switch_to(prev_task_addr : u64, next_task_addr : u64) -> ();
+}
+
+static mut PREVIOUS_TASK_PID : usize = 0;
+
+
+/// Function that changes current tasks and stores context of previous one in his TaskContext structure
+pub unsafe fn change_task(next : usize) -> Result<(), TaskError> {
+    if PREVIOUS_TASK_PID == next {return Ok(());}
+    if PREVIOUS_TASK_PID >= TASKS.len() || next >= TASKS.len() { return Err(TaskError::InvalidTaskReference); }
+    let prev_task_addr = &TASKS[PREVIOUS_TASK_PID] as *const TaskContext as u64;
+    let next_task_addr = &TASKS[next] as *const TaskContext as u64;
+
+    cpu_switch_to(prev_task_addr, next_task_addr);
+    PREVIOUS_TASK_PID = next;
+
+    Ok(())
+
+}
+
 // #[link_section = ".task"]
 // static TASKS: [TaskContext; MAX_TASK_COUNT] = new_task_table(); //Default::default();// = [TaskContext::new(); MAX_TASK_COUNT];
 
 // #[link_section = ".task.stack"]
 // static TASK_STACKS: [TaskStack; MAX_TASK_COUNT] = [TaskStack::new(); MAX_TASK_COUNT] ;
+
+
+
+
 
 global_asm!(include_str!("change_task.S"));
