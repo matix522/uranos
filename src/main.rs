@@ -7,6 +7,9 @@
 // extern crate spin;
 extern crate alloc;
 
+#[macro_use]
+extern crate lazy_static;
+
 pub mod gpio;
 pub mod interupt;
 pub mod io;
@@ -86,34 +89,35 @@ fn kernel_entry() -> ! {
 
     println!("Kernel Initialization complete.");
 
-    let mut vector = Vec::new();
-    for i in 0..20 {
-        vector.push(i);
-    }
-    for i in &vector {
-        print!("{} ", i);
-    }
-    println!("");
-    core::mem::drop(vector);
+    // let mut vector = Vec::new();
+    // for i in 0..20 {
+    //     vector.push(i);
+    // }
+    // for i in &vector {
+    //     print!("{} ", i);
+    // }
+    // println!("");
+    // core::mem::drop(vector);
 
 
-    // let mut init_task = scheduler::TaskContext::new(scheduler::init::init, 0);
-    // init_task.start();
+    let mut init_task = scheduler::TaskContext::new(scheduler::init::init, 0);
+    println!("{:?}",init_task);
+    init_task.start_task();
     // let mut another_task = scheduler::TaskContext::new(scheduler::init::test_task, 0);
 
-    // another_task.start();
-    // use interupt::timer::ArmQemuTimer as Timer;
-    // interupt::daif_clr(2);
-    // Timer::interupt_after(Timer::get_frequency());
-    // Timer::enable();
-
-    // loop{
-    //     scheduler::schedule();
+    // another_task.start_task();
+    use interupt::timer::ArmQemuTimer as Timer;
+    interupt::daif_clr(2);
+    Timer::interupt_after(Timer::get_frequency());
+    Timer::enable();
+    // loop { 
+    //     uart.send(uart.getc());
     // }
-    // echo everything back
-    loop { 
-        uart.send(uart.getc());
+    loop{
+        scheduler::schedule();
     }
+    // echo everything back
+
 }
 
 boot::entry!(kernel_entry);

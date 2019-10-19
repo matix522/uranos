@@ -32,7 +32,7 @@ XRUSTC_CMD_RASPI3   = cargo xbuild --target=.cargo/$(TARGET_RASPI3).json --relea
 CARGO_OUTPUT_RASPI3 = target/$(TARGET_RASPI3)/release/kernel8
 
 
-XRUSTC_CMD_RASPI4   = cargo xbuild --target=.cargo/$(TARGET_RASPI4).json --release --features="raspi4"
+XRUSTC_CMD_RASPI4   = cargo xbuild --target=.cargo/$(TARGET_RASPI4).json --release --features="raspi4" 
 CARGO_OUTPUT_RASPI4 = target/$(TARGET_RASPI4)/release/kernel8
 
 OBJCOPY        = cargo objcopy --

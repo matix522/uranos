@@ -2,7 +2,6 @@
 // #![deny(missing_docs)]
 // #![deny(warnings)]
 
-
 use alloc::boxed::Box;
 use alloc::vec::Vec;
 
@@ -18,6 +17,7 @@ pub enum TaskError {
 }
 
 #[repr(C)]
+#[derive(Debug)]
 /// States that task can be in
 pub enum TaskStates {
     /// Task is created, by not started
@@ -31,6 +31,7 @@ pub enum TaskStates {
 }
 
 #[repr(C)]
+#[derive(Debug)]
 /// Registers x19-x29, sp, lr
 pub struct GPR {
     x: [u64; 11],
@@ -39,6 +40,7 @@ pub struct GPR {
 }
 
 #[repr(C)]
+#[derive(Debug)]
 /// Structure containing context of a single task
 pub struct TaskContext {
     /// General Purpose Registers
@@ -50,10 +52,14 @@ pub struct TaskContext {
     stack: Option<Box<[u8]>>,
 }
 
-const TASK_STACK_SIZE: usize = 0x80000;
-/// Vector of tasks
-static mut TASKS: Vec<TaskContext> = Vec::new();
+const TASK_STACK_SIZE: usize = 0x80;
 
+use crate::sync::nulllock::NullLock;
+
+lazy_static! {
+    /// Vector of tasks
+    pub static ref TASKS: NullLock<Vec<TaskContext>> = NullLock::new(Vec::new());
+}
 /// Maximal number of scheduled tasks
 pub const MAX_TASK_COUNT: usize = 16;
 
@@ -74,7 +80,7 @@ impl TaskContext {
     }
 
     /// create new task
-    pub fn new(start_function: fn(), priority: u32) -> Self {
+    pub fn new(start_function: extern "C" fn(), priority: u32) -> Self {
         let mut task = Self::empty();
         let stack = Box::new([0; TASK_STACK_SIZE]);
         task.priority = priority;
@@ -85,13 +91,14 @@ impl TaskContext {
     }
 
     /// Adds task to task vector and set state to running
-    pub fn start(mut self) -> Result<(), TaskError> {
+    pub fn start_task(mut self) -> Result<(), TaskError> {
         self.task_state = TaskStates::Running;
+        let mut tasks = TASKS.lock();
         unsafe {
-            if TASKS.len() >= MAX_TASK_COUNT {
+            if tasks.len() >= MAX_TASK_COUNT {
                 return Err(TaskError::TaskLimitReached);
             }
-            TASKS.push(self);
+            tasks.push(self);
         }
         Ok(())
     }
@@ -101,10 +108,15 @@ impl TaskContext {
 pub fn schedule() -> () {
     let mut next_task_found : bool = false;
     let mut next_task_pid : usize = 0;
+
+    let mut tasks = TASKS.lock();
+
     unsafe{
         while !next_task_found {
-            for i in 0..TASKS.len() {
-                let curr_task : &mut TaskContext = &mut TASKS[i];
+            crate::println!("{:?}", *tasks);
+
+            for i in 0..tasks.len() {
+                let curr_task : &mut TaskContext = &mut tasks[i];
                 match curr_task.task_state {
                     TaskStates::Running => {
                         if curr_task.counter > 0 {
@@ -149,10 +161,11 @@ static mut PREVIOUS_TASK_PID : usize = 0;
 
 /// Function that changes current tasks and stores context of previous one in his TaskContext structure
 pub unsafe fn change_task(next : usize) -> Result<(), TaskError> {
+    let mut tasks = TASKS.lock();
     if PREVIOUS_TASK_PID == next {return Ok(());}
-    if PREVIOUS_TASK_PID >= TASKS.len() || next >= TASKS.len() { return Err(TaskError::InvalidTaskReference); }
-    let prev_task_addr = &TASKS[PREVIOUS_TASK_PID] as *const TaskContext as u64;
-    let next_task_addr = &TASKS[next] as *const TaskContext as u64;
+    if PREVIOUS_TASK_PID >= tasks.len() || next >= tasks.len() { return Err(TaskError::InvalidTaskReference); }
+    let prev_task_addr = &tasks[PREVIOUS_TASK_PID] as *const TaskContext as u64;
+    let next_task_addr = &tasks[next] as *const TaskContext as u64;
 
     cpu_switch_to(prev_task_addr, next_task_addr);
     PREVIOUS_TASK_PID = next;
