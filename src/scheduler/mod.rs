@@ -53,7 +53,8 @@ pub struct TaskContext {
     /// General Purpose Registers
     gpr: GPR,
     task_state: TaskStates,
-    counter : i64,
+    counter : u32,
+    /// Number of time quants given in one round
     priority: u32,
     preemption_count: u32,
     stack: Option<Box<[u8]>>,
@@ -118,9 +119,10 @@ pub extern "C" fn schedule_tail() -> () {
 }
 
 
-/// Scheduling algorithm choosing next task and switching to it
+/// Round-robin with priority scheduling algorithm choosing next task and switching to it
 pub fn schedule() -> () {
     let mut next_task_found : bool = false;
+    let mut nothing_found : bool = false;
     let mut next_task_pid : usize = 0;
 
     let mut tasks = TASKS.lock();
@@ -129,28 +131,48 @@ pub fn schedule() -> () {
         println!("Scheduling beginning, current task PID: {}", PREVIOUS_TASK_PID);
 
         while !next_task_found {
-            //crate::println!("{:?}", *tasks);
+            // crate::println!("{:?}", *tasks);
+            println!("Counters: {} {} {} ", tasks[0].counter, tasks[1].counter, tasks[2].counter);
             
-            for i in 1..tasks.len() {
-                //println!("Checking {} task", i);
+            for i in 0..tasks.len() {
+                println!("Checking {} task", i);
                 let curr_task : &mut TaskContext = &mut tasks[i];
                 match curr_task.task_state {
                     TaskStates::Running | TaskStates::NotStarted => {
+                        
                         if curr_task.counter > 0 {
-                            curr_task.counter = 0;
-                            continue;
-                        } else {
-                            curr_task .counter = 1;
+                            curr_task.counter -= 1;
                             next_task_pid = i;
                             next_task_found = true;
                             break;
                         }
+
+                        // if curr_task.counter == 2 {
+                        //     curr_task.counter = 0;
+                        //     continue;
+                        // } else {
+                        //     curr_task.counter = 1;
+                        //     next_task_pid = i;
+                        //     next_task_found = true;
+                        //     break;
+                        // }
                         
                     }
                     _ => {
                         continue;
                     }
                 }
+            }
+
+            if next_task_found {break;}
+
+            if !nothing_found{
+                nothing_found = true;
+            } else{
+                for i in 0..tasks.len() {
+                    tasks[i].counter = tasks[i].priority;
+                }
+                nothing_found = false;
             }
         }
         //PREVIOUS_TASK_PID = next_task_pid;

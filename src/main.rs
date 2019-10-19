@@ -100,13 +100,13 @@ fn kernel_entry() -> ! {
     // core::mem::drop(vector);
 
 
-    let mut init_task = scheduler::TaskContext::new(scheduler::init::init, 0);
+    let mut init_task = scheduler::TaskContext::new(scheduler::init::init, 1);
     println!("{:?}",init_task);
     init_task.start_task();
-    let mut another_task = scheduler::TaskContext::new(scheduler::init::test_task, 0);
+    let mut another_task = scheduler::TaskContext::new(scheduler::init::test_task, 2);
 
     another_task.start_task();
-    let mut another_task2 = scheduler::TaskContext::new(scheduler::init::test_task2, 0);
+    let mut another_task2 = scheduler::TaskContext::new(scheduler::init::test_task2, 1);
 
     another_task2.start_task();
     use interupt::timer::ArmQemuTimer as Timer;
@@ -119,11 +119,16 @@ fn kernel_entry() -> ! {
         println!("Ah shit, here we go again");
     
         scheduler::schedule();
-    
-    // echo everything back
     loop {
-        uart.send(uart.getc());
+        println!("Hello from init task! ");
+        for i in 1..1000000 {
+            unsafe{asm!{"nop" :::: "volatile"}}
+        }
     }
+    // echo everything back
+    // loop {
+    //     uart.send(uart.getc());
+    // }
 
 }
 
