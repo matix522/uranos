@@ -30,7 +30,10 @@ SECTIONS
     {
         __binary_end = .;
     }
-
+    .vectors ALIGN(2048):
+    {
+        *(.vectors)
+    }
     .heap ALIGN(8):
     {
         *(.heap .heap.*)

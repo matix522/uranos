@@ -26,6 +26,7 @@ const MMIO_BASE: u32 = 0x3F00_0000;
 #[cfg(feature = "raspi4")]
 const MMIO_BASE: u32 = 0xFE00_0000;
 
+
 extern "C" {
     pub fn _boot_cores() -> !;
     pub static __exception_vectors_start: u64;
@@ -67,35 +68,23 @@ fn kernel_entry() -> ! {
         boot::mode::ExceptionLevel::get_current()
     );
 
-    uart.puts("Initializing IRQ_vector_table\n\r");
-    unsafe {
+    println!("Binary loaded at: {:x} - {:x}", _boot_cores as *const () as u64,unsafe { &__binary_end as *const u64 as u64});
+    println!("Init Task Stack: {:x} - {:x}", _boot_cores as *const () as u64, 0);
+    println!("Main Heap: {:x} - {:x}", memory::allocator::heap_start(), memory::allocator::heap_end());
+
+    print!("Initializing Interupt Vector Table: ");
+    unsafe { 
+        
         let exception_vectors_start: u64 = &__exception_vectors_start as *const _ as u64;
-        println!("vector table at {:x}", exception_vectors_start);
-        interupt::set_vector_table_pointer(exception_vectors_start);
+        println!("{:x}", exception_vectors_start);
+        interupt::set_vector_table_pointer(exception_vectors_start); 
     }
-
-    println!("Binary loaded at: {:x} ", _boot_cores as *const () as u64);
-
-    println!("Binary ends at: {:x} ", unsafe {
-        &__binary_end as *const u64 as u64
-    });
+    // use interupt::timer::ArmQemuTimer as Timer;
+    // interupt::daif_clr(2);
+    // Timer::interupt_after(Timer::get_frequency());
+    // Timer::enable();
 
     println!("Kernel Initialization complete.");
-
-
-
-    // echo everything back
-
-    // let init : scheduler::TaskContext = scheduler::TaskContext::new(init_f, 0);
-    // let another : scheduler::TaskContext = scheduler::TaskContext::new(test_task_f, 0);
-
-    // init.start();
-    // another.start();
-
-    // scheduler::schedule_first();
-    // for i in 1..1000000{
-    //     unsafe{asm!{"nop" :::: "volatile"}}
-    // }
 
     let mut vector = Vec::new();
     for i in 0..20 {
@@ -107,20 +96,22 @@ fn kernel_entry() -> ! {
     println!("");
     core::mem::drop(vector);
 
+
     // let mut init_task = scheduler::TaskContext::new(scheduler::init::init, 0);
     // init_task.start();
     // let mut another_task = scheduler::TaskContext::new(scheduler::init::test_task, 0);
+
     // another_task.start();
-    use interupt::timer::ArmQemuTimer as Timer;
-    interupt::daif_clr(2);
-    Timer::interupt_after(Timer::get_frequency());
-    Timer::enable();
+    // use interupt::timer::ArmQemuTimer as Timer;
+    // interupt::daif_clr(2);
+    // Timer::interupt_after(Timer::get_frequency());
+    // Timer::enable();
+
     // loop{
     //     scheduler::schedule();
     // }
-
-
-    loop {
+    // echo everything back
+    loop { 
         uart.send(uart.getc());
     }
 }
