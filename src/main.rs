@@ -117,10 +117,13 @@ fn kernel_entry() -> ! {
     //     uart.send(uart.getc());
     // }
         println!("Ah shit, here we go again");
-    loop{
-        // scheduler::schedule();
-    }
+    
+        scheduler::schedule();
+    
     // echo everything back
+    loop {
+        uart.send(uart.getc());
+    }
 
 }
 

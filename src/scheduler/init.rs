@@ -5,7 +5,7 @@ use crate::println;
 pub extern "C" fn init(){
     loop {
         println!("Hello from init task!");
-        for i in 1..100000000 {
+        for i in 1..1000000 {
             unsafe{asm!{"nop" :::: "volatile"}}
         }
     }
@@ -15,7 +15,7 @@ pub extern "C" fn init(){
 pub extern "C" fn test_task(){
     loop {
         println!("Hello from test task!");
-        for i in 1..100000000 {
+        for i in 1..1000000 {
             unsafe{asm!{"nop" :::: "volatile"}}
         }
     }
@@ -27,7 +27,7 @@ pub extern "C" fn test_task(){
 pub extern "C" fn test_task2(){
     loop {
         println!("Hello from test task number two!");
-        for i in 1..100000000 {
+        for i in 1..1000000 {
             unsafe{asm!{"nop" :::: "volatile"}}
         }
     }

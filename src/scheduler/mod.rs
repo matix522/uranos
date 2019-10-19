@@ -9,6 +9,11 @@ use crate::println;
 
 pub mod init;
 
+extern "C" {
+    fn cpu_switch_to(prev_task_addr : u64, next_task_addr : u64) -> ();
+    fn new_task_func() -> ();
+}
+
 /// Error regarding tasks
 #[derive(Debug)]
 pub enum TaskError {
@@ -54,7 +59,7 @@ pub struct TaskContext {
     stack: Option<Box<[u8]>>,
 }
 
-const TASK_STACK_SIZE: usize = 0x80;
+const TASK_STACK_SIZE: usize = 0x800;
 
 use crate::sync::nulllock::NullLock;
 
@@ -86,7 +91,8 @@ impl TaskContext {
         let mut task = Self::empty();
         let stack = Box::new([0; TASK_STACK_SIZE]);
         task.priority = priority;
-        task.gpr.lr = start_function as *const () as u64;
+        task.gpr.x[0] = start_function as *const () as u64;
+        task.gpr.lr = new_task_func as *const () as u64;
         task.gpr.sp = (*stack).as_ptr() as *const () as u64;
         task.stack = Some(stack);
         task
@@ -94,7 +100,7 @@ impl TaskContext {
 
     /// Adds task to task vector and set state to running
     pub fn start_task(mut self) -> Result<(), TaskError> {
-        self.task_state = TaskStates::Running;
+        //self.task_state = TaskStates::Running;
         let mut tasks = TASKS.lock();
         unsafe {
             if tasks.len() >= MAX_TASK_COUNT {
@@ -105,6 +111,12 @@ impl TaskContext {
         Ok(())
     }
 }
+
+#[no_mangle]
+pub extern "C" fn schedule_tail() -> () {
+
+}
+
 
 /// Scheduling algorithm choosing next task and switching to it
 pub fn schedule() -> () {
@@ -117,13 +129,13 @@ pub fn schedule() -> () {
         println!("Scheduling beginning, current task PID: {}", PREVIOUS_TASK_PID);
 
         while !next_task_found {
-            crate::println!("{:?}", *tasks);
-
-            for i in 0..tasks.len() {
-                println!("Checking {} task", i);
+            //crate::println!("{:?}", *tasks);
+            
+            for i in 1..tasks.len() {
+                //println!("Checking {} task", i);
                 let curr_task : &mut TaskContext = &mut tasks[i];
                 match curr_task.task_state {
-                    TaskStates::Running => {
+                    TaskStates::Running | TaskStates::NotStarted => {
                         if curr_task.counter > 0 {
                             curr_task.counter = 0;
                             continue;
@@ -141,10 +153,16 @@ pub fn schedule() -> () {
                 }
             }
         }
+        //PREVIOUS_TASK_PID = next_task_pid;
         println!("New task: {}", next_task_pid);
+        // match tasks[next_task_pid].task_state {
+        //     TaskStates::NotStarted => tasks,
+        //     _ => c
+        // }
         change_task(next_task_pid);
-    }
+            println!("F: {} {}", next_task_pid ,PREVIOUS_TASK_PID);
 
+    }
 }
 
 // pub static mut SCHEDULING_INITIALIZED : bool = false;
@@ -158,9 +176,6 @@ pub fn schedule() -> () {
 
 // }
 
-extern "C" {
-    fn cpu_switch_to(prev_task_addr : u64, next_task_addr : u64) -> ();
-}
 
 static mut PREVIOUS_TASK_PID : usize = 0;
 
@@ -168,13 +183,23 @@ static mut PREVIOUS_TASK_PID : usize = 0;
 /// Function that changes current tasks and stores context of previous one in his TaskContext structure
 pub unsafe fn change_task(next : usize) -> Result<(), TaskError> {
     let mut tasks = TASKS.lock();
+            println!("A: {} {}", next ,PREVIOUS_TASK_PID);
+
     if PREVIOUS_TASK_PID == next {return Ok(());}
+
+            println!("B: {} {}", next ,PREVIOUS_TASK_PID);
+
+
     if PREVIOUS_TASK_PID >= tasks.len() || next >= tasks.len() { return Err(TaskError::InvalidTaskReference); }
+                println!("C: {} {}", next ,PREVIOUS_TASK_PID);
+
     let prev_task_addr = &tasks[PREVIOUS_TASK_PID] as *const TaskContext as u64;
     let next_task_addr = &tasks[next] as *const TaskContext as u64;
 
     PREVIOUS_TASK_PID = next;
+    println!("D: {} {}", next ,PREVIOUS_TASK_PID);
     cpu_switch_to(prev_task_addr, next_task_addr);
+    println!("E: {} {}", next ,PREVIOUS_TASK_PID);
 
     Ok(())
 

@@ -10,6 +10,7 @@ cpu_switch_to:
     stp    x27, x28, [x8], #16
     stp    x29, x9, [x8], #16
     str    x30, [x8]
+    
     mov    x8, x1
     ldp    x19, x20, [x8], #16        // restore callee-saved registers
     ldp    x21, x22, [x8], #16
@@ -20,3 +21,27 @@ cpu_switch_to:
     ldr    x30, [x8]
     mov    sp, x9
     ret
+
+.globl new_task_func
+new_task_func:
+    bl    schedule_tail
+    mov    x0, #0
+    mov    x1, #0
+    mov    x2, #0
+    mov    x3, #0
+    mov    x4, #0
+    mov    x5, #0
+    mov    x6, #0
+    mov    x7, #0
+    mov    x8, #0
+    mov    x9, #0
+    mov    x10, #0
+    mov    x11, #0
+    mov    x12, #0
+    mov    x13, #0
+    mov    x14, #0
+    mov    x15, #0
+    mov    x16, #0
+    mov    x17, #0
+    mov    x18, #0
+    blr    x19         //should never return
