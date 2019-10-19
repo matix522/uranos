@@ -1,10 +1,12 @@
 
-#![deny(missing_docs)]
+// #![deny(missing_docs)]
 // #![deny(warnings)]
 
 
 use alloc::boxed::Box;
 use alloc::vec::Vec;
+
+pub mod init;
 
 /// Error regarding tasks
 #[derive(Debug)]
@@ -127,10 +129,16 @@ pub fn schedule() -> () {
 
 }
 
-// pub fn schedule_first(){
+// pub static mut SCHEDULING_INITIALIZED : bool = false;
+
+
+
+
+// pub fn fork() -> (){
+//     let curr_task =  TASKS[PREVIOUS_TASK_PID];
+//     TASKS.append(curr_task.copy());
 
 // }
-
 
 extern "C" {
     fn cpu_switch_to(prev_task_addr : u64, next_task_addr : u64) -> ();

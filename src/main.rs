@@ -18,6 +18,7 @@ pub mod sync;
 pub mod time;
 pub mod uart;
 
+use alloc::vec::Vec;
 use aarch64::*;
 
 #[cfg(not(feature = "raspi4"))]
@@ -81,6 +82,8 @@ fn kernel_entry() -> ! {
 
     println!("Kernel Initialization complete.");
 
+
+
     // echo everything back
 
     // let init : scheduler::TaskContext = scheduler::TaskContext::new(init_f, 0);
@@ -90,6 +93,32 @@ fn kernel_entry() -> ! {
     // another.start();
 
     // scheduler::schedule_first();
+    // for i in 1..1000000{
+    //     unsafe{asm!{"nop" :::: "volatile"}}
+    // }
+
+    let mut vector = Vec::new();
+    for i in 0..20 {
+        vector.push(i);
+    }
+    for i in &vector {
+        print!("{} ", i);
+    }
+    println!("");
+    core::mem::drop(vector);
+
+    // let mut init_task = scheduler::TaskContext::new(scheduler::init::init, 0);
+    // init_task.start();
+    // let mut another_task = scheduler::TaskContext::new(scheduler::init::test_task, 0);
+    // another_task.start();
+    use interupt::timer::ArmQemuTimer as Timer;
+    interupt::daif_clr(2);
+    Timer::interupt_after(Timer::get_frequency());
+    Timer::enable();
+    // loop{
+    //     scheduler::schedule();
+    // }
+
 
     loop {
         uart.send(uart.getc());

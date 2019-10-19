@@ -1,4 +1,5 @@
-
+use crate::print;
+use crate::println;
 
 pub fn init(){
     while true {

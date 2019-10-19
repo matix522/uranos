@@ -11,6 +11,7 @@ pub unsafe extern "C" fn default_interupt_handler(context: &mut ExceptionContext
 
 static mut SECONDS: u64 = 0;
 
+
 #[no_mangle]
 pub unsafe extern "C" fn current_elx_irq(context: &mut ExceptionContext) {
     super::daif_set(2);
@@ -26,6 +27,8 @@ pub unsafe extern "C" fn current_elx_irq(context: &mut ExceptionContext) {
     }
     println!("\x1B[s\x1B[1;1H\x1B[38;5;204mTimer interupt happened \x1B[38;5;39m{} {}\x1B[38;5;204m after startup\x1B[0m\x1B[K", SECONDS, sec);
     print!("\x1B[u");
+
+
 
     Timer::enable();
     super::daif_clr(2);
