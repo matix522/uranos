@@ -4,6 +4,8 @@
 
 use alloc::boxed::Box;
 use alloc::vec::Vec;
+use crate::print;
+use crate::println;
 
 pub mod init;
 
@@ -112,10 +114,13 @@ pub fn schedule() -> () {
     let mut tasks = TASKS.lock();
 
     unsafe{
+        println!("Scheduling beginning, current task PID: {}", PREVIOUS_TASK_PID);
+
         while !next_task_found {
             crate::println!("{:?}", *tasks);
 
             for i in 0..tasks.len() {
+                println!("Checking {} task", i);
                 let curr_task : &mut TaskContext = &mut tasks[i];
                 match curr_task.task_state {
                     TaskStates::Running => {
@@ -136,6 +141,7 @@ pub fn schedule() -> () {
                 }
             }
         }
+        println!("New task: {}", next_task_pid);
         change_task(next_task_pid);
     }
 
@@ -167,8 +173,8 @@ pub unsafe fn change_task(next : usize) -> Result<(), TaskError> {
     let prev_task_addr = &tasks[PREVIOUS_TASK_PID] as *const TaskContext as u64;
     let next_task_addr = &tasks[next] as *const TaskContext as u64;
 
-    cpu_switch_to(prev_task_addr, next_task_addr);
     PREVIOUS_TASK_PID = next;
+    cpu_switch_to(prev_task_addr, next_task_addr);
 
     Ok(())
 

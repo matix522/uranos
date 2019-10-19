@@ -2,6 +2,7 @@ use super::*;
 use crate::print;
 use crate::println;
 use timer::ArmQemuTimer as Timer;
+use crate::scheduler;
 
 #[no_mangle]
 pub unsafe extern "C" fn default_interupt_handler(context: &mut ExceptionContext) {
@@ -29,8 +30,10 @@ pub unsafe extern "C" fn current_elx_irq(context: &mut ExceptionContext) {
     print!("\x1B[u");
     //println!("Timer interupt happened {} {} after startup", SECONDS, sec);
 
-
-
+    println!("\nSCHEDULING TIME!!!");
     Timer::enable();
     super::daif_clr(2);
+    scheduler::schedule();
+    println!("END OF INTERRUPT");
+
 }

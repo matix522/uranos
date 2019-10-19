@@ -103,9 +103,12 @@ fn kernel_entry() -> ! {
     let mut init_task = scheduler::TaskContext::new(scheduler::init::init, 0);
     println!("{:?}",init_task);
     init_task.start_task();
-    // let mut another_task = scheduler::TaskContext::new(scheduler::init::test_task, 0);
+    let mut another_task = scheduler::TaskContext::new(scheduler::init::test_task, 0);
 
-    // another_task.start_task();
+    another_task.start_task();
+    let mut another_task2 = scheduler::TaskContext::new(scheduler::init::test_task2, 0);
+
+    another_task2.start_task();
     use interupt::timer::ArmQemuTimer as Timer;
     interupt::daif_clr(2);
     Timer::interupt_after(Timer::get_frequency());
@@ -113,8 +116,9 @@ fn kernel_entry() -> ! {
     // loop { 
     //     uart.send(uart.getc());
     // }
+        println!("Ah shit, here we go again");
     loop{
-        scheduler::schedule();
+        // scheduler::schedule();
     }
     // echo everything back
 
