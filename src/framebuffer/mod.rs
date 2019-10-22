@@ -103,13 +103,13 @@ impl FrameBuffer {
                 if width == 0 || height == 0 {
                     return Err(FrameBufferError::UnsupportedResolution);
                 }
-                let buffer_address = mbox.buffer[28];
+                let buffer_address = mbox.buffer[28] & 0x3FFF_FFFF;
                 let buffer_size = mbox.buffer[29];
                 if buffer_address == 0 || buffer_size == 0 {
                     return Err(FrameBufferError::ZeroSizedBuffer);
                 }
                 let depth = mbox.buffer[20];
-                if depth != 32 {
+                if depth != 32 { 
                     return Err(FrameBufferError::UnsupportedDepth);
                 }
                 let buffer = unsafe {
@@ -121,7 +121,7 @@ impl FrameBuffer {
                 buffer[1] = 255;
                 buffer[2] = 255;
                 for y in 0..height as usize {
-                    for x in 0..(width/2)  as usize{
+                    for x in 0..(pitch)  as usize{
                         buffer[y * (pitch) + x] = ((y + x) % 256) as u8;
                     }
                 }
