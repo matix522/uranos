@@ -55,7 +55,13 @@ pub const ENABLE_IRQ_1: *const ReadWrite<u32, ENABLE_IRQ_1::Register> =
 
 pub fn show_invalid_entry_message(type: u32, esr: u64, address: u64) -> !{
     println!("Invalid interrupt entry: {}, ESR: {}, address: {x}", INT_TYPES[type], esr, address);
-    gpio::blink();
+    gpio::blink();            
+    crate::println!("alloc {:?} ", layout);
+    crate::println!("prev {:x} ", previous as u64);
+    crate::println!("new_block {:x} ", new_block as u64);
+    crate::println!("ptr {:x} ", ptr as u64);
+    crate::println!("next null");
+
 }
 pub fn handle_invalid_entry_message(type: u32, esr: u64, address: u64) -> !{
     show_invalid_entry_message(type, esr, address);

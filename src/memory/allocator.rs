@@ -69,12 +69,12 @@ unsafe impl GlobalAlloc for MainAllocator {
                 (*new_block).data_size = size;
                 (*previous).next = new_block;
                 let ptr = (new_block as usize + size_of::<Block>()) as *mut u8;
-                // crate::println!("sizeof block {:x}", size_of::<Block>() as usize);
-                // crate::println!("alloc {:?} ", layout);
-                // crate::println!("prev {:x} ", previous as u64);
-                // crate::println!("new_block {:x} ", new_block as u64);
-                // crate::println!("ptr {:x} ", ptr as u64);
-                // crate::println!("next {:x} ", current as u64);
+                crate::println!("sizeof block {:x}", size_of::<Block>() as usize);
+                crate::println!("alloc {:?} ", layout);
+                crate::println!("prev {:x} ", previous as u64);
+                crate::println!("new_block {:x} ", new_block as u64);
+                crate::println!("ptr {:x} ", ptr as u64);
+                crate::println!("next {:x} ", current as u64);
                 return ptr;
             }
             previous = current;
@@ -87,18 +87,18 @@ unsafe impl GlobalAlloc for MainAllocator {
             (*new_block).data_size = size;
             (*previous).next = new_block;
             let ptr = (new_block as usize + size_of::<Block>()) as *mut u8;
-            // crate::println!("alloc {:?} ", layout);
-            // crate::println!("prev {:x} ", previous as u64);
-            // crate::println!("new_block {:x} ", new_block as u64);
-            // crate::println!("ptr {:x} ", ptr as u64);
-            // crate::println!("next null");
+            crate::println!("alloc {:?} ", layout);
+            crate::println!("prev {:x} ", previous as u64);
+            crate::println!("new_block {:x} ", new_block as u64);
+            crate::println!("ptr {:x} ", ptr as u64);
+            crate::println!("next null");
 
             return ptr;
         }
         // ERROR_OOM
-        // crate::println!("alloc {:?} ", layout);
+        crate::println!("alloc {:?} ", layout);
 
-        // crate::println!("ptr null");
+        crate::println!("ptr null");
 
         return null_mut();
     }
@@ -118,7 +118,7 @@ unsafe impl GlobalAlloc for MainAllocator {
             (*previous).next = (*current).next;
         }
 
-        // crate::println!("freed");
+        crate::println!("freed");
 
     }
 }

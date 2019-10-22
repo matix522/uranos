@@ -102,7 +102,10 @@ impl TaskContext {
     /// Adds task to task vector and set state to running
     pub fn start_task(mut self) -> Result<(), TaskError> {
         //self.task_state = TaskStates::Running;
+        crate::println!("{:x}", &TASKS as *const TASKS as u64);
         let mut tasks = TASKS.lock();
+        crate::println!("{:x}", &*tasks as *const Vec<TaskContext> as u64);
+        crate::println!("{:?}", *tasks);
         unsafe {
             if tasks.len() >= MAX_TASK_COUNT {
                 return Err(TaskError::TaskLimitReached);

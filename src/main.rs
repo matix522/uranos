@@ -100,23 +100,30 @@ fn kernel_entry() -> ! {
     // core::mem::drop(vector);
 
 
+
+    println!("Proceeding init task initialization");
     let mut init_task = scheduler::TaskContext::new(scheduler::init::init, 1);
-    println!("{:?}",init_task);
+    println!("Init task created");
+    // println!("{:?}",init_task);
     init_task.start_task();
+    println!("Init task created and started");
     let mut another_task = scheduler::TaskContext::new(scheduler::init::test_task, 2);
 
     another_task.start_task();
+    println!("Another_task created");
     let mut another_task2 = scheduler::TaskContext::new(scheduler::init::test_task2, 1);
 
     another_task2.start_task();
+    println!("Another_task2 created");
     use interupt::timer::ArmQemuTimer as Timer;
     interupt::daif_clr(2);
     Timer::interupt_after(Timer::get_frequency());
     Timer::enable();
+    println!("Timer enabled");
     // loop { 
     //     uart.send(uart.getc());
     // }
-        println!("Ah shit, here we go again");
+        // println!("Ah shit, here we go again");
     
         scheduler::schedule();
     loop {
