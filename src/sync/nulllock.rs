@@ -25,9 +25,7 @@ impl<'a, T> DerefMut for NullLockGuard<'a, T> {
     }
 }
 impl<'a, T> Drop for NullLockGuard<'a, T> {
-    fn drop(&mut self) {
-       
-    }
+    fn drop(&mut self) {}
 }
 impl<T> NullLock<T> {
     ///Crates new mutex around provided data
@@ -41,7 +39,7 @@ impl<T> NullLock<T> {
     ///
     pub fn lock(&self) -> NullLockGuard<T> {
         NullLockGuard {
-            data: unsafe{ &mut  *self.data.get()},
+            data: unsafe { &mut *self.data.get() },
         }
     }
     /// Locks mutex and passes prtoected value to provided function F

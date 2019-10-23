@@ -18,12 +18,13 @@ register_bitfields! {
 }
 
 #[repr(C)]
+#[derive(Debug)]
 pub struct GPR {
     x: [u64; 31],
 }
 
-
 #[repr(C)]
+#[derive(Debug)]
 pub struct ExceptionContext {
     // General Purpose Registers
     gpr: GPR,

@@ -1,22 +1,19 @@
 use super::*;
 use crate::print;
 use crate::println;
-use timer::ArmQemuTimer as Timer;
 use crate::scheduler;
+use timer::ArmQemuTimer as Timer;
 
 #[no_mangle]
 pub unsafe extern "C" fn default_interupt_handler(context: &mut ExceptionContext) {
-    println!("Interupt Happened");
+    println!("Interupt Happened {:?}", *context);
     gpio::blink();
 }
 
 static mut SECONDS: u64 = 0;
 
-
 #[no_mangle]
 pub unsafe extern "C" fn current_elx_irq(context: &mut ExceptionContext) {
-
-
     // SECONDS += 1;
     // let sec;
     // if SECONDS == 1 {
@@ -37,5 +34,4 @@ pub unsafe extern "C" fn current_elx_irq(context: &mut ExceptionContext) {
     // Timer::disable();
 
     println!("END OF INTERRUPT");
-
 }

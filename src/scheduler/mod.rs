@@ -1,16 +1,15 @@
-
 // #![deny(missing_docs)]
 // #![deny(warnings)]
 
-use alloc::boxed::Box;
-use alloc::vec::Vec;
 use crate::print;
 use crate::println;
+use alloc::boxed::Box;
+use alloc::vec::Vec;
 
 pub mod init;
 
 extern "C" {
-    fn cpu_switch_to(prev_task_addr : u64, next_task_addr : u64) -> ();
+    fn cpu_switch_to(prev_task_addr: u64, next_task_addr: u64) -> ();
     fn new_task_func() -> ();
 }
 
@@ -53,7 +52,7 @@ pub struct TaskContext {
     /// General Purpose Registers
     gpr: GPR,
     task_state: TaskStates,
-    counter : u32,
+    counter: u32,
     /// Number of time quants given in one round
     priority: u32,
     preemption_count: u32,
@@ -64,10 +63,10 @@ const TASK_STACK_SIZE: usize = 0x800;
 
 use crate::sync::nulllock::NullLock;
 
-lazy_static! {
-    /// Vector of tasks
-    pub static ref TASKS: NullLock<Vec<TaskContext>> = NullLock::new(Vec::new());
-}
+// lazy_static! {
+/// Vector of tasks
+pub static TASKS: NullLock<Vec<TaskContext>> = NullLock::new(Vec::new());
+// }
 /// Maximal number of scheduled tasks
 pub const MAX_TASK_COUNT: usize = 16;
 
@@ -80,7 +79,7 @@ impl TaskContext {
                 lr: 0,
             },
             task_state: TaskStates::NotStarted,
-            counter: 0,            
+            counter: 0,
             priority: 0,
             preemption_count: 0,
             stack: None,
@@ -102,10 +101,10 @@ impl TaskContext {
     /// Adds task to task vector and set state to running
     pub fn start_task(mut self) -> Result<(), TaskError> {
         //self.task_state = TaskStates::Running;
-        crate::println!("{:x}", &TASKS as *const TASKS as u64);
+        // crate::println!("{:x}", &TASKS as *const TASKS as u64);
         let mut tasks = TASKS.lock();
-        crate::println!("{:x}", &*tasks as *const Vec<TaskContext> as u64);
-        crate::println!("{:?}", *tasks);
+        // crate::println!("{:x}", &*tasks as *const Vec<TaskContext> as u64);
+        // crate::println!("{:?}", *tasks);
         unsafe {
             if tasks.len() >= MAX_TASK_COUNT {
                 return Err(TaskError::TaskLimitReached);
@@ -117,83 +116,76 @@ impl TaskContext {
 }
 
 #[no_mangle]
-pub extern "C" fn schedule_tail() -> () {
-
-}
-
+pub extern "C" fn schedule_tail() -> () {}
 
 /// Round-robin with priority scheduling algorithm choosing next task and switching to it
 pub fn schedule() -> () {
-    let mut next_task_found : bool = false;
-    let mut nothing_found : bool = false;
-    let mut next_task_pid : usize = 0;
+    let mut next_task_found: bool = false;
+    let mut nothing_found: bool = false;
+    let mut next_task_pid: usize = 0;
 
     let mut tasks = TASKS.lock();
 
-    unsafe{
-        println!("Scheduling beginning, current task PID: {}", PREVIOUS_TASK_PID);
+    // println!("Scheduling beginning, current task PID: {}", PREVIOUS_TASK_PID);
 
-        while !next_task_found {
-            // crate::println!("{:?}", *tasks);
-            println!("Counters: {} {} {} ", tasks[0].counter, tasks[1].counter, tasks[2].counter);
-            
-            for i in 0..tasks.len() {
-                println!("Checking {} task", i);
-                let curr_task : &mut TaskContext = &mut tasks[i];
-                match curr_task.task_state {
-                    TaskStates::Running | TaskStates::NotStarted => {
-                        
-                        if curr_task.counter > 0 {
-                            curr_task.counter -= 1;
-                            next_task_pid = i;
-                            next_task_found = true;
-                            break;
-                        }
+    while !next_task_found {
+        // crate::println!("{:?}", *tasks);
+        // println!("Counters: {} {} {} ", tasks[0].counter, tasks[1].counter, tasks[2].counter);
 
-                        // if curr_task.counter == 2 {
-                        //     curr_task.counter = 0;
-                        //     continue;
-                        // } else {
-                        //     curr_task.counter = 1;
-                        //     next_task_pid = i;
-                        //     next_task_found = true;
-                        //     break;
-                        // }
-                        
+        for i in 0..tasks.len() {
+            // println!("Checking {} task", i);
+            let curr_task: &mut TaskContext = &mut tasks[i];
+            match curr_task.task_state {
+                TaskStates::Running | TaskStates::NotStarted => {
+                    if curr_task.counter > 0 {
+                        curr_task.counter -= 1;
+                        next_task_pid = i;
+                        next_task_found = true;
+                        break;
                     }
-                    _ => {
-                        continue;
-                    }
-                }
-            }
 
-            if next_task_found {break;}
-
-            if !nothing_found{
-                nothing_found = true;
-            } else{
-                for i in 0..tasks.len() {
-                    tasks[i].counter = tasks[i].priority;
+                    // if curr_task.counter == 2 {
+                    //     curr_task.counter = 0;
+                    //     continue;
+                    // } else {
+                    //     curr_task.counter = 1;
+                    //     next_task_pid = i;
+                    //     next_task_found = true;
+                    //     break;
+                    // }
                 }
-                nothing_found = false;
+                _ => {
+                    continue;
+                }
             }
         }
-        //PREVIOUS_TASK_PID = next_task_pid;
-        println!("New task: {}", next_task_pid);
-        // match tasks[next_task_pid].task_state {
-        //     TaskStates::NotStarted => tasks,
-        //     _ => c
-        // }
-        change_task(next_task_pid);
-            println!("F: {} {}", next_task_pid ,PREVIOUS_TASK_PID);
 
+        if next_task_found {
+            break;
+        }
+
+        if !nothing_found {
+            nothing_found = true;
+        } else {
+            for i in 0..tasks.len() {
+                tasks[i].counter = tasks[i].priority;
+            }
+            nothing_found = false;
+        }
+    }
+    //PREVIOUS_TASK_PID = next_task_pid;
+    // println!("New task: {}", next_task_pid);
+    // match tasks[next_task_pid].task_state {
+    //     TaskStates::NotStarted => tasks,
+    //     _ => c
+    // }
+    unsafe {
+        change_task(next_task_pid);
+        // println!("F: {} {}", next_task_pid ,PREVIOUS_TASK_PID);
     }
 }
 
 // pub static mut SCHEDULING_INITIALIZED : bool = false;
-
-
-
 
 // pub fn fork() -> (){
 //     let curr_task =  TASKS[PREVIOUS_TASK_PID];
@@ -201,33 +193,27 @@ pub fn schedule() -> () {
 
 // }
 
-
-static mut PREVIOUS_TASK_PID : usize = 0;
-
+static mut PREVIOUS_TASK_PID: usize = 0;
 
 /// Function that changes current tasks and stores context of previous one in his TaskContext structure
-pub unsafe fn change_task(next : usize) -> Result<(), TaskError> {
+pub unsafe fn change_task(next: usize) -> Result<(), TaskError> {
     let mut tasks = TASKS.lock();
-            println!("A: {} {}", next ,PREVIOUS_TASK_PID);
 
-    if PREVIOUS_TASK_PID == next {return Ok(());}
+    if PREVIOUS_TASK_PID == next {
+        return Ok(());
+    }
 
-            println!("B: {} {}", next ,PREVIOUS_TASK_PID);
-
-
-    if PREVIOUS_TASK_PID >= tasks.len() || next >= tasks.len() { return Err(TaskError::InvalidTaskReference); }
-                println!("C: {} {}", next ,PREVIOUS_TASK_PID);
+    if PREVIOUS_TASK_PID >= tasks.len() || next >= tasks.len() {
+        return Err(TaskError::InvalidTaskReference);
+    }
 
     let prev_task_addr = &tasks[PREVIOUS_TASK_PID] as *const TaskContext as u64;
     let next_task_addr = &tasks[next] as *const TaskContext as u64;
 
     PREVIOUS_TASK_PID = next;
-    println!("D: {} {}", next ,PREVIOUS_TASK_PID);
     cpu_switch_to(prev_task_addr, next_task_addr);
-    println!("E: {} {}", next ,PREVIOUS_TASK_PID);
 
     Ok(())
-
 }
 
 // #[link_section = ".task"]
@@ -235,9 +221,5 @@ pub unsafe fn change_task(next : usize) -> Result<(), TaskError> {
 
 // #[link_section = ".task.stack"]
 // static TASK_STACKS: [TaskStack; MAX_TASK_COUNT] = [TaskStack::new(); MAX_TASK_COUNT] ;
-
-
-
-
 
 global_asm!(include_str!("change_task.S"));
