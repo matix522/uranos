@@ -1,6 +1,4 @@
 use crate::gpio;
-use crate::println;
-use register::{mmio::*, register_bitfields};
 
 pub mod gicv2;
 pub mod handlers;
@@ -8,15 +6,6 @@ pub mod timer;
 
 pub enum Error {
     IrqNotEnabled,
-}
-register_bitfields! {
-    u64,
-    DAIF [
-        Debug OFFSET(9) NUMBITS(1) [],
-        Abort OFFSET(8) NUMBITS(1) [],
-        IRQ   OFFSET(7) NUMBITS(1) [],
-        FIQ   OFFSET(6) NUMBITS(1) []
-    ]
 }
 
 #[repr(C)]
@@ -36,13 +25,13 @@ pub struct ExceptionContext {
 }
 
 #[inline(always)]
-pub fn disable_IRQs() {
+pub fn disable_irqs() {
     unsafe {
         asm!("msr daifset, #2" : : : : "volatile");
     }
 }
 #[inline(always)]
-pub fn enable_IRQs() {
+pub fn enable_irqs() {
     unsafe {
         asm!("msr daifclr, #2" : : : : "volatile");
     }
@@ -59,18 +48,18 @@ pub enum InteruptError {
 }
 pub type InteruptResult = Result<(), InteruptError>;
 
-trait InteruptController {
+pub trait InteruptController {
     fn init(&mut self) -> InteruptResult;
 
-    fn enableIRQ(&mut self, irq_number: usize) -> InteruptResult;
-    fn disableIRQ(&mut self, irq_number: usize) -> InteruptResult;
+    fn enable_irq(&mut self, irq_number: usize) -> InteruptResult;
+    fn disable_irq(&mut self, irq_number: usize) -> InteruptResult;
 
-    fn connectIRQ(
+    fn connect_irq(
         &mut self,
         irq_number: usize,
-        handler: Option<&'static fn(data: &mut ExceptionContext)>,
+        handler: Option<fn(data: &mut ExceptionContext)>,
     ) -> InteruptResult;
-    fn disconnectIRQ(&mut self, irq_number: usize) -> InteruptResult;
+    fn disconnect_irq(&mut self, irq_number: usize) -> InteruptResult;
 }
 
 global_asm!(include_str!("vector_table.S"));

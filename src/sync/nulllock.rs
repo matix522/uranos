@@ -1,8 +1,6 @@
-use aarch64::asm;
 use core::cell::UnsafeCell;
 use core::ops::Deref;
 use core::ops::DerefMut;
-use core::sync::atomic::{AtomicBool, Ordering};
 
 pub struct NullLock<T> {
     data: UnsafeCell<T>,

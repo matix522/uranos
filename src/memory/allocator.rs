@@ -1,5 +1,4 @@
 use core::alloc::{GlobalAlloc, Layout};
-use core::cell::UnsafeCell;
 use core::mem::size_of;
 use core::ptr::null_mut;
 pub struct Block {
@@ -16,6 +15,7 @@ impl Block {
 
 pub struct MainAllocator {
     heap_size: usize,
+    #[allow(unused)]
     first_block: Block,
 }
 impl MainAllocator {
@@ -111,7 +111,7 @@ unsafe impl GlobalAlloc for MainAllocator {
 
         return null_mut();
     }
-    unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
+    unsafe fn dealloc(&self, ptr: *mut u8, _layout: Layout) {
         let block = ptr.offset(-(size_of::<Block>() as isize)) as *mut Block;
         // crate::println!("free {:?}: {:x}", layout, block as u64);
 

@@ -1,23 +1,27 @@
 use super::ExceptionContext;
 use super::InteruptController;
-use register::{mmio::*, register_bitfields};
+use register::mmio::*;
 
 const GIC_CORE_BASE_ADDRESS: usize = 0xff84_1000;
+#[allow(unused)]
 const GIC_COMMON_BASE_ADDRESS: usize = 0xff84_2000;
+#[allow(unused)]
 const GIC_END: usize = 0xff84_7fff;
 
 const IRQ_LINES: usize = 256;
 
 const GICD_IPRIORITYR_DEFAULT: u32 = 0xA0;
-const GICD_ITARGETSR_CORE0: u32 = 0x00;
+const GICD_ITARGETSR_CORE0: u32 = 0x01;
 
 const GICC_CTLR_ENABLE: u32 = 1 << 0;
 
 const GICC_PMR_PRIORITY: u32 = 0xF0 << 0;
 
+#[allow(non_snake_case)]
+#[repr(C)]
 pub struct RegisterBlock {
     GICD_CTLR: WriteOnly<u32>,                 // 0x000
-    reserved_0: [u32; 0x19],                   // 0x004
+    __reserved_0: [u32; 0x1f],                 // 0x004
     GICD_IGROUPR0: [WriteOnly<u32>; 0x20],     // 0x080
     GICD_ISENABLER0: [WriteOnly<u32>; 0x20],   // 0x100
     GICD_ICENABLER0: [WriteOnly<u32>; 0x20],   // 0x180
@@ -28,23 +32,23 @@ pub struct RegisterBlock {
     GICD_IPRIORITYR0: [WriteOnly<u32>; 0x100], // 0x400
     GICD_ITARGETSR0: [WriteOnly<u32>; 0x100],  // 0x800
     GICD_ICFGR0: [WriteOnly<u32>; 0x40],       // 0xc00
-    reserved_1: [WriteOnly<u32>; 0x2c0],       // 0xc40
-    GICD_SGIR: [WriteOnly<u32>; 0x100],        // 0xf00
+    __reserved_1: [WriteOnly<u32>; 0x80],      // 0xc40
+    GICD_SGIR: [WriteOnly<u32>; 0x40],         // 0xf00
     GICC_CTLR: WriteOnly<u32>,                 // 0x1000
     GICC_PMR: WriteOnly<u32>,                  // 0x1004
-    reserved_2: u32,                           // 0x1008
+    __reserved_2: u32,                         // 0x1008
     GICC_IAR: WriteOnly<u32>,                  // 0x100c
     GICC_EOIR: WriteOnly<u32>,                 // 0x1010
 }
 
 pub struct GICv2 {
-    irq_handlers: [Option<&'static fn(&mut super::ExceptionContext)>; IRQ_LINES],
+    //irq_handlers: [Option<fn(&mut super::ExceptionContext)>; IRQ_LINES],
 }
 
 impl GICv2 {
     pub fn new() -> Self {
         GICv2 {
-            irq_handlers: [None; IRQ_LINES],
+            //irq_handlers: [None; IRQ_LINES],
         }
     }
     fn ptr(&self) -> *mut RegisterBlock {
@@ -59,6 +63,10 @@ impl core::ops::Deref for GICv2 {
 }
 use super::InteruptError;
 use super::InteruptResult;
+
+fn addressof<T>(t: &T) -> u64 {
+    return t as *const T as u64;
+}
 
 impl InteruptController for GICv2 {
     fn init(&mut self) -> Result<(), super::InteruptError> {
@@ -100,41 +108,56 @@ impl InteruptController for GICv2 {
         self.GICC_PMR.set(GICC_PMR_PRIORITY);
         self.GICC_CTLR.set(GICC_CTLR_ENABLE);
 
-        super::enable_IRQs();
+        crate::println!("{:x}, offset: 0x000", addressof(&self.GICD_CTLR));
+        crate::println!("{:x}, offset: 0x080", addressof(&self.GICD_IGROUPR0));
+        crate::println!("{:x}, offset: 0x100", addressof(&self.GICD_ISENABLER0));
+        crate::println!("{:x}, offset: 0x180", addressof(&self.GICD_ICENABLER0));
+        crate::println!("{:x}, offset: 0x200", addressof(&self.GICD_ISPENDR0));
+        crate::println!("{:x}, offset: 0x280", addressof(&self.GICD_ICPENDR0));
+        crate::println!("{:x}, offset: 0x300", addressof(&self.GICD_ISACTIVER0));
+        crate::println!("{:x}, offset: 0x380", addressof(&self.GICD_ICACTIVER0));
+        crate::println!("{:x}, offset: 0x400", addressof(&self.GICD_IPRIORITYR0));
+        crate::println!("{:x}, offset: 0x800", addressof(&self.GICD_ITARGETSR0));
+        crate::println!("{:x}, offset: 0xc00", addressof(&self.GICD_ICFGR0));
+        crate::println!("{:x}, offset: 0xf00", addressof(&self.GICD_SGIR));
+        crate::println!("{:x}, offset: 0x1000", addressof(&self.GICC_CTLR));
+        crate::println!("{:x}, offset: 0x1004", addressof(&self.GICC_PMR));
+
+        super::enable_irqs();
 
         Ok(())
     }
-    fn enableIRQ(&mut self, irq_number: usize) -> InteruptResult {
+    fn enable_irq(&mut self, irq_number: usize) -> InteruptResult {
         if irq_number >= IRQ_LINES {
             return Err(InteruptError::IncorrectIrqNumber);
         }
         self.GICD_ISENABLER0[irq_number / 32].set(1 << (irq_number as u32 % 32));
         Ok(())
     }
-    fn disableIRQ(&mut self, irq_number: usize) -> InteruptResult {
+    fn disable_irq(&mut self, irq_number: usize) -> InteruptResult {
         if irq_number >= IRQ_LINES {
             return Err(InteruptError::IncorrectIrqNumber);
         }
         self.GICD_ICENABLER0[irq_number / 32].set(1 << (irq_number as u32 % 32));
         Ok(())
     }
-    fn connectIRQ(
+    fn connect_irq(
         &mut self,
         irq_number: usize,
-        handler: Option<&'static fn(data: &mut ExceptionContext)>,
+        handler: Option<fn(data: &mut ExceptionContext)>,
     ) -> InteruptResult {
         if irq_number >= IRQ_LINES {
             return Err(InteruptError::IncorrectIrqNumber);
         }
-        self.irq_handlers[irq_number as usize] = handler;
-        self.enableIRQ(irq_number)
+        //self.irq_handlers[irq_number as usize] = handler;
+        self.enable_irq(irq_number)
     }
-    fn disconnectIRQ(&mut self, irq_number: usize) -> InteruptResult {
+    fn disconnect_irq(&mut self, irq_number: usize) -> InteruptResult {
         if irq_number >= IRQ_LINES {
             return Err(InteruptError::IncorrectIrqNumber);
         }
-        self.disableIRQ(irq_number)?;
-        self.irq_handlers[irq_number] = None;
+        self.disable_irq(irq_number)?;
+        //self.irq_handlers[irq_number] = None;
         Ok(())
     }
 

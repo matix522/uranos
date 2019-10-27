@@ -87,6 +87,19 @@ pub mod asm {
             asm!("msr elr_el3, $0" :  : "r"(spsr) : : "volatile");
         }
     }
+    /// enable usage of physical timer in el1
+    #[inline(always)]
+    pub fn initialize_timers_el1(){
+          let _value : u64;
+          unsafe {
+              asm!("
+            mrs	$0, cnthctl_el2
+            orr	$0, $0, #0x3
+            msr	cnthctl_el2, $0
+            msr	cntvoff_el2, xzr"
+            : "=r"(_value): : : "volatile");
+        }
+     }
 }
 #[inline(always)]
 ///Enters into unending loop of wfe instructions

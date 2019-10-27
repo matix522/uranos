@@ -1,8 +1,6 @@
 // #![deny(missing_docs)]
 // #![deny(warnings)]
 
-use crate::print;
-use crate::println;
 use alloc::boxed::Box;
 use alloc::vec::Vec;
 
@@ -99,18 +97,17 @@ impl TaskContext {
     }
 
     /// Adds task to task vector and set state to running
-    pub fn start_task(mut self) -> Result<(), TaskError> {
+    pub fn start_task(self) -> Result<(), TaskError> {
         //self.task_state = TaskStates::Running;
         // crate::println!("{:x}", &TASKS as *const TASKS as u64);
         let mut tasks = TASKS.lock();
         // crate::println!("{:x}", &*tasks as *const Vec<TaskContext> as u64);
         // crate::println!("{:?}", *tasks);
-        unsafe {
-            if tasks.len() >= MAX_TASK_COUNT {
-                return Err(TaskError::TaskLimitReached);
-            }
-            tasks.push(self);
+        if tasks.len() >= MAX_TASK_COUNT {
+            return Err(TaskError::TaskLimitReached);
         }
+        tasks.push(self);
+
         Ok(())
     }
 }
@@ -180,7 +177,10 @@ pub fn schedule() -> () {
     //     _ => c
     // }
     unsafe {
-        change_task(next_task_pid);
+        match change_task(next_task_pid) {
+            Ok(_) => {}
+            Err(_) => aarch64::halt(),
+        };
         // println!("F: {} {}", next_task_pid ,PREVIOUS_TASK_PID);
     }
 }
@@ -197,7 +197,7 @@ static mut PREVIOUS_TASK_PID: usize = 0;
 
 /// Function that changes current tasks and stores context of previous one in his TaskContext structure
 pub unsafe fn change_task(next: usize) -> Result<(), TaskError> {
-    let mut tasks = TASKS.lock();
+    let tasks = TASKS.lock();
 
     if PREVIOUS_TASK_PID == next {
         return Ok(());

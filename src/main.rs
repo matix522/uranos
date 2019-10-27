@@ -7,9 +7,6 @@
 // extern crate spin;
 extern crate alloc;
 
-#[macro_use]
-extern crate lazy_static;
-
 pub mod gpio;
 pub mod interupt;
 pub mod io;
@@ -22,7 +19,6 @@ pub mod time;
 pub mod uart;
 
 use aarch64::*;
-use alloc::vec::Vec;
 
 #[cfg(not(feature = "raspi4"))]
 const MMIO_BASE: u32 = 0x3F00_0000;
@@ -95,48 +91,53 @@ fn kernel_entry() -> ! {
 
     println!("Kernel Initialization complete.");
 
-    // let mut vector = Vec::new();
-    // for i in 0..20 {
-    //     vector.push(i);
-    // }
-    // for i in &vector {
-    //     print!("{} ", i);
-    // }
-    // println!("");
-    // core::mem::drop(vector);
-
     println!("Proceeding init task initialization");
-    let mut init_task = scheduler::TaskContext::new(scheduler::init::init, 1);
+    let init_task = scheduler::TaskContext::new(scheduler::init::init, 1);
     println!("Init task created");
     // println!("{:?}",init_task);
-    init_task.start_task();
+    init_task.start_task().unwrap();
     println!("Init task created and started");
-    let mut another_task = scheduler::TaskContext::new(scheduler::init::test_task, 2);
+    let another_task = scheduler::TaskContext::new(scheduler::init::test_task, 2);
 
-    another_task.start_task();
+    another_task.start_task().unwrap();
     println!("Another_task created");
-    let mut another_task2 = scheduler::TaskContext::new(scheduler::init::test_task2, 1);
+    let another_task2 = scheduler::TaskContext::new(scheduler::init::test_task2, 1);
 
-    another_task2.start_task();
+    another_task2.start_task().unwrap();
     println!("Another_task2 created");
+
+    //use interupt::Inter
+    if cfg!(feature = "raspi4") {
+        use interupt::InteruptController;
+        let mut gicv2 = interupt::gicv2::GICv2 {};
+        gicv2.init();
+    }
+
     use interupt::timer::ArmQemuTimer as Timer;
-    interupt::enable_IRQs();
+    println!("freq: {}", Timer::get_frequency());
+
+    interupt::enable_irqs();
     Timer::interupt_after(Timer::get_frequency());
     Timer::enable();
     println!("Timer enabled");
     // loop {
     //     uart.send(uart.getc());
-    // }
+    // }ddf
+    println!("time: {}", Timer::get_time());
 
     scheduler::schedule();
     loop {
-        println!("Hello from init task! ");
-        for i in 1..1000000 {
-            unsafe {
-                asm! {"nop" :::: "volatile"}
-            }
-        }
+        uart.send(uart.getc());
+        println!("\ntime: {}", Timer::get_time());
     }
+    // loop {
+    //     println!("Hello from init task! ");
+    //     for _i in 1..1000000 {
+    //         unsafe {
+    //             asm! {"nop" :::: "volatile"}
+    //         }
+    //     }
+    // }
     // echo everything back
     // loop {
     //     uart.send(uart.getc());

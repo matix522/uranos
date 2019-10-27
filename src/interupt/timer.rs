@@ -1,5 +1,5 @@
 use core::ops::Deref;
-use register::{mmio::*, register_bitfields};
+use register::mmio::*;
 
 pub struct RegisterBlocArm {
     route_clock: WriteOnly<u32>,
@@ -15,6 +15,66 @@ impl Deref for ArmQemuTimer {
         unsafe { &*(ARM_CLOCK_BASE as *const RegisterBlocArm) }
     }
 }
+use super::gicv2::GICv2;
+use super::InteruptController;
+
+fn dummy(data: &mut super::ExceptionContext) {}
+#[cfg(feature = "raspi4")]
+impl ArmQemuTimer {
+    pub fn enable() {
+        //pub fn enable(interupt_controller : &impl InteruptController) {
+        let mut interupt_controller = GICv2 {};
+        interupt_controller.connect_irq(30, Some(dummy));
+        interupt_controller.connect_irq(29, Some(dummy));
+        interupt_controller.connect_irq(27, Some(dummy));
+        interupt_controller.connect_irq(26, Some(dummy));
+
+        let val: u32 = 1;
+        unsafe {
+            asm!("msr cntp_ctl_el0, $0" : : "r"(val) : : "volatile");
+        }
+    }
+    pub fn disable() {
+        //pub fn disable(interupt_controller : &impl InteruptController) {
+        let mut interupt_controller = GICv2 {};
+        interupt_controller.disconnect_irq(30);
+        interupt_controller.disconnect_irq(29);
+        interupt_controller.disconnect_irq(27);
+        interupt_controller.disconnect_irq(26);
+        let val: u32 = 0;
+        unsafe {
+            asm!("msr cntp_ctl_el0, $0" : : "r"(val) : : "volatile");
+        }
+    }
+    pub fn get_frequency() -> u32 {
+        let frequency;
+        unsafe {
+            asm!("mrs $0, cntfrq_el0" : "=r"(frequency) : : : "volatile");
+        }
+        frequency
+    }
+    pub fn interupt_after(ticks: u32) {
+        let x = ticks as u64 + Self::get_time();
+        unsafe {
+            asm!("msr cntp_cval_el0, $0" : : "r"(x) : : "volatile");
+        }
+    }
+    pub fn ticks_to_interupt() -> u32 {
+        let ticks;
+        unsafe {
+            asm!("mrs $0, cntfrq_el0" : "=r"(ticks) : : : "volatile");
+        }
+        ticks
+    }
+    pub fn get_time() -> u64 {
+        let ticks;
+        unsafe {
+            asm!("mrs $0, cntpct_el0" : "=r" (ticks) : : : "volatile");
+        }
+        ticks
+    }
+}
+#[cfg(not(feature = "raspi4"))]
 impl ArmQemuTimer {
     pub fn enable() {
         ArmQemuTimer.route_clock.set(0x8);
@@ -38,8 +98,9 @@ impl ArmQemuTimer {
         frequency
     }
     pub fn interupt_after(ticks: u32) {
+        let x = ticks as u64 + Self::get_time();
         unsafe {
-            asm!("msr cntv_tval_el0, $0" : : "r"(ticks) : : "volatile");
+            asm!("msr cntv_cval_el0, $0" : : "r"(x) : : "volatile");
         }
     }
     pub fn ticks_to_interupt() -> u32 {

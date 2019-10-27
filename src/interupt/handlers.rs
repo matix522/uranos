@@ -1,5 +1,4 @@
 use super::*;
-use crate::print;
 use crate::println;
 use crate::scheduler;
 use timer::ArmQemuTimer as Timer;
@@ -10,10 +9,10 @@ pub unsafe extern "C" fn default_interupt_handler(context: &mut ExceptionContext
     gpio::blink();
 }
 
-static mut SECONDS: u64 = 0;
-
 #[no_mangle]
-pub unsafe extern "C" fn current_elx_irq(context: &mut ExceptionContext) {
+pub unsafe extern "C" fn current_elx_irq(_context: &mut ExceptionContext) {
+    println!("\nXDDDDDDDD");
+
     // SECONDS += 1;
     // let sec;
     // if SECONDS == 1 {
@@ -26,9 +25,10 @@ pub unsafe extern "C" fn current_elx_irq(context: &mut ExceptionContext) {
     //println!("Timer interupt happened {} {} after startup", SECONDS, sec);
 
     Timer::interupt_after(Timer::get_frequency());
+    println!("freq: {}", Timer::get_frequency());
     println!("\nSCHEDULING TIME!!!");
     Timer::enable();
-    super::enable_IRQs();
+    super::enable_irqs();
     scheduler::schedule();
     // super::daif_set(2);
     // Timer::disable();
