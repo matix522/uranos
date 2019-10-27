@@ -4,7 +4,6 @@ use core::ops::Deref;
 use register::mmio::*;
 #[cfg(not(feature = "raspi4"))]
 pub struct RegisterBlocArm {
-    
     route_clock: WriteOnly<u32>,
 }
 #[cfg(not(feature = "raspi4"))]
