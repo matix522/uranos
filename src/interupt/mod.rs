@@ -2,8 +2,10 @@ use crate::gpio;
 use crate::println;
 use register::{mmio::*, register_bitfields};
 
+pub mod gicv2;
 pub mod handlers;
 pub mod timer;
+
 pub enum Error {
     IrqNotEnabled,
 }
@@ -33,21 +35,42 @@ pub struct ExceptionContext {
     esr_el1: u64,
 }
 
-/// TODO DAIF TYPE
-pub fn daif_set(daif: u64) {
+#[inline(always)]
+pub fn disable_IRQs() {
     unsafe {
         asm!("msr daifset, #2" : : : : "volatile");
     }
 }
-pub fn daif_clr(daif: u64) {
+#[inline(always)]
+pub fn enable_IRQs() {
     unsafe {
         asm!("msr daifclr, #2" : : : : "volatile");
     }
 }
+#[inline(always)]
 pub fn set_vector_table_pointer(address: u64) {
     unsafe {
         asm!("msr vbar_el1, $0" : :  "r"(address) : : "volatile");
     }
+}
+
+pub enum InteruptError {
+    IncorrectIrqNumber,
+}
+pub type InteruptResult = Result<(), InteruptError>;
+
+trait InteruptController {
+    fn init(&mut self) -> InteruptResult;
+
+    fn enableIRQ(&mut self, irq_number: usize) -> InteruptResult;
+    fn disableIRQ(&mut self, irq_number: usize) -> InteruptResult;
+
+    fn connectIRQ(
+        &mut self,
+        irq_number: usize,
+        handler: Option<&'static fn(data: &mut ExceptionContext)>,
+    ) -> InteruptResult;
+    fn disconnectIRQ(&mut self, irq_number: usize) -> InteruptResult;
 }
 
 global_asm!(include_str!("vector_table.S"));

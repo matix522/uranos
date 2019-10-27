@@ -28,7 +28,7 @@ pub unsafe extern "C" fn current_elx_irq(context: &mut ExceptionContext) {
     Timer::interupt_after(Timer::get_frequency());
     println!("\nSCHEDULING TIME!!!");
     Timer::enable();
-    super::daif_clr(2);
+    super::enable_IRQs();
     scheduler::schedule();
     // super::daif_set(2);
     // Timer::disable();

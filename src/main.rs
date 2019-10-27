@@ -120,7 +120,7 @@ fn kernel_entry() -> ! {
     another_task2.start_task();
     println!("Another_task2 created");
     use interupt::timer::ArmQemuTimer as Timer;
-    interupt::daif_clr(2);
+    interupt::enable_IRQs();
     Timer::interupt_after(Timer::get_frequency());
     Timer::enable();
     println!("Timer enabled");
