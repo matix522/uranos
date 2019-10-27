@@ -47,7 +47,6 @@ impl<T> NullLock<T> {
     where
         F: FnOnce(&mut T) -> R,
     {
-        let result = f(unsafe { &mut *self.data.get() });
-        result
+        f(unsafe { &mut *self.data.get() })
     }
 }

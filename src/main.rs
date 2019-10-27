@@ -110,7 +110,7 @@ fn kernel_entry() -> ! {
     if cfg!(feature = "raspi4") {
         use interupt::InteruptController;
         let mut gicv2 = interupt::gicv2::GICv2 {};
-        gicv2.init();
+        gicv2.init().unwrap();
     }
 
     use interupt::timer::ArmQemuTimer as Timer;

@@ -42,7 +42,7 @@ pub fn set_vector_table_pointer(address: u64) {
         asm!("msr vbar_el1, $0" : :  "r"(address) : : "volatile");
     }
 }
-
+#[derive(Debug)]
 pub enum InteruptError {
     IncorrectIrqNumber,
 }

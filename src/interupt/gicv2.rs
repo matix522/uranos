@@ -144,7 +144,7 @@ impl InteruptController for GICv2 {
     fn connect_irq(
         &mut self,
         irq_number: usize,
-        handler: Option<fn(data: &mut ExceptionContext)>,
+        _handler: Option<fn(data: &mut ExceptionContext)>,
     ) -> InteruptResult {
         if irq_number >= IRQ_LINES {
             return Err(InteruptError::IncorrectIrqNumber);

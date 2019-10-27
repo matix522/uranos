@@ -1,13 +1,17 @@
+#[cfg(not(feature = "raspi4"))]
 use core::ops::Deref;
+#[cfg(not(feature = "raspi4"))]
 use register::mmio::*;
-
+#[cfg(not(feature = "raspi4"))]
 pub struct RegisterBlocArm {
+    
     route_clock: WriteOnly<u32>,
 }
+#[cfg(not(feature = "raspi4"))]
 const ARM_CLOCK_BASE: usize = 0x40000040;
 
 pub struct ArmQemuTimer;
-
+#[cfg(not(feature = "raspi4"))]
 impl Deref for ArmQemuTimer {
     type Target = RegisterBlocArm;
 
@@ -15,19 +19,20 @@ impl Deref for ArmQemuTimer {
         unsafe { &*(ARM_CLOCK_BASE as *const RegisterBlocArm) }
     }
 }
-use super::gicv2::GICv2;
-use super::InteruptController;
 
+#[allow(unused)]
 fn dummy(data: &mut super::ExceptionContext) {}
 #[cfg(feature = "raspi4")]
 impl ArmQemuTimer {
     pub fn enable() {
+        use super::gicv2::GICv2;
+        use super::InteruptController;
         //pub fn enable(interupt_controller : &impl InteruptController) {
         let mut interupt_controller = GICv2 {};
-        interupt_controller.connect_irq(30, Some(dummy));
-        interupt_controller.connect_irq(29, Some(dummy));
-        interupt_controller.connect_irq(27, Some(dummy));
-        interupt_controller.connect_irq(26, Some(dummy));
+        interupt_controller.connect_irq(30, Some(dummy)).unwrap();
+        interupt_controller.connect_irq(29, Some(dummy)).unwrap();
+        interupt_controller.connect_irq(27, Some(dummy)).unwrap();
+        interupt_controller.connect_irq(26, Some(dummy)).unwrap();
 
         let val: u32 = 1;
         unsafe {
@@ -35,12 +40,14 @@ impl ArmQemuTimer {
         }
     }
     pub fn disable() {
+        use super::gicv2::GICv2;
+        use super::InteruptController;
         //pub fn disable(interupt_controller : &impl InteruptController) {
         let mut interupt_controller = GICv2 {};
-        interupt_controller.disconnect_irq(30);
-        interupt_controller.disconnect_irq(29);
-        interupt_controller.disconnect_irq(27);
-        interupt_controller.disconnect_irq(26);
+        interupt_controller.disconnect_irq(30).unwrap();
+        interupt_controller.disconnect_irq(29).unwrap();
+        interupt_controller.disconnect_irq(27).unwrap();
+        interupt_controller.disconnect_irq(26).unwrap();
         let val: u32 = 0;
         unsafe {
             asm!("msr cntp_ctl_el0, $0" : : "r"(val) : : "volatile");

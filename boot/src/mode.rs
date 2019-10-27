@@ -33,7 +33,7 @@ const HCR_VALUE: u64 = HCR_RW;
 
 const SCR_RESERVED: u64 = (3 << 4);
 const SCR_RW: u64 = (1 << 10);
-const SCR_NS: u64 = (1 << 0);
+const SCR_NS: u64 = 1;
 const SCR_VALUE: u64 = (SCR_RESERVED | SCR_RW | SCR_NS);
 
 
