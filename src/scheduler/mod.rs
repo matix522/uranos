@@ -8,6 +8,7 @@ pub mod init;
 
 extern "C" {
     fn cpu_switch_to(prev_task_addr: u64, next_task_addr: u64) -> ();
+    fn cpu_switch_to_first(dummy: u64, init_task_addr: u64) -> ();
     fn new_task_func() -> ();
 }
 
@@ -18,6 +19,8 @@ pub enum TaskError {
     TaskLimitReached,
     /// Referenced to task out of bounds of array
     InvalidTaskReference,
+    /// Error in changing task
+    ChangeTaskError,
 }
 
 #[repr(C)]
@@ -57,7 +60,7 @@ pub struct TaskContext {
     stack: Option<Box<[u8]>>,
 }
 
-const TASK_STACK_SIZE: usize = 0x800;
+const TASK_STACK_SIZE: usize = 0x8000;
 
 use crate::sync::nulllock::NullLock;
 
@@ -89,9 +92,12 @@ impl TaskContext {
         let mut task = Self::empty();
         let stack = Box::new([0; TASK_STACK_SIZE]);
         task.priority = priority;
+        task.counter = priority;
         task.gpr.x[0] = start_function as *const () as u64;
         task.gpr.lr = new_task_func as *const () as u64;
-        task.gpr.sp = (*stack).as_ptr() as *const () as u64;
+        unsafe{
+            task.gpr.sp = (*stack).as_ptr().add(TASK_STACK_SIZE) as *const () as u64;
+        }
         task.stack = Some(stack);
         task
     }
@@ -101,6 +107,11 @@ impl TaskContext {
         //self.task_state = TaskStates::Running;
         // crate::println!("{:x}", &TASKS as *const TASKS as u64);
         let mut tasks = TASKS.lock();
+
+        // if tasks.len() == 0 {
+        //     tasks.push(TaskContext::empty());
+        // }
+
         // crate::println!("{:x}", &*tasks as *const Vec<TaskContext> as u64);
         // crate::println!("{:?}", *tasks);
         if tasks.len() >= MAX_TASK_COUNT {
@@ -113,7 +124,9 @@ impl TaskContext {
 }
 
 #[no_mangle]
-pub extern "C" fn schedule_tail() -> () {}
+pub extern "C" fn schedule_tail(){
+    crate::interupt::handlers::end_scheduling();
+}
 
 /// Round-robin with priority scheduling algorithm choosing next task and switching to it
 pub fn schedule() -> () {
@@ -127,7 +140,7 @@ pub fn schedule() -> () {
 
     while !next_task_found {
         // crate::println!("{:?}", *tasks);
-        // println!("Counters: {} {} {} ", tasks[0].counter, tasks[1].counter, tasks[2].counter);
+        crate::println!("Counters: {} {} {} {} ", tasks[0].counter, tasks[1].counter, tasks[2].counter, tasks[3].counter);
 
         for i in 0..tasks.len() {
             // println!("Checking {} task", i);
@@ -140,16 +153,6 @@ pub fn schedule() -> () {
                         next_task_found = true;
                         break;
                     }
-
-                    // if curr_task.counter == 2 {
-                    //     curr_task.counter = 0;
-                    //     continue;
-                    // } else {
-                    //     curr_task.counter = 1;
-                    //     next_task_pid = i;
-                    //     next_task_found = true;
-                    //     break;
-                    // }
                 }
                 _ => {
                     continue;
@@ -170,12 +173,6 @@ pub fn schedule() -> () {
             nothing_found = false;
         }
     }
-    //PREVIOUS_TASK_PID = next_task_pid;
-    // println!("New task: {}", next_task_pid);
-    // match tasks[next_task_pid].task_state {
-    //     TaskStates::NotStarted => tasks,
-    //     _ => c
-    // }
     unsafe {
         match change_task(next_task_pid) {
             Ok(_) => {}
@@ -183,6 +180,31 @@ pub fn schedule() -> () {
         };
         // println!("F: {} {}", next_task_pid ,PREVIOUS_TASK_PID);
     }
+}
+
+
+pub fn start_scheduling(init_fun : extern "C" fn()) -> Result<!,TaskError>{
+    let mut tasks = TASKS.lock();
+    if tasks.len() == 0 {
+        return Err(TaskError::ChangeTaskError);
+    }
+    unsafe{
+        // let fun = &*(tasks[0].gpr.lr as *const () as *const fn());
+        //crate::println!("Fun addr: {:x}; lr: {:x}", fun as *const () as u64, tasks[0].gpr.lr);
+        let mut init_task = &mut tasks[0];
+        init_task.counter = 0;
+
+        // change_task(0);
+
+        let init_task_addr = &tasks[0] as *const TaskContext as u64;
+        
+        cpu_switch_to_first(0, init_task_addr);
+        // // change_task(0);
+        
+        crate::println!("DUPA!!!");
+        
+    }
+    loop {}
 }
 
 // pub static mut SCHEDULING_INITIALIZED : bool = false;
@@ -199,9 +221,12 @@ static mut PREVIOUS_TASK_PID: usize = 0;
 pub unsafe fn change_task(next: usize) -> Result<(), TaskError> {
     let tasks = TASKS.lock();
 
-    if PREVIOUS_TASK_PID == next {
-        return Ok(());
-    }
+   // if PREVIOUS_TASK_PID == next {
+        
+    // crate::interupt::daif_set(2);
+    // Timer::disable();
+      //  return Ok(());
+    //}
 
     if PREVIOUS_TASK_PID >= tasks.len() || next >= tasks.len() {
         return Err(TaskError::InvalidTaskReference);
@@ -213,6 +238,8 @@ pub unsafe fn change_task(next: usize) -> Result<(), TaskError> {
     PREVIOUS_TASK_PID = next;
     cpu_switch_to(prev_task_addr, next_task_addr);
 
+    // super::daif_set(2);
+    // Timer::disable();
     Ok(())
 }
 
