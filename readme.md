@@ -14,13 +14,13 @@
 ## TODO LIST 
 Each group Ranked in inportance from top to bottom.
 ### Bugfixes 
- - Task 0 is never scheduled
- - If scheduling and interupt takse too long system hangs in next interupt.
- - Wrong resolution displaying when set to 1920x1080.
+ - [x] Task 0 is never scheduled
+ - [x] If scheduling and interupt takse too long system hangs in next interupt.
+ - [ ] Wrong resolution displaying when set to 1920x1080.
 ### Features 
- - Syscall interface ORWC: As an example for uart.
- - Charbuffer for hdmi output.
+ - [ ] Syscall interface ORWC: As an example for uart.
+ - [ ] Charbuffer for hdmi output.
 ### Code Quality 
- - Unify interface of IntControler for RPI3 and RPI4. 
- - Unify interface for PL011 Uart and Aux Uart.
- - Create Device tree for physical and virtual devices. 
+ - [ ] Unify interface of IntControler for RPI3 and RPI4. 
+ - [ ] Unify interface for PL011 Uart and Aux Uart.
+ - [ ] Create Device tree for physical and virtual devices. 

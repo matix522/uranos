@@ -3,7 +3,7 @@
 #![feature(asm)]
 #![feature(global_asm)]
 #![feature(alloc_error_handler)]
-
+#![feature(never_type)]
 // extern crate spin;
 extern crate alloc;
 
@@ -106,6 +106,9 @@ fn kernel_entry() -> ! {
     another_task2.start_task().unwrap();
     println!("Another_task2 created");
 
+    let another_task3 = scheduler::TaskContext::new(scheduler::init::test_task2, 1);
+
+    another_task3.start_task().unwrap();
     //use interupt::Inter
     if cfg!(feature = "raspi4") {
         use interupt::InteruptController;
@@ -125,23 +128,11 @@ fn kernel_entry() -> ! {
     // }ddf
     println!("time: {}", Timer::get_time());
 
-    scheduler::schedule();
-    loop {
-        uart.send(uart.getc());
-        println!("\ntime: {}", Timer::get_time());
-    }
-    // loop {
-    //     println!("Hello from init task! ");
-    //     for _i in 1..1000000 {
-    //         unsafe {
-    //             asm! {"nop" :::: "volatile"}
-    //         }
-    //     }
-    // }
-    // echo everything back
-    // loop {
-    //     uart.send(uart.getc());
-    // }
+    match scheduler::start_scheduling(scheduler::init::init) {
+        Ok(_) => loop{}, 
+        Err(_) => halt()
+    };
+
 }
 
 boot::entry!(kernel_entry);

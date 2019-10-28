@@ -2,6 +2,7 @@ use super::*;
 use crate::println;
 use crate::scheduler;
 use timer::ArmQemuTimer as Timer;
+use core::sync::atomic::AtomicBool;
 
 #[no_mangle]
 pub unsafe extern "C" fn default_interupt_handler(context: &mut ExceptionContext) {
@@ -9,10 +10,18 @@ pub unsafe extern "C" fn default_interupt_handler(context: &mut ExceptionContext
     gpio::blink();
 }
 
+
+static mut is_scheduling :AtomicBool = AtomicBool::new(false);
+
+#[no_mangle]
+pub extern "C" fn end_scheduling() {
+    unsafe{
+        is_scheduling.store(false, core::sync::atomic::Ordering::Relaxed);
+    }
+}
+
 #[no_mangle]
 pub unsafe extern "C" fn current_elx_irq(_context: &mut ExceptionContext) {
-    println!("\nXDDDDDDDD");
-
     // SECONDS += 1;
     // let sec;
     // if SECONDS == 1 {
@@ -25,13 +34,13 @@ pub unsafe extern "C" fn current_elx_irq(_context: &mut ExceptionContext) {
     //println!("Timer interupt happened {} {} after startup", SECONDS, sec);
 
     Timer::interupt_after(Timer::get_frequency());
-    println!("freq: {}", Timer::get_frequency());
-    println!("\nSCHEDULING TIME!!!");
     Timer::enable();
     super::enable_irqs();
+    if(is_scheduling.load(core::sync::atomic::Ordering::Relaxed)) {return;}
+    is_scheduling.store(true, core::sync::atomic::Ordering::Relaxed);
+    println!("\nSCHEDULING TIME!!!");
     scheduler::schedule();
-    // super::daif_set(2);
-    // Timer::disable();
+    is_scheduling.store(false, core::sync::atomic::Ordering::Relaxed);
 
     println!("END OF INTERRUPT");
 }
