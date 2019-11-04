@@ -38,9 +38,7 @@ pub unsafe extern "C" fn current_elx_irq(_context: &mut ExceptionContext) {
     super::enable_irqs();
     if(is_scheduling.load(core::sync::atomic::Ordering::Relaxed)) {return;}
     is_scheduling.store(true, core::sync::atomic::Ordering::Relaxed);
-    println!("\nSCHEDULING TIME!!!");
     scheduler::schedule();
     is_scheduling.store(false, core::sync::atomic::Ordering::Relaxed);
 
-    println!("END OF INTERRUPT");
 }

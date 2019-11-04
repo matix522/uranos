@@ -3,12 +3,16 @@
 
 use alloc::boxed::Box;
 use alloc::vec::Vec;
+use crate::sync::nulllock::NullLock;
 
 pub mod init;
 
 extern "C" {
+    /// Change CPU context from prev task to next task
     fn cpu_switch_to(prev_task_addr: u64, next_task_addr: u64) -> ();
+    /// Change CPU context to init task (dummy lands in unused x0 for sake of simplicity)
     fn cpu_switch_to_first(dummy: u64, init_task_addr: u64) -> ();
+    /// Signal end of scheduling, zero x0 - x18 and jump to x19
     fn new_task_func() -> ();
 }
 
@@ -52,22 +56,25 @@ pub struct GPR {
 pub struct TaskContext {
     /// General Purpose Registers
     gpr: GPR,
+    /// State of task
     task_state: TaskStates,
+    /// Counter meaning how many time quants has remained to this task during current cycle
     counter: u32,
     /// Number of time quants given in one round
     priority: u32,
+    /// Currently unused
     preemption_count: u32,
+    /// "Pointer" to task stack
     stack: Option<Box<[u8]>>,
 }
 
+/// Stack size of task in bytes
 const TASK_STACK_SIZE: usize = 0x8000;
 
-use crate::sync::nulllock::NullLock;
 
-// lazy_static! {
 /// Vector of tasks
 pub static TASKS: NullLock<Vec<TaskContext>> = NullLock::new(Vec::new());
-// }
+
 /// Maximal number of scheduled tasks
 pub const MAX_TASK_COUNT: usize = 16;
 
@@ -90,12 +97,19 @@ impl TaskContext {
     /// create new task
     pub fn new(start_function: extern "C" fn(), priority: u32) -> Self {
         let mut task = Self::empty();
+        // Initialize task
         let stack = Box::new([0; TASK_STACK_SIZE]);
+
+        // Initialize priorities
         task.priority = priority;
         task.counter = priority;
+
+        // x19 of task to start_function  
         task.gpr.x[0] = start_function as *const () as u64;
+        // set lr new_task_func to clear up registers, finalize scheduling and jump to start_function on first run of task
         task.gpr.lr = new_task_func as *const () as u64;
         unsafe{
+            // set stack pointer to the oldest address of task stack space
             task.gpr.sp = (*stack).as_ptr().add(TASK_STACK_SIZE) as *const () as u64;
         }
         task.stack = Some(stack);
@@ -104,17 +118,9 @@ impl TaskContext {
 
     /// Adds task to task vector and set state to running
     pub fn start_task(self) -> Result<(), TaskError> {
-        //self.task_state = TaskStates::Running;
-        // crate::println!("{:x}", &TASKS as *const TASKS as u64);
-        let mut tasks = TASKS.lock();
+       let mut tasks = TASKS.lock();
 
-        // if tasks.len() == 0 {
-        //     tasks.push(TaskContext::empty());
-        // }
-
-        // crate::println!("{:x}", &*tasks as *const Vec<TaskContext> as u64);
-        // crate::println!("{:?}", *tasks);
-        if tasks.len() >= MAX_TASK_COUNT {
+       if tasks.len() >= MAX_TASK_COUNT {
             return Err(TaskError::TaskLimitReached);
         }
         tasks.push(self);
@@ -123,6 +129,7 @@ impl TaskContext {
     }
 }
 
+/// Signal end of scheduling
 #[no_mangle]
 pub extern "C" fn schedule_tail(){
     crate::interupt::handlers::end_scheduling();
@@ -136,17 +143,14 @@ pub fn schedule() -> () {
 
     let mut tasks = TASKS.lock();
 
-    // println!("Scheduling beginning, current task PID: {}", PREVIOUS_TASK_PID);
-
     while !next_task_found {
-        // crate::println!("{:?}", *tasks);
-        crate::println!("Counters: {} {} {} {} ", tasks[0].counter, tasks[1].counter, tasks[2].counter, tasks[3].counter);
-
         for i in 0..tasks.len() {
-            // println!("Checking {} task", i);
+            // get mutable reference for currently examined task
             let curr_task: &mut TaskContext = &mut tasks[i];
             match curr_task.task_state {
+                // if curr_task is in state that it should be scheduled
                 TaskStates::Running | TaskStates::NotStarted => {
+                    // if our task has unused quant of time decrease counter and mark it as next task
                     if curr_task.counter > 0 {
                         curr_task.counter -= 1;
                         next_task_pid = i;
@@ -154,6 +158,7 @@ pub fn schedule() -> () {
                         break;
                     }
                 }
+                // in other states ignore this task 
                 _ => {
                     continue;
                 }
@@ -178,55 +183,35 @@ pub fn schedule() -> () {
             Ok(_) => {}
             Err(_) => aarch64::halt(),
         };
-        // println!("F: {} {}", next_task_pid ,PREVIOUS_TASK_PID);
     }
 }
 
-
+/// Function statring scheduling process
 pub fn start_scheduling(init_fun : extern "C" fn()) -> Result<!,TaskError>{
     let mut tasks = TASKS.lock();
     if tasks.len() == 0 {
         return Err(TaskError::ChangeTaskError);
     }
     unsafe{
-        // let fun = &*(tasks[0].gpr.lr as *const () as *const fn());
-        //crate::println!("Fun addr: {:x}; lr: {:x}", fun as *const () as u64, tasks[0].gpr.lr);
+
         let mut init_task = &mut tasks[0];
         init_task.counter = 0;
 
-        // change_task(0);
 
         let init_task_addr = &tasks[0] as *const TaskContext as u64;
         
         cpu_switch_to_first(0, init_task_addr);
-        // // change_task(0);
-        
-        crate::println!("DUPA!!!");
         
     }
+    // should not ever be here
     loop {}
 }
-
-// pub static mut SCHEDULING_INITIALIZED : bool = false;
-
-// pub fn fork() -> (){
-//     let curr_task =  TASKS[PREVIOUS_TASK_PID];
-//     TASKS.append(curr_task.copy());
-
-// }
 
 static mut PREVIOUS_TASK_PID: usize = 0;
 
 /// Function that changes current tasks and stores context of previous one in his TaskContext structure
 pub unsafe fn change_task(next: usize) -> Result<(), TaskError> {
     let tasks = TASKS.lock();
-
-   // if PREVIOUS_TASK_PID == next {
-        
-    // crate::interupt::daif_set(2);
-    // Timer::disable();
-      //  return Ok(());
-    //}
 
     if PREVIOUS_TASK_PID >= tasks.len() || next >= tasks.len() {
         return Err(TaskError::InvalidTaskReference);
@@ -238,15 +223,7 @@ pub unsafe fn change_task(next: usize) -> Result<(), TaskError> {
     PREVIOUS_TASK_PID = next;
     cpu_switch_to(prev_task_addr, next_task_addr);
 
-    // super::daif_set(2);
-    // Timer::disable();
     Ok(())
 }
-
-// #[link_section = ".task"]
-// static TASKS: [TaskContext; MAX_TASK_COUNT] = new_task_table(); //Default::default();// = [TaskContext::new(); MAX_TASK_COUNT];
-
-// #[link_section = ".task.stack"]
-// static TASK_STACKS: [TaskStack; MAX_TASK_COUNT] = [TaskStack::new(); MAX_TASK_COUNT] ;
 
 global_asm!(include_str!("change_task.S"));
