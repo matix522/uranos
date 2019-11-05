@@ -20,6 +20,8 @@ Each group Ranked in inportance from top to bottom.
 ### Features 
  - [ ] Syscall interface ORWC: As an example for uart.
  - [ ] Charbuffer for hdmi output.
+ - [ ] MMU for kernel and user threads.
+
 ### Code Quality 
  - [ ] Unify interface of IntControler for RPI3 and RPI4. 
  - [ ] Unify interface for PL011 Uart and Aux Uart.
