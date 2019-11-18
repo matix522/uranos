@@ -76,7 +76,7 @@ PROVIDE(current_elx_irq           = default_interupt_handler);
 PROVIDE(current_elx_serror        = default_interupt_handler);
 
 PROVIDE(lower_aarch64_synchronous = default_interupt_handler);
-PROVIDE(lower_aarch64_irq         = default_interupt_handler);
+PROVIDE(lower_aarch64_irq         = current_elx_irq);
 PROVIDE(lower_aarch64_serror      = default_interupt_handler);
 
 PROVIDE(lower_aarch32_synchronous = default_interupt_handler);

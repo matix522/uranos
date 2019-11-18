@@ -12,11 +12,14 @@ pub mod interupt;
 pub mod io;
 pub mod mbox;
 pub mod memory;
+pub mod userspace;
 /// Task scheduler
 pub mod scheduler;
 pub mod sync;
 pub mod time;
 pub mod uart;
+
+pub mod devices;
 
 use aarch64::*;
 
@@ -30,24 +33,6 @@ extern "C" {
     pub static __exception_vectors_start: u64;
     static mut __binary_end: u64;
 }
-
-// pub fn init_f(){
-//     loop {
-//         println!("Hello from init task!");
-//         for i in 1..10000 {
-//             unsafe{asm!{"nop" :::: "volatile"}}
-//         }
-//     }
-// }
-
-// pub fn test_task_f(){
-//     loop {
-//         println!("Hello from test task!");
-//         for i in 1..10000 {
-//             unsafe{asm!{"nop" :::: "volatile"}}
-//         }
-//     }
-// }
 
 fn kernel_entry() -> ! {
     let mut mbox = mbox::Mbox::new();
@@ -92,21 +77,21 @@ fn kernel_entry() -> ! {
     println!("Kernel Initialization complete.");
 
     println!("Proceeding init task initialization");
-    let init_task = scheduler::TaskContext::new(scheduler::init::init, 1);
+    let init_task = scheduler::TaskContext::new(scheduler::init::init, 1, true);
     println!("Init task created");
     // println!("{:?}",init_task);
     init_task.start_task().unwrap();
     println!("Init task created and started");
-    let another_task = scheduler::TaskContext::new(scheduler::init::test_task, 2);
+    let another_task = scheduler::TaskContext::new(scheduler::init::test_task, 2, false);
 
     another_task.start_task().unwrap();
     println!("Another_task created");
-    let another_task2 = scheduler::TaskContext::new(scheduler::init::test_task2, 1);
+    let another_task2 = scheduler::TaskContext::new(scheduler::init::test_task2, 1, false);
 
     another_task2.start_task().unwrap();
     println!("Another_task2 created");
 
-    let another_task3 = scheduler::TaskContext::new(scheduler::init::test_task2, 1);
+    let another_task3 = scheduler::TaskContext::new(scheduler::init::test_task2, 1, false);
 
     another_task3.start_task().unwrap();
     //use interupt::Inter
@@ -125,8 +110,13 @@ fn kernel_entry() -> ! {
     println!("Timer enabled");
     // loop {
     //     uart.send(uart.getc());
-    // }ddf
+    // }
     println!("time: {}", Timer::get_time());
+    // let x = unsafe {
+    //     userspace::syscall::syscall0(0)
+    // };
+
+    // println!("{}", x);
 
     match scheduler::start_scheduling(scheduler::init::init) {
         Ok(_) => loop{}, 

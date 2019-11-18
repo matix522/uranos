@@ -32,6 +32,21 @@ pub mod asm {
     }
     #[inline(always)]
     ///Set Stack Pointer of Kernel Mode
+    pub fn copy_el1_to_el0_stack_pointer() {
+         unsafe {
+            asm!("mov x0, sp
+                  msr sp_el0, x0" : : : "x0": "volatile");
+        }
+    }
+    #[inline(always)]
+    ///Set Saved Program Status Register
+    pub fn set_el0_saved_program_status_register(spsr: u64) {
+        unsafe {
+            asm!("msr spsr_el0, $0" : : "r"(spsr) : : "volatile");
+        }
+    }
+    #[inline(always)]
+    ///Set Stack Pointer of Kernel Mode
     pub fn set_el1_stack_pointer(sp: u64) {
         unsafe {
             asm!("msr sp_el1, $0" :  : "r"(sp) : : "volatile");

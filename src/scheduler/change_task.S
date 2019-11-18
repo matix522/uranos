@@ -21,7 +21,8 @@ cpu_switch_to:
     ldr    x30, [x8]
     mov    sp, x9
     ret
-
+// 81E48
+// 
 .globl cpu_switch_to_first
 cpu_switch_to_first:
     mov    x8, x1
@@ -38,23 +39,23 @@ cpu_switch_to_first:
 .globl new_task_func
 new_task_func:
     bl    schedule_tail
-    mov    x0, #0
-    mov    x1, #0
-    mov    x2, #0
-    mov    x3, #0
-    mov    x4, #0
-    mov    x5, #0
-    mov    x6, #0
-    mov    x7, #0
-    mov    x8, #0
-    mov    x9, #0
-    mov    x10, #0
-    mov    x11, #0
-    mov    x12, #0
-    mov    x13, #0
-    mov    x14, #0
-    mov    x15, #0
-    mov    x16, #0
-    mov    x17, #0
-    mov    x18, #0
+    mov    x0, x20
+    mov    x1, x21
+    mov    x2, xzr
+    mov    x3, xzr
+    mov    x4, xzr
+    mov    x5, xzr
+    mov    x6, xzr
+    mov    x7, xzr
+    mov    x8, xzr
+    mov    x9, xzr
+    mov    x10, xzr
+    mov    x11, xzr
+    mov    x12, xzr
+    mov    x13, xzr
+    mov    x14, xzr
+    mov    x15, xzr
+    mov    x16, xzr
+    mov    x17, xzr
+    mov    x18, xzr
     blr    x19         //should never return

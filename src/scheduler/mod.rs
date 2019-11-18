@@ -45,7 +45,7 @@ pub enum TaskStates {
 #[derive(Debug)]
 /// Registers x19-x29, sp, lr
 pub struct GPR {
-    x: [u64; 11],
+    x19: [u64; 11],
     sp: u64,
     lr: u64,
 }
@@ -64,8 +64,12 @@ pub struct TaskContext {
     priority: u32,
     /// Currently unused
     preemption_count: u32,
-    /// "Pointer" to task stack
+    /// "Pointer" to kernel space task stack
     stack: Option<Box<[u8]>>,
+    /// "Pointer" to user 33554432space task stack
+    user_stack: Option<Box<[u8]>>,
+    /// Is user task
+    has_user_space : bool
 }
 
 /// Stack size of task in bytes
@@ -82,20 +86,23 @@ impl TaskContext {
     const fn empty() -> Self {
         TaskContext {
             gpr: GPR {
-                x: [0; 11],
+                x19: [0; 11],
                 sp: 0,
                 lr: 0,
-            },
-            task_state: TaskStates::NotStarted,
+            },  
             counter: 0,
             priority: 0,
             preemption_count: 0,
             stack: None,
+            user_stack: None,
+
+            task_state: TaskStates::NotStarted,
+            has_user_space: false,
         }
     }
 
     /// create new task
-    pub fn new(start_function: extern "C" fn(), priority: u32) -> Self {
+    pub fn new(start_function: extern "C" fn(), priority: u32, is_user_task : bool) -> Self {
         let mut task = Self::empty();
         // Initialize task
         let stack = Box::new([0; TASK_STACK_SIZE]);
@@ -104,14 +111,33 @@ impl TaskContext {
         task.priority = priority;
         task.counter = priority;
 
-        // x19 of task to start_function  
-        task.gpr.x[0] = start_function as *const () as u64;
         // set lr new_task_func to clear up registers, finalize scheduling and jump to start_function on first run of task
         task.gpr.lr = new_task_func as *const () as u64;
+
+        if is_user_task {
+
+            let user_stack = Box::new([0; TASK_STACK_SIZE]);
+
+            // x19 of task is address of usserspace transition start_function 
+            task.gpr.x19[0] = switch_to_user_space as *const () as u64; 
+            // x20 of task is address of user start_function  
+            task.gpr.x19[1] = start_function as *const () as u64;
+            // x21 of task is user stack pointer
+            task.gpr.x19[2] = unsafe { (*user_stack).as_ptr().add(TASK_STACK_SIZE) as *const () as u64 };
+
+            task.user_stack = Some(user_stack);
+            task.has_user_space = true;
+
+        } else {
+            // x19 of task is address of start_function  
+            task.gpr.x19[0] = start_function as *const () as u64;
+        }
+
         unsafe{
             // set stack pointer to the oldest address of task stack space
             task.gpr.sp = (*stack).as_ptr().add(TASK_STACK_SIZE) as *const () as u64;
         }
+
         task.stack = Some(stack);
         task
     }
@@ -127,6 +153,26 @@ impl TaskContext {
 
         Ok(())
     }
+}
+use crate::interupt::*;
+extern "C" {
+    pub fn drop_el0(context: &ExceptionContext);
+}
+
+pub extern "C" fn switch_to_user_space(start_function : u64, stack_pointer : u64) -> ! {
+    let mut context = ExceptionContext {
+        gpr: crate::interupt::GPR {
+            x :[0; 31]
+            },
+        spsr_el1: 0,
+        elr_el1: start_function,
+        esr_el1: 0,
+        sp_el0: stack_pointer,
+    };
+    crate::println!("{:?}",context);
+    crate::println!("{}", init::init as *const() as u64);
+    unsafe { drop_el0(&context); }
+    loop {}
 }
 
 /// Signal end of scheduling
@@ -197,9 +243,8 @@ pub fn start_scheduling(init_fun : extern "C" fn()) -> Result<!,TaskError>{
         let mut init_task = &mut tasks[0];
         init_task.counter = 0;
 
-
-        let init_task_addr = &tasks[0] as *const TaskContext as u64;
-        
+        let init_task_addr = init_task as *const TaskContext as u64;
+ 
         cpu_switch_to_first(0, init_task_addr);
         
     }

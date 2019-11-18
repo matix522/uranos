@@ -5,8 +5,8 @@ use timer::ArmQemuTimer as Timer;
 use core::sync::atomic::AtomicBool;
 
 #[no_mangle]
-pub unsafe extern "C" fn default_interupt_handler(context: &mut ExceptionContext) {
-    println!("Interupt Happened {:?}", *context);
+pub unsafe extern "C" fn default_interupt_handler(context: &mut ExceptionContext, id : usize) {
+    println!("Interupt Happened of ID-{}:  {:?}", id, *context);
     gpio::blink();
 }
 
@@ -40,5 +40,4 @@ pub unsafe extern "C" fn current_elx_irq(_context: &mut ExceptionContext) {
     is_scheduling.store(true, core::sync::atomic::Ordering::Relaxed);
     scheduler::schedule();
     is_scheduling.store(false, core::sync::atomic::Ordering::Relaxed);
-
 }

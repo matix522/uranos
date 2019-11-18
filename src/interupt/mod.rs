@@ -11,17 +11,18 @@ pub enum Error {
 #[repr(C)]
 #[derive(Debug)]
 pub struct GPR {
-    x: [u64; 31],
+    pub x: [u64; 31],
 }
 
 #[repr(C)]
 #[derive(Debug)]
 pub struct ExceptionContext {
     // General Purpose Registers
-    gpr: GPR,
-    spsr_el1: u64,
-    elr_el1: u64,
-    esr_el1: u64,
+    pub gpr: GPR,
+    pub spsr_el1: u64,
+    pub elr_el1: u64,
+    pub esr_el1: u64,
+    pub sp_el0: u64,
 }
 
 #[inline(always)]
