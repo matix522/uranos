@@ -72,11 +72,11 @@ pub mod tag {
 
     pub const ALLOCATE_FRAMEBUFFER: u32 = 0x40001;
     pub const SET_PHYSICAL_SIZE: u32 = 0x48003;
-    pub const SET_VIRTUAL_SIZE: u32 = 0x48004; 
-    pub const SET_VIRTUAL_OFFSET: u32 = 0x48009; 
-    pub const SET_DEPTH: u32 = 0x48005; 
+    pub const SET_VIRTUAL_SIZE: u32 = 0x48004;
+    pub const SET_VIRTUAL_OFFSET: u32 = 0x48009;
+    pub const SET_DEPTH: u32 = 0x48005;
     pub const SET_PIXEL_ORDER: u32 = 0x48006;
-    pub const GET_PITCH: u32 = 0x40008; 
+    pub const GET_PITCH: u32 = 0x40008;
 }
 
 // Clocks

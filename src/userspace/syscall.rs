@@ -1,5 +1,4 @@
-
-pub unsafe fn syscall0(mut a: usize) -> usize{
+pub unsafe fn syscall0(mut a: usize) -> usize {
     asm!("svc   0"
           : "={x0}"(a)
           : "{x8}"(a)

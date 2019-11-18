@@ -1,9 +1,9 @@
 // #![deny(missing_docs)]
 // #![deny(warnings)]
 
+use crate::sync::nulllock::NullLock;
 use alloc::boxed::Box;
 use alloc::vec::Vec;
-use crate::sync::nulllock::NullLock;
 
 pub mod init;
 
@@ -69,12 +69,11 @@ pub struct TaskContext {
     /// "Pointer" to user 33554432space task stack
     user_stack: Option<Box<[u8]>>,
     /// Is user task
-    has_user_space : bool
+    has_user_space: bool,
 }
 
 /// Stack size of task in bytes
 const TASK_STACK_SIZE: usize = 0x8000;
-
 
 /// Vector of tasks
 pub static TASKS: NullLock<Vec<TaskContext>> = NullLock::new(Vec::new());
@@ -89,7 +88,7 @@ impl TaskContext {
                 x19: [0; 11],
                 sp: 0,
                 lr: 0,
-            },  
+            },
             counter: 0,
             priority: 0,
             preemption_count: 0,
@@ -102,7 +101,7 @@ impl TaskContext {
     }
 
     /// create new task
-    pub fn new(start_function: extern "C" fn(), priority: u32, is_user_task : bool) -> Self {
+    pub fn new(start_function: extern "C" fn(), priority: u32, is_user_task: bool) -> Self {
         let mut task = Self::empty();
         // Initialize task
         let stack = Box::new([0; TASK_STACK_SIZE]);
@@ -115,25 +114,24 @@ impl TaskContext {
         task.gpr.lr = new_task_func as *const () as u64;
 
         if is_user_task {
-
             let user_stack = Box::new([0; TASK_STACK_SIZE]);
 
-            // x19 of task is address of usserspace transition start_function 
-            task.gpr.x19[0] = switch_to_user_space as *const () as u64; 
-            // x20 of task is address of user start_function  
+            // x19 of task is address of usserspace transition start_function
+            task.gpr.x19[0] = switch_to_user_space as *const () as u64;
+            // x20 of task is address of user start_function
             task.gpr.x19[1] = start_function as *const () as u64;
             // x21 of task is user stack pointer
-            task.gpr.x19[2] = unsafe { (*user_stack).as_ptr().add(TASK_STACK_SIZE) as *const () as u64 };
+            task.gpr.x19[2] =
+                unsafe { (*user_stack).as_ptr().add(TASK_STACK_SIZE) as *const () as u64 };
 
             task.user_stack = Some(user_stack);
             task.has_user_space = true;
-
         } else {
-            // x19 of task is address of start_function  
+            // x19 of task is address of start_function
             task.gpr.x19[0] = start_function as *const () as u64;
         }
 
-        unsafe{
+        unsafe {
             // set stack pointer to the oldest address of task stack space
             task.gpr.sp = (*stack).as_ptr().add(TASK_STACK_SIZE) as *const () as u64;
         }
@@ -144,9 +142,9 @@ impl TaskContext {
 
     /// Adds task to task vector and set state to running
     pub fn start_task(self) -> Result<(), TaskError> {
-       let mut tasks = TASKS.lock();
+        let mut tasks = TASKS.lock();
 
-       if tasks.len() >= MAX_TASK_COUNT {
+        if tasks.len() >= MAX_TASK_COUNT {
             return Err(TaskError::TaskLimitReached);
         }
         tasks.push(self);
@@ -159,25 +157,25 @@ extern "C" {
     pub fn drop_el0(context: &ExceptionContext);
 }
 
-pub extern "C" fn switch_to_user_space(start_function : u64, stack_pointer : u64) -> ! {
+pub extern "C" fn switch_to_user_space(start_function: u64, stack_pointer: u64) -> ! {
     let mut context = ExceptionContext {
-        gpr: crate::interupt::GPR {
-            x :[0; 31]
-            },
+        gpr: crate::interupt::GPR { x: [0; 31] },
         spsr_el1: 0,
         elr_el1: start_function,
         esr_el1: 0,
         sp_el0: stack_pointer,
     };
-    crate::println!("{:?}",context);
-    crate::println!("{}", init::init as *const() as u64);
-    unsafe { drop_el0(&context); }
+    crate::println!("{:?}", context);
+    crate::println!("{}", init::init as *const () as u64);
+    unsafe {
+        drop_el0(&context);
+    }
     loop {}
 }
 
 /// Signal end of scheduling
 #[no_mangle]
-pub extern "C" fn schedule_tail(){
+pub extern "C" fn schedule_tail() {
     crate::interupt::handlers::end_scheduling();
 }
 
@@ -204,7 +202,7 @@ pub fn schedule() -> () {
                         break;
                     }
                 }
-                // in other states ignore this task 
+                // in other states ignore this task
                 _ => {
                     continue;
                 }
@@ -233,20 +231,18 @@ pub fn schedule() -> () {
 }
 
 /// Function statring scheduling process
-pub fn start_scheduling(init_fun : extern "C" fn()) -> Result<!,TaskError>{
+pub fn start_scheduling(init_fun: extern "C" fn()) -> Result<!, TaskError> {
     let mut tasks = TASKS.lock();
     if tasks.len() == 0 {
         return Err(TaskError::ChangeTaskError);
     }
-    unsafe{
-
+    unsafe {
         let mut init_task = &mut tasks[0];
         init_task.counter = 0;
 
         let init_task_addr = init_task as *const TaskContext as u64;
- 
+
         cpu_switch_to_first(0, init_task_addr);
-        
     }
     // should not ever be here
     loop {}
