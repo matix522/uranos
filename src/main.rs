@@ -6,6 +6,8 @@
 #![feature(never_type)]
 // extern crate spin;
 extern crate alloc;
+#[macro_use]
+extern crate num_derive;
 
 pub mod gpio;
 pub mod interupt;
@@ -82,7 +84,7 @@ fn kernel_entry() -> ! {
     // println!("{:?}",init_task);
     init_task.start_task().unwrap();
     println!("Init task created and started");
-    let another_task = scheduler::TaskContext::new(scheduler::init::test_task, 2, false);
+    let another_task = scheduler::TaskContext::new(scheduler::init::test_task, 2, true);
 
     another_task.start_task().unwrap();
     println!("Another_task created");
