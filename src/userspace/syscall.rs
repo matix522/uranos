@@ -1,4 +1,7 @@
+use super::Syscalls;
 
+
+#[inline(always)]
 pub unsafe fn syscall0(mut a: usize) -> usize{
     asm!("svc   0"
           : "={x0}"(a)
@@ -57,3 +60,11 @@ pub unsafe fn syscall5(mut a: usize, b: usize, c: usize, d: usize, e: usize, f: 
 
     return a;
 }
+
+pub fn write(msg: &str){
+    unsafe { syscall2(Syscalls::Print as usize, msg.as_ptr() as usize, msg.len()); }
+}
+/*  TODO
+pub fn writeln(msg: &str){
+    write(format!("{}\n", msg));
+}*/
