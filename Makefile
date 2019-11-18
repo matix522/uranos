@@ -41,6 +41,7 @@ OBJCOPY_PARAMS = --strip-all -O binary
 CONTAINER_UTILS   = andrerichter/raspi3-utils
 
 DOCKER_CMD        = docker run -it --rm
+DOCKER_CMD_DEBUG  = docker run -it --rm -p 1234:1234
 DOCKER_ARG_CURDIR = -v $(shell pwd):/work -w /work
 
 DOCKER_EXEC_QEMU     = qemu-system-aarch64 -M raspi3 -kernel kernel8-raspi3.img
@@ -80,6 +81,10 @@ objdump-raspi4:
 qemu: all
 	$(DOCKER_CMD) $(DOCKER_ARG_CURDIR) $(CONTAINER_UTILS) \
 	$(DOCKER_EXEC_QEMU) -serial stdio
+
+qemu_debug: all
+	$(DOCKER_CMD_DEBUG) $(DOCKER_ARG_CURDIR) $(CONTAINER_UTILS) \
+		$(DOCKER_EXEC_QEMU) -serial stdio -s 
 
 clippy:
 	cargo xclippy --target=$(TARGET)
