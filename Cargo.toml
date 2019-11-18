@@ -24,3 +24,6 @@ default = []
 
 raspi4 = []
 raspi3 = []
+
+[profile.release]
+debug = true
