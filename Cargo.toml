@@ -10,7 +10,7 @@ edition = "2018"
 boot = { path = "boot" }
 aarch64 = {path = "aarch64"}
 register = "0.3.3"
-#spin = "0.5.2"
+
 
 [package.metadata.cargo-xbuild]
 sysroot_path = "../xbuild_sysroot"

@@ -32,6 +32,21 @@ pub mod asm {
     }
     #[inline(always)]
     ///Set Stack Pointer of Kernel Mode
+    pub fn copy_el1_to_el0_stack_pointer() {
+         unsafe {
+            asm!("mov x0, sp
+                  msr sp_el0, x0" : : : "x0": "volatile");
+        }
+    }
+    #[inline(always)]
+    ///Set Saved Program Status Register
+    pub fn set_el0_saved_program_status_register(spsr: u64) {
+        unsafe {
+            asm!("msr spsr_el0, $0" : : "r"(spsr) : : "volatile");
+        }
+    }
+    #[inline(always)]
+    ///Set Stack Pointer of Kernel Mode
     pub fn set_el1_stack_pointer(sp: u64) {
         unsafe {
             asm!("msr sp_el1, $0" :  : "r"(sp) : : "volatile");
@@ -87,6 +102,19 @@ pub mod asm {
             asm!("msr elr_el3, $0" :  : "r"(spsr) : : "volatile");
         }
     }
+    /// enable usage of physical timer in el1
+    #[inline(always)]
+    pub fn initialize_timers_el1(){
+          let _value : u64;
+          unsafe {
+              asm!("
+            mrs	$0, cnthctl_el2
+            orr	$0, $0, #0x3
+            msr	cnthctl_el2, $0
+            msr	cntvoff_el2, xzr"
+            : "=r"(_value): : : "volatile");
+        }
+     }
 }
 #[inline(always)]
 ///Enters into unending loop of wfe instructions

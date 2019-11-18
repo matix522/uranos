@@ -3,7 +3,7 @@
 #![feature(asm)]
 #![feature(global_asm)]
 #![feature(alloc_error_handler)]
-
+#![feature(never_type)]
 // extern crate spin;
 extern crate alloc;
 
@@ -13,9 +13,15 @@ pub mod interupt;
 pub mod io;
 pub mod mbox;
 pub mod memory;
+pub mod userspace;
+/// Task scheduler
+pub mod scheduler;
 pub mod sync;
 pub mod time;
 pub mod uart;
+
+pub mod devices;
+
 use aarch64::*;
 
 #[cfg(not(feature = "raspi4"))]
@@ -78,19 +84,53 @@ fn kernel_entry() -> ! {
 
     println!("Kernel Initialization complete.");
 
-    let mut vector = Vec::new();
-    for i in 0..20 {
-        vector.push(i);
+    println!("Proceeding init task initialization");
+    let init_task = scheduler::TaskContext::new(scheduler::init::init, 1, true);
+    println!("Init task created");
+    // println!("{:?}",init_task);
+    init_task.start_task().unwrap();
+    println!("Init task created and started");
+    let another_task = scheduler::TaskContext::new(scheduler::init::test_task, 2, false);
+
+    another_task.start_task().unwrap();
+    println!("Another_task created");
+    let another_task2 = scheduler::TaskContext::new(scheduler::init::test_task2, 1, false);
+
+    another_task2.start_task().unwrap();
+    println!("Another_task2 created");
+
+    let another_task3 = scheduler::TaskContext::new(scheduler::init::test_task2, 1, false);
+
+    another_task3.start_task().unwrap();
+    //use interupt::Inter
+    if cfg!(feature = "raspi4") {
+        use interupt::InteruptController;
+        let mut gicv2 = interupt::gicv2::GICv2 {};
+        gicv2.init().unwrap();
     }
-    for i in &vector {
-        print!("{} ", i);
-    }
-    println!("");
-    core::mem::drop(vector);
-    // echo everything back
-    loop {
-        uart.send(uart.getc());
-    }
+
+    use interupt::timer::ArmQemuTimer as Timer;
+    println!("freq: {}", Timer::get_frequency());
+
+    interupt::enable_irqs();
+    Timer::interupt_after(Timer::get_frequency());
+    Timer::enable();
+    println!("Timer enabled");
+    // loop {
+    //     uart.send(uart.getc());
+    // }
+    println!("time: {}", Timer::get_time());
+    // let x = unsafe {
+    //     userspace::syscall::syscall0(0)
+    // };
+
+    // println!("{}", x);
+
+    match scheduler::start_scheduling(scheduler::init::init) {
+        Ok(_) => loop{}, 
+        Err(_) => halt()
+    };
+
 }
 
 boot::entry!(kernel_entry);

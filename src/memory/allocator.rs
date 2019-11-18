@@ -16,6 +16,7 @@ impl Block {
 
 pub struct MainAllocator {
     heap_size: usize,
+    #[allow(unused)]
     first_block: Block,
 }
 impl MainAllocator {
@@ -111,9 +112,9 @@ unsafe impl GlobalAlloc for MainAllocator {
 
         return null_mut();
     }
-    unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
+    unsafe fn dealloc(&self, ptr: *mut u8, _layout: Layout) {
         let block = ptr.offset(-(size_of::<Block>() as isize)) as *mut Block;
-        //crate::println!("free {:?}: {:x}", layout, block as u64);
+        // crate::println!("free {:?}: {:x}", layout, block as u64);
 
         let mut previous = self.block_list();
         let mut current = (*previous).next;
@@ -126,7 +127,7 @@ unsafe impl GlobalAlloc for MainAllocator {
             (*previous).next = (*current).next;
         }
 
-        //crate::println!("freed");
+        // crate::println!("freed");
     }
 }
 

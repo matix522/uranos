@@ -64,10 +64,14 @@ impl ExceptionLevel {
     /// Function must only be called during system startup in either EL2 or EL3 
     pub unsafe fn drop_to_el1(el1_entry : unsafe fn () -> !) -> ! {
         const STACK_START: u64 = 0x80_000;
+
+        asm::initialize_timers_el1();
+
         match ExceptionLevel::get_current() {
             Self::User => halt(),
             Self::Kernel => halt(),
             Self::Hypervisor => {
+                
                 asm::set_el1_stack_pointer(STACK_START);
                 asm::set_el1_system_control_register(SCTLR_VALUE_MMU_DISABLED);
                 asm::set_el2_configuration_register(HCR_VALUE);
