@@ -48,7 +48,7 @@ DOCKER_EXEC_QEMU     = qemu-system-aarch64 -M raspi3 -kernel kernel8-raspi3.img
 
 .PHONY: all qemu clippy clean objdump nm
 
-all: clean kernel8-raspi4.img kernel8-raspi3.img
+all: kernel8-raspi4.img kernel8-raspi3.img
 
 
 #### RASPBERRY PI3 ####
