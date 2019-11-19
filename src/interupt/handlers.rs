@@ -5,23 +5,22 @@ pub use num_traits::FromPrimitive;
 use crate::println;
 use crate::print;
 use crate::scheduler;
-use timer::ArmQemuTimer as Timer;
 use core::sync::atomic::AtomicBool;
 use core::slice;
 use core::str::*;
+use timer::ArmQemuTimer as Timer;
 
 #[no_mangle]
-pub unsafe extern "C" fn default_interupt_handler(context: &mut ExceptionContext, id : usize) {
+pub unsafe extern "C" fn default_interupt_handler(context: &mut ExceptionContext, id: usize) {
     println!("Interupt Happened of ID-{}:  {:?}", id, *context);
     gpio::blink();
 }
 
-
-static mut is_scheduling :AtomicBool = AtomicBool::new(false);
+static mut is_scheduling: AtomicBool = AtomicBool::new(false);
 
 #[no_mangle]
 pub extern "C" fn end_scheduling() {
-    unsafe{
+    unsafe {
         is_scheduling.store(false, core::sync::atomic::Ordering::Relaxed);
     }
 }
@@ -42,7 +41,9 @@ pub unsafe extern "C" fn current_elx_irq(_context: &mut ExceptionContext) {
     Timer::interupt_after(Timer::get_frequency());
     Timer::enable();
     super::enable_irqs();
-    if(is_scheduling.load(core::sync::atomic::Ordering::Relaxed)) {return;}
+    if (is_scheduling.load(core::sync::atomic::Ordering::Relaxed)) {
+        return;
+    }
     is_scheduling.store(true, core::sync::atomic::Ordering::Relaxed);
     scheduler::schedule();
     is_scheduling.store(false, core::sync::atomic::Ordering::Relaxed);

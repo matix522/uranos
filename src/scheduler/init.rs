@@ -1,8 +1,5 @@
 use crate::println;
-pub static mut counter2 : u64 = 0;
-use crate::userspace::syscall::*;
-use crate::userspace::Syscalls;
-
+pub static mut counter2: u64 = 0;
 #[no_mangle]
 pub extern "C" fn init() {
     loop {
@@ -13,11 +10,12 @@ pub extern "C" fn init() {
         //     }
         // }
         loop {
-            
-            unsafe { for _i in 1..100_000 {
-                asm! {"nop" :::: "volatile"};
+            unsafe {
+                for _i in 1..100_000 {
+                    asm! {"nop" :::: "volatile"};
+                }
+                counter2 += 1;
             }
-            counter2 += 1; }
         }
     }
 }
@@ -35,15 +33,15 @@ pub extern "C" fn test_task() {
             }
         }
         let msg = "Writing by syscall now\n";
-        write(msg);
+        crate::userspace::syscall::write(msg);
     }
 }
 
 #[no_mangle]
 pub extern "C" fn test_task2() {
     loop {
-        println!("Hello from test task number two! {}", unsafe { counter2 } );
-        for _i in 1..1_000 {
+        println!("Hello from test task number two! {}", unsafe { counter2 });
+        for i in 1..1_000_000 {
             unsafe {
                 asm! {"nop" :::: "volatile"}
             }

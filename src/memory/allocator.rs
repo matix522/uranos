@@ -1,4 +1,5 @@
 use core::alloc::{GlobalAlloc, Layout};
+use core::cell::UnsafeCell;
 use core::mem::size_of;
 use core::ptr::null_mut;
 pub struct Block {

@@ -9,17 +9,18 @@ extern crate alloc;
 #[macro_use]
 extern crate num_derive;
 
+pub mod framebuffer;
 pub mod gpio;
 pub mod interupt;
 pub mod io;
 pub mod mbox;
 pub mod memory;
-pub mod userspace;
 /// Task scheduler
 pub mod scheduler;
 pub mod sync;
 pub mod time;
 pub mod uart;
+pub mod userspace;
 
 pub mod devices;
 
@@ -30,10 +31,12 @@ const MMIO_BASE: u32 = 0x3F00_0000;
 #[cfg(feature = "raspi4")]
 const MMIO_BASE: u32 = 0xFE00_0000;
 
+use alloc::vec::Vec;
+
 extern "C" {
     pub fn _boot_cores() -> !;
     pub static __exception_vectors_start: u64;
-    static mut __binary_end: u64;
+    pub static __binary_end: u64;
 }
 
 fn kernel_entry() -> ! {
@@ -44,6 +47,31 @@ fn kernel_entry() -> ! {
         Ok(_) => println!("\x1B[2J\x1B[2;1H[ Ok ] UART is live!"),
         Err(_) => halt(), // If UART fails, abort early
     }
+
+    let mut framebuffer = match framebuffer::FrameBuffer::new(&mut mbox) {
+        Ok(framebuffer) => {
+            println!("HDMI OK");
+            framebuffer
+        }
+        Err(_) => {
+            println!("HDMI FAILED");
+            halt();
+        }
+    };
+
+    use framebuffer::charbuffer::CharBuffer;
+    let mut charbuffer = CharBuffer::new(&mut framebuffer);
+    // charbuffer.
+    for i in 0..1000 {
+        if i % 11 == 0 {charbuffer.puts("Witaj, Swiecie: modulo 11!\n"); }
+        else {charbuffer.puts("Witaj, Swiecie!\n");}
+         unsafe {
+                for _i in 1..10_000 {
+                    asm! {"nop" :::: "volatile"};
+                }
+            }
+    }
+
 
     println!(
         "Exception Level: {:?}",
@@ -121,10 +149,9 @@ fn kernel_entry() -> ! {
     // println!("{}", x);
 
     match scheduler::start_scheduling(scheduler::init::init) {
-        Ok(_) => loop{}, 
-        Err(_) => halt()
+        Ok(_) => loop {},
+        Err(_) => halt(),
     };
-
 }
 
 boot::entry!(kernel_entry);
