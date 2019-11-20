@@ -25,7 +25,7 @@ cpu_switch_to:
 // 
 .globl cpu_switch_to_first
 cpu_switch_to_first:
-    mov    x8, x1
+    mov    x8, x0
     ldp    x19, x20, [x8], #16        // restore callee-saved registers
     ldp    x21, x22, [x8], #16
     ldp    x23, x24, [x8], #16

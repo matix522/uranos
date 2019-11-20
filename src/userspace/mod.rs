@@ -19,9 +19,7 @@ impl fmt::Write for SyscallWrite {
 }
 pub fn _uprint(args: fmt::Arguments) {
     use core::fmt::Write;
-    unsafe {
-        SyscallWrite.write_fmt(args).unwrap();
-    }
+    SyscallWrite.write_fmt(args).unwrap();
 }
 #[macro_export]
 macro_rules! uprint {

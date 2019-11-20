@@ -129,12 +129,12 @@ impl TaskContext {
 
     /// Adds task to task vector and set state to running
     pub fn start_task(self) -> Result<(), TaskError> {
-        super::SCHEDULER.lock().add_task(self)
+        super::SCHEDULER.lock().submit_task(self)
     }
 }
 
 extern "C" fn switch_to_user_space(start_function: u64, stack_pointer: u64) -> ! {
-    let mut context = ExceptionContext {
+    let context = ExceptionContext {
         gpr: crate::interupt::GPR { x: [0; 31] },
         spsr_el1: 0,
         elr_el1: start_function,

@@ -12,7 +12,7 @@ extern "C" {
     /// Change CPU context from prev task to next task
     fn cpu_switch_to(prev_task_addr: u64, next_task_addr: u64) -> ();
     /// Change CPU context to init task (dummy lands in unused x0 for sake of simplicity)
-    fn cpu_switch_to_first(dummy: u64, init_task_addr: u64) -> !;
+    fn cpu_switch_to_first(init_task_addr: u64) -> !;
 
 }
 
@@ -94,7 +94,7 @@ impl Scheduler {
         let init_task_addr = init_task as *mut TaskContext as u64;
 
         unsafe {
-            cpu_switch_to_first(0, init_task_addr);
+            cpu_switch_to_first(init_task_addr);
         }
     }
     /// Function that changes current tasks and stores context of previous one in his TaskContext structure
