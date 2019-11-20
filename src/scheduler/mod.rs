@@ -44,7 +44,6 @@ pub struct Scheduler {
 }
 
 impl Scheduler {
-
     // Creates Scheduler
     const fn new() -> Self {
         Self {
@@ -72,7 +71,6 @@ impl Scheduler {
                     // in other states ignore this task
                     _ => {}
                 }
-
             }
             for task in tasks.iter_mut() {
                 task.counter = task.priority;
@@ -102,7 +100,6 @@ impl Scheduler {
     /// Function that changes current tasks and stores context of previous one in his TaskContext structure
     fn change_task(&mut self, next_task: usize) -> Result<(), TaskError> {
         let tasks = &mut self.tasks;
-
 
         if next_task >= tasks.len() {
             return Err(TaskError::InvalidTaskReference);

@@ -101,7 +101,6 @@ fn kernel_entry() -> ! {
 
     println!("Proceeding init task initialization");
 
-
     let init_task = scheduler::TaskContext::new(init::init, 1, true);
     println!("Init task created");
     // println!("{:?}",init_task);
