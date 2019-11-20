@@ -3,20 +3,14 @@ pub static mut counter2: u64 = 0;
 #[no_mangle]
 pub extern "C" fn init() {
     loop {
-        // println!("Hello from init task! ");
-        // for _i in 1..1_000 {
-        //     unsafe {
-        //         asm! {"nop" :::: "volatile"}
-        //     }
-        // }
-        loop {
-            unsafe {
-                for _i in 1..100_000 {
-                    asm! {"nop" :::: "volatile"};
-                }
-                counter2 += 1;
+        unsafe {
+            for _i in 1..100_000 {
+                asm! {"nop" :::: "volatile"};
             }
+            counter2 += 1;
         }
+        // let msg = "Hello from init task!";
+        // write(msg);
     }
 }
 
@@ -24,7 +18,6 @@ pub extern "C" fn init() {
 pub extern "C" fn test_task() {
     let mut counter: u32 = 0;
     loop {
-        //   println!("Hello from test task! {}", counter);
         counter += 1;
         if counter > 10 {
             counter = 0;
@@ -34,6 +27,7 @@ pub extern "C" fn test_task() {
                 asm! {"nop" :::: "volatile"}
             }
         }
+        unsafe {asm!{"brk #0" :::: "volatile"}}
         let msg = "Writing by syscall now\n";
         crate::uprintln!("Writing by syscall now counter {}", counter);
     }

@@ -7,7 +7,9 @@ use core::fmt;
 #[derive(FromPrimitive, ToPrimitive)]
 pub enum Syscalls {
     Print,
+    NewTask,
 }
+
 
 struct SyscallWrite;
 impl fmt::Write for SyscallWrite {

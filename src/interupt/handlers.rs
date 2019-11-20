@@ -63,6 +63,7 @@ pub unsafe extern "C" fn lower_aarch64_synchronous(context: &mut ExceptionContex
 
         match syscall_type {
             Syscalls::Print => handle_print_syscall(context),
+            Syscalls::NewTask => handle_new_task_syscall(context),
         }
     }
 }
@@ -87,3 +88,17 @@ fn handle_print_syscall(context: &mut ExceptionContext) {
     charbuffer.as_mut().unwrap().puts(string);
     //print!("{}", string);
 }
+
+
+fn handle_new_task_syscall(context : &mut ExceptionContext){
+
+    let start_function = unsafe { *(context.gpr.x[0] as *const () as *const extern "C" fn()) };
+    let priority_difference = context.gpr.x[1] as u32;
+
+    let curr_priority = scheduler::get_current_task_priority();
+    let new_priority = if curr_priority > priority_difference {curr_priority - priority_difference} else {1};
+
+    let task = scheduler::TaskContext::new(start_function, new_priority, true);
+    task.start_task().unwrap();
+}
+>>>>>>> syscalls

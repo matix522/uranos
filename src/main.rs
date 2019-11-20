@@ -12,6 +12,7 @@ extern crate num_derive;
 
 pub mod framebuffer;
 pub mod gpio;
+
 pub mod interupt;
 pub mod io;
 pub mod mbox;
@@ -25,6 +26,7 @@ pub mod userspace;
 
 pub mod utils;
 
+use interupt::timer::ArmQemuTimer as Timer;
 pub mod devices;
 
 use aarch64::*;
@@ -109,13 +111,22 @@ fn kernel_entry() -> ! {
 
     println!("Kernel Initialization complete.");
 
+    // let time = Timer::get_time() + 10 * (Timer::get_frequency() as u64);
+    // while Timer::get_time() < time {
+        // unsafe { { asm!{"nop" :::: "volatile"}} }
+    // }
+
+    for _i in 1..100000000 {
+        unsafe { { asm!{"nop" :::: "volatile"}} }
+    }
+
     println!("Proceeding init task initialization");
-    let init_task = scheduler::TaskContext::new(scheduler::init::init, 1, true);
+    let init_task = scheduler::TaskContext::new(scheduler::init::test_task, 1, true);
     println!("Init task created");
     // println!("{:?}",init_task);
     init_task.start_task().unwrap();
     println!("Init task created and started");
-    let another_task = scheduler::TaskContext::new(scheduler::init::test_task, 2, true);
+    let another_task = scheduler::TaskContext::new(scheduler::init::init, 2, true);
 
     another_task.start_task().unwrap();
     println!("Another_task created");
@@ -127,14 +138,13 @@ fn kernel_entry() -> ! {
     let another_task3 = scheduler::TaskContext::new(scheduler::init::test_task2, 1, false);
 
     another_task3.start_task().unwrap();
-    //use interupt::Inter
+    // use interupt::Inter
     if cfg!(feature = "raspi4") {
         use interupt::InteruptController;
         let mut gicv2 = interupt::gicv2::GICv2 {};
         gicv2.init().unwrap();
     }
 
-    use interupt::timer::ArmQemuTimer as Timer;
     println!("freq: {}", Timer::get_frequency());
 
     interupt::enable_irqs();
