@@ -1,8 +1,7 @@
 use super::Syscalls;
 
-
 #[inline(always)]
-pub unsafe fn syscall0(mut a: usize) -> usize{
+pub unsafe fn syscall0(mut a: usize) -> usize {
     asm!("svc   0"
           : "={x0}"(a)
           : "{x8}"(a)
@@ -20,7 +19,7 @@ pub unsafe fn syscall1(mut a: usize, b: usize) -> usize {
 
     return a;
 }
-
+#[inline(never)]
 pub unsafe fn syscall2(mut a: usize, b: usize, c: usize) -> usize {
     asm!("svc   0"
           : "={x0}"(a)
@@ -61,8 +60,17 @@ pub unsafe fn syscall5(mut a: usize, b: usize, c: usize, d: usize, e: usize, f: 
     return a;
 }
 
-pub fn write(msg: &str){
-    unsafe { syscall2(Syscalls::Print as usize, msg.as_ptr() as usize, msg.len()); }
+pub fn write(msg: &str) {
+    let bytes = msg.as_bytes();
+    // crate::println!("{}",msg);
+
+    unsafe {
+        syscall2(
+            Syscalls::Print as usize,
+            bytes.as_ptr() as usize,
+            bytes.len(),
+        );
+    }
 }
 /*  TODO
 pub fn writeln(msg: &str){

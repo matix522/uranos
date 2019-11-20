@@ -24,16 +24,18 @@ pub extern "C" fn init() {
 pub extern "C" fn test_task() {
     let mut counter: u32 = 0;
     loop {
-     //   println!("Hello from test task! {}", counter);
-        counter +=1;
-        if counter > 10 { counter = 0; }
+        //   println!("Hello from test task! {}", counter);
+        counter += 1;
+        if counter > 10 {
+            counter = 0;
+        }
         for _i in 1..1_000 {
             unsafe {
                 asm! {"nop" :::: "volatile"}
             }
         }
         let msg = "Writing by syscall now\n";
-        crate::userspace::syscall::write(msg);
+        crate::uprintln!("Writing by syscall now counter {}", counter);
     }
 }
 

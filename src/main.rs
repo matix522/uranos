@@ -4,6 +4,7 @@
 #![feature(global_asm)]
 #![feature(alloc_error_handler)]
 #![feature(never_type)]
+#![feature(inner_deref)]
 // extern crate spin;
 extern crate alloc;
 #[macro_use]
@@ -21,6 +22,8 @@ pub mod sync;
 pub mod time;
 pub mod uart;
 pub mod userspace;
+
+pub mod utils;
 
 pub mod devices;
 
@@ -60,18 +63,18 @@ fn kernel_entry() -> ! {
     };
 
     use framebuffer::charbuffer::CharBuffer;
-    let mut charbuffer = CharBuffer::new(&mut framebuffer);
+    let mut framebuffer = framebuffer.as_mut().unwrap();
+    let mut charbuffer = CharBuffer::new(framebuffer);
     // charbuffer.
-    for i in 0..1000 {
-        if i % 11 == 0 {charbuffer.puts("Witaj, Swiecie: modulo 11!\n"); }
-        else {charbuffer.puts("Witaj, Swiecie!\n");}
-         unsafe {
-                for _i in 1..10_000 {
-                    asm! {"nop" :::: "volatile"};
-                }
-            }
-    }
-
+    // for i in 0..1000 {
+    //     if i % 11 == 0 {charbuffer.puts("Witaj, Swiecie: modulo 11!\n"); }
+    //     else {charbuffer.puts("Witaj, Swiecie!\n");}
+    //      unsafe {
+    //             for _i in 1..10_000 {
+    //                 asm! {"nop" :::: "volatile"};
+    //             }
+    //         }
+    // }
 
     println!(
         "Exception Level: {:?}",

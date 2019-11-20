@@ -20,7 +20,7 @@ pub enum FrameBufferError {
     ZeroSizedBuffer,
     UnsupportedDepth,
 }
-type FrameBufferResult = Result<FrameBuffer, FrameBufferError>;
+type FrameBufferResult = Result<&'static mut Option<FrameBuffer>, FrameBufferError>;
 
 impl FrameBuffer {
     // pub const fn new() -> Self {
@@ -116,32 +116,16 @@ impl FrameBuffer {
                 let buffer = unsafe {
                     slice_form_raw(buffer_address as usize as *mut u8, buffer_size as usize)
                 };
-                let pitch = mbox.buffer[33] as usize;
+                let pitch = mbox.buffer[33];
 
-                buffer[0] = 255;
-                buffer[1] = 255;
-                buffer[2] = 255;
-                                // crate::println!("Test");
-
-                // for y in 0..height as usize {
-                //     for x in 0..(pitch) as usize {
-                //         buffer[y * (pitch) + x] = ((y + x) % 256) as u8;  
-                //         crate::println!("{}", x);          
-
-                //     }
-                //      crate::println!("{}", y);
-                // }
-                // crate::println!("DUPA");
-                // unsafe { asm!("xD: nop" : : : : "volatile"); }
-                // crate::println!("XD ");
-                // // let boxed_buffer = unsafe { Box::from_raw(buffer) };
-                // crate::println!("Test");
-                Ok(FrameBuffer {
+                let mut framebuffer = charbuffer::FRAMEBUFFER.lock();
+                framebuffer.replace(FrameBuffer {
                     buffer: buffer,
                     height: height as usize,
                     width: width as usize,
-                    pitch: mbox.buffer[33] as usize,
-                })
+                    pitch: pitch as usize,
+                });
+                Ok(charbuffer::FRAMEBUFFER.as_ref())
             }
             _ => Err(FrameBufferError::MailboxError),
         }
@@ -150,11 +134,11 @@ impl FrameBuffer {
         let pitch = self.pitch;
         let mut buffer = &mut self.buffer;
         // crate::println!("({},{}) = ({},{},{},{})", x ,y ,r ,g, b, a );
-        unsafe {asm!("WRITE0: nop" : : : : "volatile")};
+        unsafe { asm!("WRITE0: nop" : : : : "volatile") };
         buffer[y * (pitch) + x * 4] = a;
         buffer[y * (pitch) + x * 4 + 1] = b;
         buffer[y * (pitch) + x * 4 + 2] = g;
         buffer[y * (pitch) + x * 4 + 3] = r;
-        unsafe {asm!("WRITE: nop" : : : : "volatile")};
+        unsafe { asm!("WRITE: nop" : : : : "volatile") };
     }
 }

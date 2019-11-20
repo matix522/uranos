@@ -1,13 +1,13 @@
 use super::*;
 use crate::interupt::ExceptionContext;
-use crate::userspace::Syscalls;
-pub use num_traits::FromPrimitive;
-use crate::println;
 use crate::print;
+use crate::println;
 use crate::scheduler;
-use core::sync::atomic::AtomicBool;
+use crate::userspace::Syscalls;
 use core::slice;
 use core::str::*;
+use core::sync::atomic::AtomicBool;
+pub use num_traits::FromPrimitive;
 use timer::ArmQemuTimer as Timer;
 
 #[no_mangle]
@@ -50,13 +50,13 @@ pub unsafe extern "C" fn current_elx_irq(_context: &mut ExceptionContext) {
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn lower_aarch64_synchronous(context: &mut ExceptionContext){
+pub unsafe extern "C" fn lower_aarch64_synchronous(context: &mut ExceptionContext) {
     if context.esr_el1 == 1442840576 {
         // println!("Syscall happened {:?} ", *context);
-        let syscall_type : Option<Syscalls> = Syscalls::from_u64(context.gpr.x[8]);
+        let syscall_type: Option<Syscalls> = Syscalls::from_u64(context.gpr.x[8]);
         // match syscall_type
         if syscall_type.is_none() {
-            println!("WRONG SYSCALL {:?}", *context);
+            println!("[Task Fault] Unsupported Syscall number '{}' detected ", context.gpr.x[8]);
             return;
         }
         let syscall_type = syscall_type.unwrap();
@@ -67,23 +67,23 @@ pub unsafe extern "C" fn lower_aarch64_synchronous(context: &mut ExceptionContex
     }
 }
 
-fn handle_print_syscall(context: &mut ExceptionContext){
+fn handle_print_syscall(context: &mut ExceptionContext) {
+    // println!("{:?}", context);
     let ptr = context.gpr.x[0] as *const u8;
     let len = context.gpr.x[1] as usize;
-
+    // println!("{:x} len: {}", ptr as u64 ,len);
     let data = unsafe { slice::from_raw_parts(ptr, len) };
 
     let string = from_utf8(data);
+    let string2 = unsafe { from_utf8_unchecked(data) };
 
-    if string.is_err(){
-        println!("Print SYSCALL ERROR: NOT CORRECT UTF8 STRING PASSED");
+    if string.is_err() {
+        // println!("Print SYSCALL ERROR: {}, {}", string.err().unwrap(), string2);
         return;
     }
     let string = string.unwrap();
 
-    print!("{}", string);
-
-
-
-
+    let mut charbuffer = crate::framebuffer::charbuffer::CHARBUFFER.lock();
+    charbuffer.as_mut().unwrap().puts(string);
+    //print!("{}", string);
 }
