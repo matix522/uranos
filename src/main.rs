@@ -26,6 +26,8 @@ pub mod userspace;
 
 pub mod utils;
 
+mod init;
+
 use interupt::timer::ArmQemuTimer as Timer;
 pub mod devices;
 
@@ -99,17 +101,18 @@ fn kernel_entry() -> ! {
 
     println!("Proceeding init task initialization");
 
-    let init_task = scheduler::TaskContext::new(scheduler::init::init, 1, true);
+
+    let init_task = scheduler::TaskContext::new(init::init, 1, true);
     println!("Init task created");
     // println!("{:?}",init_task);
     init_task.start_task().unwrap();
 
     println!("Init task created and started");
-    let another_task = scheduler::TaskContext::new(scheduler::init::test_task, 1, true);
+    let another_task = scheduler::TaskContext::new(init::test_task, 1, true);
 
     another_task.start_task().unwrap();
     println!("Another_task created");
-    let another_task2 = scheduler::TaskContext::new(scheduler::init::test_task2, 1, false);
+    let another_task2 = scheduler::TaskContext::new(init::test_task2, 1, false);
 
     another_task2.start_task().unwrap();
     println!("Another_task2 created");
