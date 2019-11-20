@@ -4,11 +4,12 @@ pub static mut counter2: u64 = 0;
 pub extern "C" fn init() {
     loop {
         unsafe {
-            for _i in 1..100_000 {
+            for _i in 1..1_000_000 {
                 asm! {"nop" :::: "volatile"};
             }
             counter2 += 1;
         }
+        crate::uprintln!("HEheheheeehh {}", 8);
         // let msg = "Hello from init task!";
         // write(msg);
     }
@@ -22,13 +23,12 @@ pub extern "C" fn test_task() {
         if counter > 10 {
             counter = 0;
         }
-        for _i in 1..1_000 {
+        for _i in 1..1_000_000 {
             unsafe {
                 asm! {"nop" :::: "volatile"}
             }
         }
-        unsafe {asm!{"brk #0" :::: "volatile"}}
-        let msg = "Writing by syscall now\n";
+
         crate::uprintln!("Writing by syscall now counter {}", counter);
     }
 }

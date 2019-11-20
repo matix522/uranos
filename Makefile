@@ -25,11 +25,8 @@
 TARGET_RASPI3 = aarch64-unknown-none-raspi3
 TARGET_RASPI4 = aarch64-unknown-none-raspi4
 
-<<<<<<< HEAD
-SOURCES = $(wildcard ***/*.rs) $(wildcard ***/*.S) link.ld
-=======
+
 SOURCES = $(shell find src/ -type f -regex ".*\.rs") $(shell find src/ -maxdepth 1 -type f -regex ".*\.S") link.ld
->>>>>>> syscalls
 
 
 XRUSTC_CMD_RASPI3   = cargo xbuild --target=.cargo/$(TARGET_RASPI3).json --release --features="raspi3"
@@ -91,10 +88,10 @@ qemu_debug: all
 		$(DOCKER_EXEC_QEMU) -serial stdio -s 
 
 clippy:
-	cargo xclippy --target=$(TARGET)
+	cargo xclippy --target=.cargo/$(TARGET_RASPI4).json
 
 clean:
 	cargo clean
 
 nm:
-	cargo nm --target $(TARGET) -- kernel8 | sort
+	cargo nm --target $(TARGET_RASPI4s) -- kernel8 | sort

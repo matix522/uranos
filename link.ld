@@ -59,7 +59,7 @@ SECTIONS
     {
         *(.vectors)
     }
-    .heap ALIGN(8):
+    .heap ALIGN(4096):
     {
         *(.heap .heap.*)
     }

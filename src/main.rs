@@ -53,30 +53,20 @@ fn kernel_entry() -> ! {
         Err(_) => halt(), // If UART fails, abort early
     }
 
-    let mut framebuffer = match framebuffer::FrameBuffer::new(&mut mbox) {
-        Ok(framebuffer) => {
-            println!("HDMI OK");
-            framebuffer
-        }
-        Err(_) => {
-            println!("HDMI FAILED");
-            halt();
-        }
-    };
+    // let mut framebuffer = match framebuffer::FrameBuffer::new(&mut mbox) {
+    //     Ok(framebuffer) => {
+    //         println!("HDMI OK");
+    //         framebuffer
+    //     }
+    //     Err(_) => {
+    //         println!("HDMI FAILED");
+    //         halt();
+    //     }
+    // };
 
-    use framebuffer::charbuffer::CharBuffer;
-    let mut framebuffer = framebuffer.as_mut().unwrap();
-    let mut charbuffer = CharBuffer::new(framebuffer);
-    // charbuffer.
-    // for i in 0..1000 {
-    //     if i % 11 == 0 {charbuffer.puts("Witaj, Swiecie: modulo 11!\n"); }
-    //     else {charbuffer.puts("Witaj, Swiecie!\n");}
-    //      unsafe {
-    //             for _i in 1..10_000 {
-    //                 asm! {"nop" :::: "volatile"};
-    //             }
-    //         }
-    // }
+    // use framebuffer::charbuffer::CharBuffer;
+    // let mut framebuffer = framebuffer.as_mut().unwrap();
+    // let mut charbuffer = CharBuffer::new(framebuffer);
 
     println!(
         "Exception Level: {:?}",
@@ -104,29 +94,18 @@ fn kernel_entry() -> ! {
         println!("{:x}", exception_vectors_start);
         interupt::set_vector_table_pointer(exception_vectors_start);
     }
-    // use interupt::timer::ArmQemuTimer as Timer;
-    // interupt::daif_clr(2);
-    // Timer::interupt_after(Timer::get_frequency());
-    // Timer::enable();
 
     println!("Kernel Initialization complete.");
 
-    // let time = Timer::get_time() + 10 * (Timer::get_frequency() as u64);
-    // while Timer::get_time() < time {
-        // unsafe { { asm!{"nop" :::: "volatile"}} }
-    // }
-
-    for _i in 1..100000000 {
-        unsafe { { asm!{"nop" :::: "volatile"}} }
-    }
-
     println!("Proceeding init task initialization");
-    let init_task = scheduler::TaskContext::new(scheduler::init::test_task, 1, true);
+
+    let init_task = scheduler::TaskContext::new(scheduler::init::init, 1, true);
     println!("Init task created");
     // println!("{:?}",init_task);
     init_task.start_task().unwrap();
+
     println!("Init task created and started");
-    let another_task = scheduler::TaskContext::new(scheduler::init::init, 2, true);
+    let another_task = scheduler::TaskContext::new(scheduler::init::test_task, 1, true);
 
     another_task.start_task().unwrap();
     println!("Another_task created");
@@ -135,10 +114,6 @@ fn kernel_entry() -> ! {
     another_task2.start_task().unwrap();
     println!("Another_task2 created");
 
-    let another_task3 = scheduler::TaskContext::new(scheduler::init::test_task2, 1, false);
-
-    another_task3.start_task().unwrap();
-    // use interupt::Inter
     if cfg!(feature = "raspi4") {
         use interupt::InteruptController;
         let mut gicv2 = interupt::gicv2::GICv2 {};
@@ -151,20 +126,11 @@ fn kernel_entry() -> ! {
     Timer::interupt_after(Timer::get_frequency());
     Timer::enable();
     println!("Timer enabled");
-    // loop {
-    //     uart.send(uart.getc());
-    // }
+
     println!("time: {}", Timer::get_time());
-    // let x = unsafe {
-    //     userspace::syscall::syscall0(0)
-    // };
 
-    // println!("{}", x);
-
-    match scheduler::start_scheduling(scheduler::init::init) {
-        Ok(_) => loop {},
-        Err(_) => halt(),
-    };
+    scheduler::start();
+    halt();
 }
 
 boot::entry!(kernel_entry);

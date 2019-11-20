@@ -9,7 +9,10 @@ use core::str::*;
 use core::sync::atomic::AtomicBool;
 pub use num_traits::FromPrimitive;
 use timer::ArmQemuTimer as Timer;
-
+#[derive(FromPrimitive)]
+enum SynchronousCause {
+    SyscallFromEL0 = 0x5600_0000,
+}
 #[no_mangle]
 pub unsafe extern "C" fn default_interupt_handler(context: &mut ExceptionContext, id: usize) {
     println!("Interupt Happened of ID-{}:  {:?}", id, *context);
@@ -27,21 +30,10 @@ pub extern "C" fn end_scheduling() {
 
 #[no_mangle]
 pub unsafe extern "C" fn current_elx_irq(_context: &mut ExceptionContext) {
-    // SECONDS += 1;
-    // let sec;
-    // if SECONDS == 1 {
-    //     sec = "second";
-    // } else {
-    //     sec = "seconds";
-    // }
-    // println!("\x1B[s\x1B[1;1H\x1B[38;5;204mTimer interupt happened \x1B[38;5;39m{} {}\x1B[38;5;204m after startup\x1B[0m\x1B[K", SECONDS, sec);
-    // print!("\x1B[u");
-    //println!("Timer interupt happened {} {} after startup", SECONDS, sec);
-
     Timer::interupt_after(Timer::get_frequency());
     Timer::enable();
     super::enable_irqs();
-    if (is_scheduling.load(core::sync::atomic::Ordering::Relaxed)) {
+    if is_scheduling.load(core::sync::atomic::Ordering::Relaxed) {
         return;
     }
     is_scheduling.store(true, core::sync::atomic::Ordering::Relaxed);
@@ -51,54 +43,66 @@ pub unsafe extern "C" fn current_elx_irq(_context: &mut ExceptionContext) {
 
 #[no_mangle]
 pub unsafe extern "C" fn lower_aarch64_synchronous(context: &mut ExceptionContext) {
-    if context.esr_el1 == 1442840576 {
-        // println!("Syscall happened {:?} ", *context);
-        let syscall_type: Option<Syscalls> = Syscalls::from_u64(context.gpr.x[8]);
-        // match syscall_type
-        if syscall_type.is_none() {
-            println!("[Task Fault] Unsupported Syscall number '{}' detected ", context.gpr.x[8]);
-            return;
-        }
-        let syscall_type = syscall_type.unwrap();
+    match SynchronousCause::from_u64(context.esr_el1) {
+        Some(SyscallFromEL0) => {
+            let syscall_type: Option<Syscalls> = Syscalls::from_u64(context.gpr.x[8]);
 
-        match syscall_type {
-            Syscalls::Print => handle_print_syscall(context),
-            Syscalls::NewTask => handle_new_task_syscall(context),
+            if syscall_type.is_none() {
+                println!(
+                    "[Task Fault] Unsupported Syscall number '{}' detected.",
+                    context.gpr.x[8]
+                );
+                return;
+            }
+            let syscall_type = syscall_type.unwrap();
+
+            match syscall_type {
+                Syscalls::Print => handle_print_syscall(context),
+                Syscalls::NewTask => handle_new_task_syscall(context),
+            }
         }
+        None => unsafe { core::hint::unreachable_unchecked() },
     }
+    if context.esr_el1 == 1442840576 {}
 }
 
 fn handle_print_syscall(context: &mut ExceptionContext) {
-    // println!("{:?}", context);
     let ptr = context.gpr.x[0] as *const u8;
     let len = context.gpr.x[1] as usize;
-    // println!("{:x} len: {}", ptr as u64 ,len);
+
     let data = unsafe { slice::from_raw_parts(ptr, len) };
 
     let string = from_utf8(data);
-    let string2 = unsafe { from_utf8_unchecked(data) };
 
     if string.is_err() {
-        // println!("Print SYSCALL ERROR: {}, {}", string.err().unwrap(), string2);
+        println!(
+            "[Syscall Fault (Write)] String provided doesen't apper to be correct UTF-8 string.
+            \n\t -- Caused by: '{}'",
+            string.err().unwrap()
+        );
         return;
     }
     let string = string.unwrap();
 
     let mut charbuffer = crate::framebuffer::charbuffer::CHARBUFFER.lock();
-    charbuffer.as_mut().unwrap().puts(string);
-    //print!("{}", string);
+    if charbuffer.is_some() {
+        charbuffer.as_mut().unwrap().puts(string);
+    } else {
+        print!("{}", string);
+    }
 }
 
-
-fn handle_new_task_syscall(context : &mut ExceptionContext){
-
+fn handle_new_task_syscall(context: &mut ExceptionContext) {
     let start_function = unsafe { *(context.gpr.x[0] as *const () as *const extern "C" fn()) };
     let priority_difference = context.gpr.x[1] as u32;
 
-    let curr_priority = scheduler::get_current_task_priority();
-    let new_priority = if curr_priority > priority_difference {curr_priority - priority_difference} else {1};
+    let curr_priority = 1; //scheduler::get_current_task_priority();
+    let new_priority = if curr_priority > priority_difference {
+        curr_priority - priority_difference
+    } else {
+        1
+    };
 
     let task = scheduler::TaskContext::new(start_function, new_priority, true);
     task.start_task().unwrap();
 }
->>>>>>> syscalls

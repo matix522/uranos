@@ -10,7 +10,6 @@ pub enum Syscalls {
     NewTask,
 }
 
-
 struct SyscallWrite;
 impl fmt::Write for SyscallWrite {
     fn write_str(&mut self, s: &str) -> Result<(), fmt::Error> {

@@ -1,7 +1,7 @@
 use super::Syscalls;
 
 #[inline(never)]
-pub unsafe fn syscall0(mut a: usize) -> usize{
+pub unsafe fn syscall0(mut a: usize) -> usize {
     asm!("svc   0"
           : "={x0}"(a)
           : "{x8}"(a)
@@ -81,8 +81,13 @@ pub fn write(msg: &str) {
 pub fn writeln(msg: &str){
     write(format!("{}\n", msg));
 }*/
-fn handle_new_task_syscall(start_function: extern "C" fn(), priority_difference: u32){
+fn handle_new_task_syscall(start_function: extern "C" fn(), priority_difference: u32) {
     let function_ptr = start_function as *const () as usize;
-    unsafe { syscall2(Syscalls::NewTask as usize, function_ptr, priority_difference as usize); }
+    unsafe {
+        syscall2(
+            Syscalls::NewTask as usize,
+            function_ptr,
+            priority_difference as usize,
+        );
+    }
 }
-
