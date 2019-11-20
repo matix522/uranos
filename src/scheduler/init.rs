@@ -12,13 +12,15 @@ pub extern "C" fn init() {
         //         asm! {"nop" :::: "volatile"}
         //     }
         // }
-        loop {
-            
-            unsafe { for _i in 1..100_000 {
+        
+        unsafe {
+            for _i in 1..100_000 {
                 asm! {"nop" :::: "volatile"};
             }
-            counter2 += 1; }
+            counter2 += 1;
         }
+        let msg = "Hello from init task!";
+        write(msg);
     }
 }
 
@@ -34,6 +36,7 @@ pub extern "C" fn test_task() {
                 asm! {"nop" :::: "volatile"}
             }
         }
+        unsafe {asm!{"brk #0" :::: "volatile"}}
         let msg = "Writing by syscall now\n";
         write(msg);
     }

@@ -254,6 +254,15 @@ pub fn start_scheduling(init_fun : extern "C" fn()) -> Result<!,TaskError>{
 
 static mut PREVIOUS_TASK_PID: usize = 0;
 
+pub fn get_current_task_PID() -> usize{
+    unsafe{PREVIOUS_TASK_PID}
+}
+
+pub fn get_current_task_priority() -> u32{
+    let tasks = TASKS.lock();
+    unsafe{tasks[PREVIOUS_TASK_PID].priority}
+}
+
 /// Function that changes current tasks and stores context of previous one in his TaskContext structure
 pub unsafe fn change_task(next: usize) -> Result<(), TaskError> {
     let tasks = TASKS.lock();

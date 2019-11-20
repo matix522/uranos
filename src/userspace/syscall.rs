@@ -1,7 +1,7 @@
 use super::Syscalls;
 
 
-#[inline(always)]
+#[inline(never)]
 pub unsafe fn syscall0(mut a: usize) -> usize{
     asm!("svc   0"
           : "={x0}"(a)
@@ -11,6 +11,7 @@ pub unsafe fn syscall0(mut a: usize) -> usize{
     return a;
 }
 
+#[inline(never)]
 pub unsafe fn syscall1(mut a: usize, b: usize) -> usize {
     asm!("svc   0"
           : "={x0}"(a)
@@ -21,6 +22,7 @@ pub unsafe fn syscall1(mut a: usize, b: usize) -> usize {
     return a;
 }
 
+#[inline(never)]
 pub unsafe fn syscall2(mut a: usize, b: usize, c: usize) -> usize {
     asm!("svc   0"
           : "={x0}"(a)
@@ -31,6 +33,7 @@ pub unsafe fn syscall2(mut a: usize, b: usize, c: usize) -> usize {
     return a;
 }
 
+#[inline(never)]
 pub unsafe fn syscall3(mut a: usize, b: usize, c: usize, d: usize) -> usize {
     asm!("svc   0"
           : "={x0}"(a)
@@ -41,6 +44,7 @@ pub unsafe fn syscall3(mut a: usize, b: usize, c: usize, d: usize) -> usize {
     return a;
 }
 
+#[inline(never)]
 pub unsafe fn syscall4(mut a: usize, b: usize, c: usize, d: usize, e: usize) -> usize {
     asm!("svc   0"
           : "={x0}"(a)
@@ -51,6 +55,7 @@ pub unsafe fn syscall4(mut a: usize, b: usize, c: usize, d: usize, e: usize) -> 
     return a;
 }
 
+#[inline(never)]
 pub unsafe fn syscall5(mut a: usize, b: usize, c: usize, d: usize, e: usize, f: usize) -> usize {
     asm!("svc   0"
           : "={x0}"(a)
@@ -68,3 +73,8 @@ pub fn write(msg: &str){
 pub fn writeln(msg: &str){
     write(format!("{}\n", msg));
 }*/
+
+fn handle_new_task_syscall(start_function: extern "C" fn(), priority_difference: u32){
+    let function_ptr = start_function as *const () as usize;
+    unsafe { syscall2(Syscalls::NewTask as usize, function_ptr, priority_difference as usize); }
+}
