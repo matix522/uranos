@@ -16,7 +16,14 @@ enum SynchronousCause {
 #[no_mangle]
 pub unsafe extern "C" fn default_interupt_handler(context: &mut ExceptionContext, id: usize) {
     println!("Interupt Happened of ID-{}:  {:?}", id, *context);
-    gpio::blink();
+    let sp : u64;
+    unsafe {
+        asm!("mov x8, sp" : "={x8}"(sp) : : : "volatile");
+    }
+    println!("SP: {}",sp);
+    // unsafe { println!("*sp: {:x} *pc:{:x}", *(context.sp_el0 as *const u64), *(context.elr_el1 as *const u64) ) };
+    // gpio::blink();
+    // context.elr_el1 += 8;
 }
 
 static mut is_scheduling: AtomicBool = AtomicBool::new(false);
@@ -56,6 +63,8 @@ pub unsafe extern "C" fn lower_aarch64_synchronous(context: &mut ExceptionContex
             }
             let syscall_type = syscall_type.unwrap();
 
+            println!("{} {:?}",context.gpr.x[8] ,syscall_type);
+
             match syscall_type {
                 Syscalls::Print => handle_print_syscall(context),
                 Syscalls::NewTask => handle_new_task_syscall(context),
@@ -69,6 +78,9 @@ pub unsafe extern "C" fn lower_aarch64_synchronous(context: &mut ExceptionContex
 fn handle_print_syscall(context: &mut ExceptionContext) {
     let ptr = context.gpr.x[0] as *const u8;
     let len = context.gpr.x[1] as usize;
+
+    println!("{:x} {}", ptr as u64, len);
+    println!("{:?}", *context);
 
     let data = unsafe { slice::from_raw_parts(ptr, len) };
 

@@ -2,9 +2,11 @@ use crate::println;
 pub static mut COUNTER2: u64 = 0;
 #[no_mangle]
 pub extern "C" fn init() {
+    crate::uprintln!("Creating second task");
+    // crate::userspace::syscall::new_task_syscall(test_task, 1);
     loop {
         unsafe {
-            for _i in 1..1_000_000 {
+            for _i in 1..1_000 {
                 asm! {"nop" :::: "volatile"};
             }
             COUNTER2 += 1;

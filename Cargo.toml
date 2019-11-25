@@ -30,3 +30,4 @@ raspi3 = []
 
 [profile.release]
 debug = true
+opt-level=3

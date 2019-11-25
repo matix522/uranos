@@ -1,4 +1,4 @@
-#![deny(missing_docs)]
+// #![deny(missing_docs)]
 #![deny(warnings)]
 
 use crate::sync::nulllock::NullLock;
@@ -122,6 +122,7 @@ impl Scheduler {
         if self.tasks.len() >= MAX_TASK_COUNT {
             return Err(TaskError::TaskLimitReached);
         }
+        // crate::println!("STACKS: {:x} {:x}", task_context.gpr.sp, task_context.gpr.x19[2]);
         self.tasks.push(task_context);
 
         Ok(())

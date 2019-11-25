@@ -41,8 +41,8 @@ pub enum TaskStates {
 #[derive(Debug)]
 /// Registers x19-x29, sp, lr
 pub struct GPR {
-    x19: [u64; 11],
-    sp: u64,
+    pub x19: [u64; 11],
+    pub sp: u64,
     lr: u64,
 }
 
