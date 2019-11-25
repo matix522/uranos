@@ -55,20 +55,20 @@ fn kernel_entry() -> ! {
         Err(_) => halt(), // If UART fails, abort early
     }
 
-    // let mut framebuffer = match framebuffer::FrameBuffer::new(&mut mbox) {
-    //     Ok(framebuffer) => {
-    //         println!("HDMI OK");
-    //         framebuffer
-    //     }
-    //     Err(_) => {
-    //         println!("HDMI FAILED");
-    //         halt();
-    //     }
-    // };
+    let mut framebuffer = match framebuffer::FrameBuffer::new(&mut mbox) {
+        Ok(framebuffer) => {
+            println!("HDMI OK");
+            framebuffer
+        }
+        Err(_) => {
+            println!("HDMI FAILED");
+            halt();
+        }
+    };
 
-    // use framebuffer::charbuffer::CharBuffer;
-    // let mut framebuffer = framebuffer.as_mut().unwrap();
-    // let mut charbuffer = CharBuffer::new(framebuffer);
+    use framebuffer::charbuffer::CharBuffer;
+    let mut framebuffer = framebuffer.as_mut().unwrap();
+    let mut charbuffer = CharBuffer::new(framebuffer);
 
     println!(
         "Exception Level: {:?}",

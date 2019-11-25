@@ -61,9 +61,25 @@ pub unsafe extern "C" fn lower_aarch64_synchronous(context: &mut ExceptionContex
                 Syscalls::NewTask => handle_new_task_syscall(context),
             }
         }
-        None => unsafe { core::hint::unreachable_unchecked() },
+        None => {
+            let mut charbuffer = crate::framebuffer::charbuffer::CHARBUFFER.lock();
+            if charbuffer.is_some() {
+                let charbuffer = charbuffer.as_mut().unwrap();
+                charbuffer.set_cursor((0,0));
+                charbuffer.background = (0,0,180,255);
+                charbuffer.puts("                                       *   * \n");
+                charbuffer.puts(" THE TURQUOISE SCREEN OF ETERNAL DOOM!   |   \n");
+                charbuffer.puts("                                      /\\/\\/\\/   \n");
+                for i in 0..charbuffer.height - 10 {
+                    charbuffer.putc('\n');
+                }
+                // charbuffer.background = (0,0,255,255);
+
+                charbuffer.update();
+            }//unsafe { core::hint::unreachable_unchecked() },\
+            loop {}
+        }
     }
-    if context.esr_el1 == 1442840576 {}
 }
 
 fn handle_print_syscall(context: &mut ExceptionContext) {

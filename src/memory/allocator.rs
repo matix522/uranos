@@ -143,6 +143,7 @@ impl MainAllocator {
     }
 }
 
+
 #[alloc_error_handler]
 pub fn bad_alloc(layout: core::alloc::Layout) -> ! {
     crate::println!("bad_alloc: {:?}", layout);

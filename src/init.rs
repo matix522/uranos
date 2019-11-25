@@ -20,8 +20,9 @@ pub extern "C" fn test_task() {
     let mut counter: u32 = 0;
     loop {
         counter += 1;
-        if counter > 10 {
+        if counter > 25 {
             counter = 0;
+             unsafe {crate::uprintln!("{}", *(0xffff_ffff_ffff_ffff as *const u64 )) };
         }
         for _i in 1..1_000_000 {
             unsafe {

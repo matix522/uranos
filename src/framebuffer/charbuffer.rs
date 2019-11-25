@@ -7,6 +7,8 @@ pub struct CharBuffer {
     charbuffer: Vec<char>,
     framebuffer: &'static mut super::FrameBuffer,
     cursor: (usize, usize),
+    pub foreground : (u8,u8,u8,u8),
+    pub background : (u8,u8,u8,u8),
 }
 pub static FRAMEBUFFER: NullLock<Option<super::FrameBuffer>> = NullLock::new(None);
 pub static CHARBUFFER: NullLock<Option<CharBuffer>> = NullLock::new(None);
@@ -25,6 +27,8 @@ impl CharBuffer {
             width,
             height,
             cursor: (0, 0),
+            foreground: (255,255,255,255),
+            background : (255,0,0,0),
         };
         charbuffer.update();
         let mut charbuff = CHARBUFFER.lock();
@@ -42,7 +46,12 @@ impl CharBuffer {
     pub fn putc(&mut self, c: char) {
         if c < ' ' {
             if c == '\n' {
-                let (_, mut y) = self.cursor;
+                let (x, mut y) = self.cursor;
+
+                for i in x..self.width {
+                    self.charbuffer[y * self.width + i] = ' ';
+                    self.update_char((x, y));
+                }
                 y += 1;
                 if y == self.height {
                     y = 0
@@ -69,7 +78,7 @@ impl CharBuffer {
     pub fn get_char(&mut self, (x, y): (usize, usize)) -> char {
         self.charbuffer[y * self.width + x]
     }
-    fn update(&mut self) {
+    pub fn update(&mut self) {
         for y in 0..self.height {
             for x in 0..self.width {
                 self.update_char((x, y));
@@ -83,9 +92,9 @@ impl CharBuffer {
         for i in 0..8 {
             for j in 0..8 {
                 let color = if CHARACTERS[id][i] & (1 << j) != 0 {
-                    (255, 255, 255, 255)
+                    self.foreground
                 } else {
-                    (0, 0, 0, 0)
+                    self.background
                 };
                 self.framebuffer.set_pixel((x8 + j, y8 + i), color);
                 // crate::println!("{},{} = {:?}", x8 + j, y8 + i, color);
@@ -103,6 +112,9 @@ impl CharBuffer {
             y = 0;
         }
         self.cursor = (x, y);
+    }
+    pub fn set_cursor(&mut self, (x,y) : (usize,usize)) {
+        self.cursor = (x,y);
     }
 }
 
