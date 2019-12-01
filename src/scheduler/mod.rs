@@ -6,7 +6,10 @@ use alloc::vec::Vec;
 
 /// Module containing definition of tasks.
 pub mod task_context;
+pub mod task_stack;
+
 pub use task_context::*;
+pub use task_stack::*;
 
 extern "C" {
     /// Change CPU context from prev task to next task
@@ -122,9 +125,11 @@ impl Scheduler {
         if self.tasks.len() >= MAX_TASK_COUNT {
             return Err(TaskError::TaskLimitReached);
         }
+        // crate::println!("bb");
+        // crate::println!("cap: {} size: {}", self.tasks.capacity(), self.tasks.len());
         // crate::println!("STACKS: {:x} {:x}", task_context.gpr.sp, task_context.gpr.x19[2]);
         self.tasks.push(task_context);
-
+        // crate::println!("bbb");
         Ok(())
     }
 }

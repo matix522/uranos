@@ -82,8 +82,9 @@ pub fn write(msg: &str) {
 pub fn writeln(msg: &str){
     write(format!("{}\n", msg));
 }*/
-pub fn new_task_syscall(start_function: extern "C" fn(), priority_difference: u32) {
-    let function_ptr = start_function as *const () as usize;
+pub fn new_task_syscall(start_function: extern "C" fn(), priority_difference: usize) {
+    let function_ptr = start_function as usize;
+
     unsafe {
         syscall2(
             function_ptr,
