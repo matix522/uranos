@@ -4,7 +4,7 @@ pub use num_traits::FromPrimitive;
 use core::fmt;
 
 #[repr(usize)]
-#[derive(FromPrimitive, ToPrimitive)]
+#[derive(FromPrimitive, ToPrimitive, Debug)]
 pub enum Syscalls {
     Print,
     NewTask,

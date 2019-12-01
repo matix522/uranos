@@ -22,14 +22,15 @@ pub unsafe fn syscall1(mut a: usize, b: usize) -> usize {
 }
 
 #[inline(never)]
-pub unsafe fn syscall2(mut a: usize, b: usize, c: usize) -> usize {
+pub unsafe fn syscall2(a: usize, b: usize, c: usize) -> usize {
+    let ret : usize;
     asm!("svc   0"
-          : "={x0}"(a)
-          : "{x8}"(a), "{x0}"(b), "{x1}"(c)
+          : "={x0}"(ret)
+          : "{x0}"(a), "{x1}"(b), "{x8}"(c)
           : "x0", "x1", "x8"
           : "volatile");
 
-    return a;
+    return ret;
 }
 
 #[inline(never)]
@@ -71,9 +72,9 @@ pub fn write(msg: &str) {
 
     unsafe {
         syscall2(
-            Syscalls::Print as usize,
             bytes.as_ptr() as usize,
             bytes.len(),
+            Syscalls::Print as usize,
         );
     }
 }
@@ -81,13 +82,14 @@ pub fn write(msg: &str) {
 pub fn writeln(msg: &str){
     write(format!("{}\n", msg));
 }*/
-fn handle_new_task_syscall(start_function: extern "C" fn(), priority_difference: u32) {
-    let function_ptr = start_function as *const () as usize;
+pub fn new_task_syscall(start_function: extern "C" fn(), priority_difference: usize) {
+    let function_ptr = start_function as usize;
+
     unsafe {
         syscall2(
-            Syscalls::NewTask as usize,
             function_ptr,
             priority_difference as usize,
+            Syscalls::NewTask as usize,
         );
     }
 }
