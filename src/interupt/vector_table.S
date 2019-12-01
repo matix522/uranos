@@ -27,10 +27,11 @@
     .else 
         add x4, sp, #16 * 18
     .endif
+    mrs    x5, FAR_EL1
 
     stp    x30, x1,  [sp, #16 * 15]
     stp    x2,  x3,  [sp, #16 * 16]
-    str    x4,       [sp, #16 * 17]
+    stp    x4,  x5,  [sp, #16 * 17]
 
     mov    x0,  sp
     mov    x1, \id
