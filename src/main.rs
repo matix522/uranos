@@ -5,7 +5,6 @@
 #![feature(alloc_error_handler)]
 #![feature(never_type)]
 #![feature(inner_deref)]
-#![feature(used)]
 // extern crate spin;
 extern crate alloc;
 #[macro_use]
@@ -102,7 +101,7 @@ fn kernel_entry() -> ! {
 
     println!("Proceeding init task initialization");
 
-    let init_task = scheduler::TaskContext::new(init::init, 1, true).unwrap();
+    let init_task = scheduler::TaskContext::new(init::init, 1, true);
     println!("Init task created");
     // println!("{:?}",init_task);
     init_task.start_task().unwrap();
