@@ -8,6 +8,7 @@ use core::fmt;
 pub enum Syscalls {
     Print,
     NewTask,
+    TerminateTask,
 }
 
 struct SyscallWrite;

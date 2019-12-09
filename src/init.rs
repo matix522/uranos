@@ -3,7 +3,7 @@ pub static mut COUNTER2: u64 = 0;
 #[no_mangle]
 pub extern "C" fn init() {
     crate::uprintln!("Creating second task");
-    crate::userspace::syscall::new_task_syscall(test_task, 0);
+    crate::userspace::syscall::new_task(test_task, 0);
     loop {
         unsafe {
             for _i in 1..1_000_000 {
@@ -19,13 +19,8 @@ pub extern "C" fn init() {
 
 #[no_mangle]
 pub extern "C" fn test_task() {
-    let mut counter: u32 = 0;
-    loop {
-        counter += 1;
-        if counter > 25 {
-            counter = 0;
-             unsafe {crate::uprintln!("{}", *(0xffff_ffff_ffff_ffff as *const u64 )) };
-        }
+    crate::uprintln!("Hello i'm new task, I will count up to 3");
+    for counter in 0..4 {
         for _i in 1..1_000_000 {
             unsafe {
                 asm! {"nop" :::: "volatile"}
@@ -34,6 +29,9 @@ pub extern "C" fn test_task() {
 
         crate::uprintln!("Writing by syscall now counter {}", counter);
     }
+    crate::uprintln!("I'm done creating new counter");
+    crate::userspace::syscall::new_task(test_task, 0);
+    crate::uprintln!("Bye");
 }
 
 #[no_mangle]

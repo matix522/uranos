@@ -12,7 +12,7 @@ pub enum Error {
 #[derive(Debug)]
 pub struct GPR {
     pub x: [u64; 30],
-    pub lr : u64,
+    pub lr: u64,
 }
 
 #[repr(C)]
@@ -29,9 +29,12 @@ pub struct ExceptionContext {
 
 impl core::fmt::Display for ExceptionContext {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-
         let alternating = |x| -> _ {
-            if x % 2 == 0 { "   " } else { "\n" }
+            if x % 2 == 0 {
+                "   "
+            } else {
+                "\n"
+            }
         };
         writeln!(f, "SPSR_EL1 : {:#018x}", self.spsr_el1)?;
         writeln!(f, " ELR_EL1 : {:#018x}", self.elr_el1)?;

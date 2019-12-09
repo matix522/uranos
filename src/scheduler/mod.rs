@@ -39,6 +39,14 @@ pub fn schedule() -> Result<usize, TaskError> {
 pub fn start() -> Result<!, TaskError> {
     SCHEDULER.lock().start()
 }
+/// Function marks task as finished
+pub fn end_task(task_id: usize) -> Result<(), TaskError> {
+    SCHEDULER.lock().end_task(task_id)
+}
+/// Function marks task as finished
+pub fn get_current_task_id() -> usize {
+    SCHEDULER.lock().get_current_task_id()
+}
 
 /// Definition od System Scheduler
 pub struct Scheduler {
@@ -58,6 +66,23 @@ impl Scheduler {
     pub fn schedule(&mut self) -> Result<usize, TaskError> {
         let next_task_pid;
         let tasks = &mut self.tasks;
+
+        let alive_tasks = tasks
+            .iter()
+            .filter(|t| {
+                if let TaskStates::Dead = t.task_state {
+                    false
+                } else {
+                    true
+                }
+            })
+            .count();
+
+        crate::println!(
+            "\x1b[33:3mALIVE TASKS: {}\nVECTOR SIZE: {}\x1b[0m",
+            alive_tasks,
+            tasks.len()
+        );
 
         'find_task: loop {
             for (i, task) in tasks.iter_mut().enumerate() {
@@ -94,10 +119,8 @@ impl Scheduler {
         let mut init_task = &mut tasks[0];
         init_task.counter = init_task.priority - 1;
 
-        let init_task_addr = init_task as *mut TaskContext as u64;
-
         unsafe {
-            cpu_switch_to_first(init_task_addr);
+            cpu_switch_to_first(init_task as *const _ as u64);
         }
     }
     /// Function that changes current tasks and stores context of previous one in his TaskContext structure
@@ -108,29 +131,47 @@ impl Scheduler {
             return Err(TaskError::InvalidTaskReference);
         }
 
-        let prev_task_addr = &tasks[self.current_running_task] as *const TaskContext as u64;
-        let next_task_addr = &tasks[next_task] as *const TaskContext as u64;
+        let prev_task_addr = &tasks[self.current_running_task];
+        let next_task_addr = &tasks[next_task];
 
         self.current_running_task = next_task;
 
         unsafe {
-            cpu_switch_to(prev_task_addr, next_task_addr);
+            cpu_switch_to(
+                prev_task_addr as *const _ as u64,
+                next_task_addr as *const _ as u64,
+            );
         }
 
         Ok(())
     }
 
     /// Submit task for scheduling
-    fn submit_task(&mut self, task_context: TaskContext) -> Result<(), TaskError> {
+    fn submit_task(&mut self, mut task_context: TaskContext) -> Result<(), TaskError> {
         if self.tasks.len() >= MAX_TASK_COUNT {
             return Err(TaskError::TaskLimitReached);
         }
-        // crate::println!("bb");
-        // crate::println!("cap: {} size: {}", self.tasks.capacity(), self.tasks.len());
-        // crate::println!("STACKS: {:x} {:x}", task_context.gpr.sp, task_context.gpr.x19[2]);
+        for t in &mut self.tasks {
+            if let TaskStates::Dead = t.task_state {
+                core::mem::swap(t, &mut task_context);
+                drop(task_context);
+                return Ok(());
+            }
+        }
         self.tasks.push(task_context);
-        // crate::println!("bbb");
         Ok(())
+    }
+    /// End task
+    fn end_task(&mut self, task_id: usize) -> Result<(), TaskError> {
+        if self.tasks.len() <= task_id {
+            return Err(TaskError::TaskLimitReached);
+        }
+        self.tasks[task_id].task_state = TaskStates::Dead;
+        Ok(())
+    }
+    /// ID of current running task
+    fn get_current_task_id(&self) -> usize {
+        self.current_running_task
     }
 }
 

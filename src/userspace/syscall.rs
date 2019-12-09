@@ -2,28 +2,31 @@ use super::Syscalls;
 
 #[inline(never)]
 pub unsafe fn syscall0(mut a: usize) -> usize {
+    let ret: usize;
     asm!("svc   0"
-          : "={x0}"(a)
+          : "={x0}"(ret)
           : "{x8}"(a)
-          : "x0", "x8"
+          : "x8"
           : "volatile");
-    return a;
+
+    return ret;
 }
 
 #[inline(never)]
 pub unsafe fn syscall1(mut a: usize, b: usize) -> usize {
+    let ret: usize;
     asm!("svc   0"
-          : "={x0}"(a)
-          : "{x8}"(a), "{x0}"(b)
+          : "={x0}"(ret)
+          : "{x0}"(a), "{x8}"(b)
           : "x0", "x8"
           : "volatile");
 
-    return a;
+    return ret;
 }
 
 #[inline(never)]
 pub unsafe fn syscall2(a: usize, b: usize, c: usize) -> usize {
-    let ret : usize;
+    let ret: usize;
     asm!("svc   0"
           : "={x0}"(ret)
           : "{x0}"(a), "{x1}"(b), "{x8}"(c)
@@ -35,13 +38,14 @@ pub unsafe fn syscall2(a: usize, b: usize, c: usize) -> usize {
 
 #[inline(never)]
 pub unsafe fn syscall3(mut a: usize, b: usize, c: usize, d: usize) -> usize {
+    let ret: usize;
     asm!("svc   0"
-          : "={x0}"(a)
-          : "{x8}"(a), "{x0}"(b), "{x1}"(c), "{x2}"(d)
+          : "={x0}"(ret)
+          : "{x0}"(a), "{x1}"(b), "{x2}"(c), "{x8}"(d)
           : "x0", "x1", "x2", "x8"
           : "volatile");
 
-    return a;
+    return ret;
 }
 
 #[inline(never)]
@@ -53,17 +57,26 @@ pub unsafe fn syscall4(mut a: usize, b: usize, c: usize, d: usize, e: usize) -> 
           : "volatile");
 
     return a;
+    let ret: usize;
+    asm!("svc   0"
+          : "={x0}"(ret)
+          : "{x0}"(a), "{x1}"(b), "{x2}"(c), "{x3}"(d), "{x8}"(e)
+          : "x0", "x1", "x2", "x3", "x8"
+          : "volatile");
+
+    return ret;
 }
 
 #[inline(never)]
 pub unsafe fn syscall5(mut a: usize, b: usize, c: usize, d: usize, e: usize, f: usize) -> usize {
+    let ret: usize;
     asm!("svc   0"
-          : "={x0}"(a)
-          : "{x8}"(a), "{x0}"(b), "{x1}"(c), "{x2}"(d), "{x3}"(e), "{x4}"(f)
+          : "={x0}"(ret)
+          : "{x0}"(a), "{x1}"(b), "{x2}"(c), "{x3}"(d), "{x4}"(e), "{x8}"(f)
           : "x0", "x1", "x2", "x3", "x4", "x8"
           : "volatile");
 
-    return a;
+    return ret;
 }
 
 pub fn write(msg: &str) {
@@ -82,7 +95,7 @@ pub fn write(msg: &str) {
 pub fn writeln(msg: &str){
     write(format!("{}\n", msg));
 }*/
-pub fn new_task_syscall(start_function: extern "C" fn(), priority_difference: usize) {
+pub fn new_task(start_function: extern "C" fn(), priority_difference: usize) {
     let function_ptr = start_function as usize;
 
     unsafe {
@@ -92,4 +105,10 @@ pub fn new_task_syscall(start_function: extern "C" fn(), priority_difference: us
             Syscalls::NewTask as usize,
         );
     }
+}
+pub fn terminate_user_task(return_value: usize) -> ! {
+    unsafe {
+        syscall1(return_value, Syscalls::TerminateTask as usize);
+    }
+    loop {}
 }
