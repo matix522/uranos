@@ -5,7 +5,8 @@
 #![feature(alloc_error_handler)]
 #![feature(never_type)]
 #![feature(inner_deref)]
-#![feature(used)]
+
+#![feature(const_generics)]
 // extern crate spin;
 extern crate alloc;
 #[macro_use]
@@ -68,8 +69,8 @@ fn kernel_entry() -> ! {
     };
 
     use framebuffer::charbuffer::CharBuffer;
-    let mut framebuffer = framebuffer.as_mut().unwrap();
-    let mut charbuffer = CharBuffer::new(framebuffer);
+    let framebuffer = framebuffer.as_mut().unwrap();
+    let charbuffer = CharBuffer::new(framebuffer);
 
     println!(
         "Exception Level: {:?}",
