@@ -2,5 +2,6 @@
 **/*.rs.bk
 kernel8*
 **/Cargo.lock
+/.idea
 #All below our local ignores
 .gitignore

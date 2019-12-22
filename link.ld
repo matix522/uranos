@@ -29,7 +29,8 @@ SECTIONS
 {
     . = 0x80000;
 
-    .text :
+    __read_only_start = .;
+    .text ALIGN(65536):
     {
         KEEP(*(.text.boot)) *(.text .text.*)
     }
@@ -38,8 +39,13 @@ SECTIONS
     {
         *(.rodata .rodata.*)
     }
+    .vectors ALIGN(2048):
+    {
+        *(.vectors)
+    }
+    __read_only_end = .;
 
-    .data :
+    .data ALIGN(65536):
     {
         *(.data .data.*)
     }
@@ -55,10 +61,7 @@ SECTIONS
     {
         __binary_end = .;
     }
-    .vectors ALIGN(2048):
-    {
-        *(.vectors)
-    }
+
     .heap ALIGN(4096):
     {
         *(.heap .heap.*)

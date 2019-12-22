@@ -1,6 +1,6 @@
-use register::register_bitfields;
-use core::convert;
 use super::attributes::*;
+use core::convert;
+use register::register_bitfields;
 
 #[derive(Copy, Clone)]
 #[repr(transparent)]
@@ -16,12 +16,17 @@ mod mair {
 // A level 3 page descriptor, as per AArch64 Reference Manual Figure D4-17.
 register_bitfields! {u64,
     STAGE1_PAGE_DESCRIPTOR [
+        /// User execute-never.
+        UXN      OFFSET(54) NUMBITS(1) [
+            False = 0,
+            True = 1
+        ],
+
         /// Privileged execute-never.
         PXN      OFFSET(53) NUMBITS(1) [
             False = 0,
             True = 1
         ],
-
         /// Physical address of the next page table (lvl2) or the page descriptor (lvl3).
         OUTPUT_ADDR_64KiB OFFSET(16) NUMBITS(32) [], // [47:16]
 
@@ -79,8 +84,8 @@ impl convert::From<AttributeFields>
 
         // Access Permissions.
         desc += match attribute_fields.acc_perms {
-            AccessPermissions::ReadOnly => STAGE1_PAGE_DESCRIPTOR::AP::RO_EL1,
-            AccessPermissions::ReadWrite => STAGE1_PAGE_DESCRIPTOR::AP::RW_EL1,
+            AccessPermissions::ReadOnly => STAGE1_PAGE_DESCRIPTOR::AP::RO_EL1_EL0,
+            AccessPermissions::ReadWrite => STAGE1_PAGE_DESCRIPTOR::AP::RW_EL1_EL0,
         };
 
         // Execute Never.
@@ -90,12 +95,18 @@ impl convert::From<AttributeFields>
             STAGE1_PAGE_DESCRIPTOR::PXN::False
         };
 
+        desc += if attribute_fields.execute_never {
+            STAGE1_PAGE_DESCRIPTOR::UXN::True
+        } else {
+            STAGE1_PAGE_DESCRIPTOR::UXN::False
+        };
+
         desc
     }
 }
 
 impl PageDescriptor {
-    fn new(output_addr: usize, attribute_fields: AttributeFields) -> PageDescriptor {
+    pub fn new(output_addr: usize, attribute_fields: AttributeFields) -> PageDescriptor {
         let shifted = output_addr >> super::LOG_64_KIB;
         let val = (STAGE1_PAGE_DESCRIPTOR::VALID::True
             + STAGE1_PAGE_DESCRIPTOR::AF::True

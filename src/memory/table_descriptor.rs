@@ -1,5 +1,5 @@
-use register::register_bitfields;
 use core::convert;
+use register::register_bitfields;
 
 // A table descriptor, as per AArch64 Reference Manual Figure D4-15.
 register_bitfields! {u64,
@@ -19,8 +19,8 @@ register_bitfields! {u64,
     ]
 }
 
-impl convert::From<usize> for TableDescriptor {
-    fn from(next_lvl_table_addr: usize) -> Self {
+impl convert::From<u64> for TableDescriptor {
+    fn from(next_lvl_table_addr: u64) -> Self {
         let shifted = next_lvl_table_addr >> super::LOG_64_KIB;
         let val = (STAGE1_TABLE_DESCRIPTOR::VALID::True
             + STAGE1_TABLE_DESCRIPTOR::TYPE::Table
@@ -34,4 +34,3 @@ impl convert::From<usize> for TableDescriptor {
 #[derive(Copy, Clone)]
 #[repr(transparent)]
 pub(super) struct TableDescriptor(pub u64);
-

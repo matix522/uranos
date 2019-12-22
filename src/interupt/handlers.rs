@@ -54,6 +54,7 @@ pub unsafe extern "C" fn current_elx_irq(_context: &mut ExceptionContext) {
         return;
     }
     is_scheduling.store(true, core::sync::atomic::Ordering::Relaxed);
+    println!("dsdfsfsdff");
     scheduler::schedule();
     is_scheduling.store(false, core::sync::atomic::Ordering::Relaxed);
 }

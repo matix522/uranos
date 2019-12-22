@@ -120,7 +120,7 @@ impl FrameBuffer {
 
                 let mut framebuffer = charbuffer::FRAMEBUFFER.lock();
                 framebuffer.replace(FrameBuffer {
-                    buffer: buffer,
+                    buffer,
                     height: height as usize,
                     width: width as usize,
                     pitch: pitch as usize,
