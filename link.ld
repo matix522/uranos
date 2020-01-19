@@ -50,7 +50,7 @@ SECTIONS
         *(.data .data.*)
     }
 
-    .bss ALIGN(8):
+    .bss ALIGN(8) (NOLOAD):
     {
         __bss_start = .;
         *(.bss .bss.*)

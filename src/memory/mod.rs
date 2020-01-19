@@ -30,7 +30,11 @@ mod physical {
 
         pub const GPIO_BASE:       usize = BASE + 0x0020_0000;
         pub const UART_BASE:       usize = BASE + 0x0020_1000;
+        #[cfg(feature = "raspi3")]
         pub const END:             usize =        0x4100_0000;
+        #[cfg(not(feature = "raspi3"))]
+        pub const END:             usize =        0xFFFF_FFFF;
+
     }
     pub const fn address_space_size() -> usize {
         return MEMORY_END + 1;
@@ -76,11 +80,12 @@ pub unsafe fn setup_mair() {
 
 pub unsafe fn setup_transaltion_tables() -> Result<(), &'static str> {
     let mut tables = &mut TRANSLATION_TABLES;
+    layout::LAYOUT.print_layout();
     for (l2_nr, l2_entry) in tables.level_2.iter_mut().enumerate() {
         *l2_entry = tables.level_3[l2_nr].base_addr().into();
-        crate::println!("{:#018x}", (*l2_entry).0);
-        crate::println!("{:#012x}", tables.level_3[l2_nr].base_addr());
-
+        // crate::println!("{:#018x}", (*l2_entry).0);
+        // crate::println!("{:#012x}", tables.level_3[l2_nr].base_addr());
+        crate::println!("{}", l2_nr);
         for (l3_nr, l3_entry) in tables.level_3[l2_nr].iter_mut().enumerate() {
             let virt_addr = (l2_nr << LOG_512_MIB) + (l3_nr << LOG_64_KIB);
             // crate::println!("bbb");

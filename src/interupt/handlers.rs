@@ -47,14 +47,14 @@ pub extern "C" fn end_scheduling() {
 #[no_mangle]
 pub unsafe extern "C" fn current_elx_irq(_context: &mut ExceptionContext) {
     // super::disable_irqs();
-    Timer::interupt_after(Timer::get_frequency());
+    Timer::interupt_after(Timer::get_frequency() / 1000);
     Timer::enable();
     super::enable_irqs();
     if is_scheduling.load(core::sync::atomic::Ordering::Relaxed) {
         return;
     }
     is_scheduling.store(true, core::sync::atomic::Ordering::Relaxed);
-    println!("dsdfsfsdff");
+    // println!("dsdfsfsdff");
     scheduler::schedule();
     is_scheduling.store(false, core::sync::atomic::Ordering::Relaxed);
 }
@@ -82,6 +82,9 @@ pub unsafe extern "C" fn lower_aarch64_synchronous(context: &mut ExceptionContex
                 Syscalls::Print => handle_print_syscall(context),
                 Syscalls::NewTask => handle_new_task_syscall(context),
                 Syscalls::TerminateTask => handle_terminate_task_syscall(context),
+                Syscalls::GetTime => handle_get_time_syscall(context),
+                Syscalls::GetFrequency => handle_get_frequency_syscall(context),
+                Syscalls::Yield => handle_yield_syscall(context),
             }
         }
         None => {
@@ -110,6 +113,17 @@ pub unsafe extern "C" fn lower_aarch64_synchronous(context: &mut ExceptionContex
     }
 }
 
+fn handle_get_time_syscall(context: &mut ExceptionContext) {
+    context.gpr.x[0] = timer::ArmQemuTimer::get_time();
+}
+fn handle_yield_syscall(context: &mut ExceptionContext) {
+    is_scheduling.store(true, core::sync::atomic::Ordering::SeqCst);
+    scheduler::schedule();
+    is_scheduling.store(false, core::sync::atomic::Ordering::SeqCst);
+}
+fn handle_get_frequency_syscall(context: &mut ExceptionContext) {
+    context.gpr.x[0] = timer::ArmQemuTimer::get_frequency() as u64;
+}
 fn handle_print_syscall(context: &mut ExceptionContext) {
     let ptr = context.gpr.x[0] as *const u8;
     let len = context.gpr.x[1] as usize;

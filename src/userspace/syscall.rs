@@ -112,3 +112,20 @@ pub fn terminate_user_task(return_value: usize) -> ! {
     }
     loop {}
 }
+pub fn get_frequency() -> u64 {
+    unsafe {
+        return syscall0(Syscalls::GetFrequency as usize) as u64;
+    }
+}
+
+pub fn get_time() -> u64 {
+    unsafe {
+        return syscall0(Syscalls::GetTime as usize) as u64;
+    }
+}
+pub fn yield_cpu() -> u64 {
+    unsafe {
+        return syscall0(Syscalls::Yield as usize) as u64;
+    }
+}
+

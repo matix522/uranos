@@ -121,6 +121,8 @@ impl ArmQemuTimer {
         unsafe {
             asm!("mrs $0, cntvct_el0" : "=r" (ticks));
         }
+        // crate::println!("{}", ticks);
+
         ticks
     }
 }

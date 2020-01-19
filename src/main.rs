@@ -6,6 +6,7 @@
 #![feature(never_type)]
 #![feature(inner_deref)]
 #![feature(const_generics)]
+#![feature(const_in_array_repeat_expressions)]
 #![feature(crate_visibility_modifier)]
 // extern crate spin;
 extern crate alloc;
@@ -159,7 +160,7 @@ fn kernel_entry() -> ! {
     println!("freq: {}", Timer::get_frequency());
 
     interupt::enable_irqs();
-    Timer::interupt_after(Timer::get_frequency());
+    Timer::interupt_after(Timer::get_frequency() / 100);
     Timer::enable();
     println!("Timer enabled");
 

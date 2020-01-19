@@ -67,22 +67,22 @@ impl Scheduler {
         let next_task_pid;
         let tasks = &mut self.tasks;
 
-        let alive_tasks = tasks
-            .iter()
-            .filter(|t| {
-                if let TaskStates::Dead = t.task_state {
-                    false
-                } else {
-                    true
-                }
-            })
-            .count();
+        // let alive_tasks = tasks
+        //     .iter()
+        //     .filter(|t| {
+        //         if let TaskStates::Dead = t.task_state {
+        //             false
+        //         } else {
+        //             true
+        //         }
+        //     })
+        //     .count();
 
-        crate::println!(
-            "\x1b[33:3mALIVE TASKS: {}\nVECTOR SIZE: {}\x1b[0m",
-            alive_tasks,
-            tasks.len()
-        );
+        // crate::println!(
+        //     "\x1b[33:3mALIVE TASKS: {}\nVECTOR SIZE: {}\x1b[0m",
+        //     alive_tasks,
+        //     tasks.len()
+        // );
 
         'find_task: loop {
             for (i, task) in tasks.iter_mut().enumerate() {

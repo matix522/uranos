@@ -106,23 +106,23 @@ impl TaskContext {
 
         // set lr new_task_func to clear up registers, finalize scheduling and jump to start_function on first run of task
         task.gpr.lr = new_task_func as *const () as u64;
-        crate::println!(
-            "Stack - [{:#018x} - {:#018x}] size: {:x}]",
-            stack.stack_base(),
-            stack.stack_top(),
-            stack.size()
-        );
+        // crate::println!(
+        //     "Stack - [{:#018x} - {:#018x}] size: {:x}]",
+        //     stack.stack_base(),
+        //     stack.stack_top(),
+        //     stack.size()
+        // );
 
         if is_user_task {
             let user_stack =
                 TaskStack::new(TASK_STACK_SIZE).ok_or(TaskError::StackAllocationFail)?;
 
-            crate::println!(
-                "User Stack - [{:#018x} - {:#018x}] size: {:x}]",
-                user_stack.stack_base(),
-                user_stack.stack_top(),
-                user_stack.size()
-            );
+            // crate::println!(
+            //     "User Stack - [{:#018x} - {:#018x}] size: {:x}]",
+            //     user_stack.stack_base(),
+            //     user_stack.stack_top(),
+            //     user_stack.size()
+            // );
 
             // x19 of task is address of userspace transition start_function
             task.gpr.x19[0] = switch_to_user_space as *const () as u64;
@@ -137,13 +137,13 @@ impl TaskContext {
             // x19 of task is address of start_function
             task.gpr.x19[0] = start_function as *const () as u64;
         }
-        crate::println!(
-            "lr: {:#018x}\nx19: {:#018x}\nx20: {:#018x}\nx21: {:#018x}\n",
-            task.gpr.lr,
-            task.gpr.x19[0],
-            task.gpr.x19[1],
-            task.gpr.x19[2]
-        );
+        // crate::println!(
+        //     "lr: {:#018x}\nx19: {:#018x}\nx20: {:#018x}\nx21: {:#018x}\n",
+        //     task.gpr.lr,
+        //     task.gpr.x19[0],
+        //     task.gpr.x19[1],
+        //     task.gpr.x19[2]
+        // );
 
         // set stack pointer to the oldest address of task stack space
         task.gpr.sp = stack.stack_base() as u64;
