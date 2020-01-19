@@ -1,4 +1,5 @@
-# RaspberryPi 3/4 OS
+# UranOS
+## Unified resource allocator, not Operating System
 ## To run
 1) Clone this repo
 2) Install Rust and execute this commands in main catalogue of repo 
@@ -18,11 +19,11 @@ Each group Ranked in inportance from top to bottom.
  - [x] If scheduling and interupt takse too long system hangs in next interupt.
  - [ ] Wrong resolution displaying when set to 1920x1080.
 ### Features 
- - [ ] Syscall interface ORWC: As an example for uart.
- - [ ] Charbuffer for hdmi output.
- - [ ] MMU for kernel and user threads.
+ - [?] Syscall interface ORWC: As an example for uart.
+ - [x] Charbuffer for hdmi output.
+ - [x] MMU for kernel and user threads.
 
 ### Code Quality 
- - [ ] Unify interface of IntControler for RPI3 and RPI4. 
- - [ ] Unify interface for PL011 Uart and Aux Uart.
- - [ ] Create Device tree for physical and virtual devices. 
+ - [?] Unify interface of IntControler for RPI3 and RPI4. 
+ - [?] Unify interface for PL011 Uart and Aux Uart.
+ - [?] Create Device tree for physical and virtual devices. 
