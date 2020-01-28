@@ -7,8 +7,8 @@ pub struct CharBuffer {
     charbuffer: Vec<char>,
     framebuffer: &'static mut super::FrameBuffer,
     cursor: (usize, usize),
-    pub foreground : (u8,u8,u8,u8),
-    pub background : (u8,u8,u8,u8),
+    pub foreground: (u8, u8, u8, u8),
+    pub background: (u8, u8, u8, u8),
 }
 pub static FRAMEBUFFER: NullLock<Option<super::FrameBuffer>> = NullLock::new(None);
 pub static CHARBUFFER: NullLock<Option<CharBuffer>> = NullLock::new(None);
@@ -27,8 +27,8 @@ impl CharBuffer {
             width,
             height,
             cursor: (0, 0),
-            foreground: (255,255,255,255),
-            background : (255,0,0,0),
+            foreground: (255, 255, 255, 255),
+            background: (255, 0, 0, 0),
         };
         charbuffer.update();
         let mut charbuff = CHARBUFFER.lock();
@@ -113,8 +113,8 @@ impl CharBuffer {
         }
         self.cursor = (x, y);
     }
-    pub fn set_cursor(&mut self, (x,y) : (usize,usize)) {
-        self.cursor = (x,y);
+    pub fn set_cursor(&mut self, (x, y): (usize, usize)) {
+        self.cursor = (x, y);
     }
 }
 

@@ -1,4 +1,5 @@
 pub mod syscall;
+pub mod mutex;
 pub use num_traits::FromPrimitive;
 
 use core::fmt;
@@ -8,6 +9,10 @@ use core::fmt;
 pub enum Syscalls {
     Print,
     NewTask,
+    TerminateTask,
+    GetTime,
+    GetFrequency,
+    Yield,
 }
 
 struct SyscallWrite;

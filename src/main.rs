@@ -5,7 +5,9 @@
 #![feature(alloc_error_handler)]
 #![feature(never_type)]
 #![feature(inner_deref)]
-#![feature(used)]
+#![feature(const_generics)]
+#![feature(const_in_array_repeat_expressions)]
+#![feature(crate_visibility_modifier)]
 // extern crate spin;
 extern crate alloc;
 #[macro_use]
@@ -45,6 +47,8 @@ extern "C" {
     pub fn _boot_cores() -> !;
     pub static __exception_vectors_start: u64;
     pub static __binary_end: u64;
+    pub static __read_only_start: usize;
+    pub static __read_only_end: usize;
 }
 
 fn kernel_entry() -> ! {
@@ -68,8 +72,8 @@ fn kernel_entry() -> ! {
     // };
 
     // use framebuffer::charbuffer::CharBuffer;
-    // let mut framebuffer = framebuffer.as_mut().unwrap();
-    // let mut charbuffer = CharBuffer::new(framebuffer);
+    // let framebuffer = framebuffer.as_mut().unwrap();
+    // let charbuffer = CharBuffer::new(framebuffer);
 
     println!(
         "Exception Level: {:?}",
@@ -81,6 +85,9 @@ fn kernel_entry() -> ! {
         _boot_cores as *const () as u64,
         unsafe { &__binary_end as *const u64 as u64 }
     );
+    println!("Read only data ended at: {:x}", unsafe {
+        &__read_only_end as *const usize as u64
+    });
     println!(
         "Init Task Stack: {:x} - {:x}",
         _boot_cores as *const () as u64, 0
@@ -91,13 +98,40 @@ fn kernel_entry() -> ! {
         memory::allocator::heap_end()
     );
 
+    unsafe {
+        use cortex_a::barrier;
+        use cortex_a::regs::*;
+
+        if !ID_AA64MMFR0_EL1.matches_all(ID_AA64MMFR0_EL1::TGran64::Supported) {
+            crate::println!("64 KiB translation granule not supported");
+        }
+
+        memory::setup_mair();
+        memory::setup_transaltion_tables();
+
+        // Set the "Translation Table Base Register".
+        TTBR0_EL1.set_baddr(memory::get_translation_table_address());
+
+        memory::configure_translation_control();
+        crate::println!("XDD");
+        // Switch the MMU on.
+        //
+        // First, force all previous changes to be seen before the MMU is enabled.
+        barrier::isb(barrier::SY);
+
+        // Enable the MMU and turn on data and instruction caching.
+        SCTLR_EL1.modify(SCTLR_EL1::M::Enable + SCTLR_EL1::C::Cacheable + SCTLR_EL1::I::Cacheable);
+
+        // Force MMU init to complete before next instruction.
+        barrier::isb(barrier::SY);
+        crate::println!("XDD");
+    }
     print!("Initializing Interupt Vector Table: ");
     unsafe {
         let exception_vectors_start: u64 = &__exception_vectors_start as *const _ as u64;
         println!("{:x}", exception_vectors_start);
         interupt::set_vector_table_pointer(exception_vectors_start);
     }
-
     println!("Kernel Initialization complete.");
 
     println!("Proceeding init task initialization");
@@ -126,7 +160,7 @@ fn kernel_entry() -> ! {
     println!("freq: {}", Timer::get_frequency());
 
     interupt::enable_irqs();
-    Timer::interupt_after(Timer::get_frequency());
+    Timer::interupt_after(Timer::get_frequency() / 100);
     Timer::enable();
     println!("Timer enabled");
 

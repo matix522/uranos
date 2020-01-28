@@ -45,7 +45,7 @@ DOCKER_CMD        = docker run -it --rm
 DOCKER_CMD_DEBUG  = docker run -it --rm -p 1234:1234
 DOCKER_ARG_CURDIR = -v $(shell pwd):/work -w /work
 
-DOCKER_EXEC_QEMU     = qemu-system-aarch64 -M raspi3 -kernel kernel8-raspi3.img
+DOCKER_EXEC_QEMU     = qemu-system-aarch64 -M raspi3 -kernel kernel8-raspi3
 
 .PHONY: all qemu clippy clean objdump nm
 

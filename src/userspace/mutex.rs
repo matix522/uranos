@@ -1,8 +1,8 @@
-use aarch64::asm;
-use core::cell::UnsafeCell;
-use core::ops::Deref;
-use core::ops::DerefMut;
-use core::sync::atomic::{AtomicBool, Ordering};
+// pub type Mutex<T> = crate::sync::mutex::Mutex<T>;
+
+use core::sync::atomic::*;
+use core::ops::*;
+use core::cell::*;
 
 /// Spinlock based Mutex type for allowing concurent access to protected data
 pub struct Mutex<T> {
@@ -31,7 +31,9 @@ impl<'a, T> DerefMut for MutexGuard<'a, T> {
 }
 impl<'a, T> Drop for MutexGuard<'a, T> {
     fn drop(&mut self) {
+
         self.lock.store(false, Ordering::Release);
+        // super::syscall::yield_cpu();
     }
 }
 impl<T> Mutex<T> {
@@ -71,7 +73,7 @@ impl<T> Mutex<T> {
         while self.lock.compare_and_swap(false, true, Ordering::Acquire) {
             // Wait until the lock seems unlocked
             while self.lock.load(Ordering::Relaxed) {
-                asm::nop();
+                super::syscall::yield_cpu();
             }
         }
     }

@@ -14,39 +14,45 @@ impl Block {
     }
 }
 
-pub struct MainAllocator {
+pub struct SystemAllocator {
     heap_size: usize,
     first_block: core::cell::UnsafeCell<Block>,
 }
 impl core::fmt::Display for Block {
-     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result { 
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         // writeln!(f, "0x0000000000000000");
         writeln!(f, "****************************")?;
-        writeln!(f, "*Start:  {:#018x}*",self as *const Self as u64)?;
-        writeln!(f, "*D Size: {:#018x}*",self.data_size)?;
-        writeln!(f, "*End:    {:#018x}*",self as *const Self as usize + self.size_of())?;
-        writeln!(f, "*Ptr:    {:#018x}*",self as *const Self as usize + size_of::<Self>())?;
-        
+        writeln!(f, "*Start:  {:#018x}*", self as *const Self as u64)?;
+        writeln!(f, "*D Size: {:#018x}*", self.data_size)?;
+        writeln!(
+            f,
+            "*End:    {:#018x}*",
+            self as *const Self as usize + self.size_of()
+        )?;
+        writeln!(
+            f,
+            "*Ptr:    {:#018x}*",
+            self as *const Self as usize + size_of::<Self>()
+        )?;
+
         if (self.next == null_mut()) {
             writeln!(f, "*Next:        NULL         *")?;
-        }
-        else {
-            writeln!(f, "*Next:   {:#018x}*",self.next  as u64)?;
-
+        } else {
+            writeln!(f, "*Next:   {:#018x}*", self.next as u64)?;
         }
 
         write!(f, "****************************")?;
         Ok(())
-     }
+    }
 }
-impl core::fmt::Display for MainAllocator {
+impl core::fmt::Display for SystemAllocator {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         writeln!(f, "Start Address : {:#018x}", self.heap_start())?;
         writeln!(f, "End Address :   {:#018x}", self.heap_end())?;
         writeln!(f, "Size :          {:#018x}", self.heap_size)?;
 
         let mut block = self.block_list();
-        unsafe  { 
+        unsafe {
             while block != null_mut() {
                 writeln!(f, "{}", *block)?;
                 block = (*block).next
@@ -55,8 +61,8 @@ impl core::fmt::Display for MainAllocator {
         Ok(())
     }
 }
-unsafe impl Sync for MainAllocator {}
-impl MainAllocator {
+unsafe impl Sync for SystemAllocator {}
+impl SystemAllocator {
     fn heap_start(&self) -> usize {
         return self.first_block.get() as usize;
     }
@@ -69,7 +75,7 @@ impl MainAllocator {
 }
 #[global_allocator]
 #[link_section = ".heap"]
-pub static A: MainAllocator = MainAllocator::new(0x100_0000);
+pub static A: SystemAllocator = SystemAllocator::new(0x100_0000);
 
 pub fn heap_start() -> usize {
     return A.heap_start();
@@ -83,7 +89,8 @@ unsafe fn is_the_space_big_enough(
     required_layout: Layout,
     end_address: usize,
 ) -> bool {
-    let base = base_address as usize + align_address((*base_address).size_of(), required_layout.align());
+    let base =
+        base_address as usize + align_address((*base_address).size_of(), required_layout.align());
     let required_size = required_layout.size() + size_of::<Block>();
     let alligned_end = align_address(base + required_size, required_layout.align());
     alligned_end <= end_address
@@ -98,11 +105,11 @@ unsafe fn align_address(address: usize, aligment: usize) -> usize {
         (address / aligment + 1) * aligment
     };
 }
-unsafe impl GlobalAlloc for MainAllocator {
+unsafe impl GlobalAlloc for SystemAllocator {
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
         let mut previous = self.block_list();
         let mut current = (*previous).next;
-        
+
         // crate::print!("\x1b[33;5m");
         // crate::println!("{}",*self);
         // crate::print!("\x1b[0m");
@@ -113,20 +120,21 @@ unsafe impl GlobalAlloc for MainAllocator {
             if is_the_space_big_enough(previous, layout, current as usize) {
                 // FOUND PLACE
                 let mut new_block =
-                    align_address(previous as usize + (*previous).size_of(), layout.align()) as *mut Block;
+                    align_address(previous as usize + (*previous).size_of(), layout.align())
+                        as *mut Block;
                 (*new_block).next = current;
                 (*new_block).data_size = size;
                 (*previous).next = new_block;
                 let ptr = (new_block as usize + size_of::<Block>()) as *mut u8;
-                // crate::print!("\x1b[32;5m");      
+                // crate::print!("\x1b[32;5m");
                 // crate::println!("===========================");
                 // crate::println!("{}", *new_block);
                 // crate::println!("===========================");
                 // crate::print!("\x1b[0m");
 
-        //            crate::print!("\x1b[36;5m");
-        // crate::println!("{}",*self);
-        // crate::print!("\x1b[0m");
+                // crate::print!("\x1b[36;5m");
+                // crate::println!("{}",*self);
+                // crate::print!("\x1b[0m");
 
                 return ptr;
             }
@@ -144,19 +152,19 @@ unsafe impl GlobalAlloc for MainAllocator {
             (*new_block).data_size = size;
             (*previous).next = new_block;
             let ptr = (new_block as usize + size_of::<Block>()) as *mut u8;
-                        //  crate::println!("prev: {:#018x} block: {:#018x}", previous as u64, new_block as u64);
-        //     crate::print!("\x1b[32;5m");      
-        //         crate::println!("===========================");
-        //         crate::println!("{}", *new_block);
-        //         crate::println!("===========================");
-        //         crate::print!("\x1b[0m");
-        //                         crate::print!("\x1b[36;5m");
-        // crate::println!("{}",*self);
-        // crate::print!("\x1b[0m");
+            //  crate::println!("prev: {:#018x} block: {:#018x}", previous as u64, new_block as u64);
+            //     crate::print!("\x1b[32;5m");
+            //         crate::println!("===========================");
+            //         crate::println!("{}", *new_block);
+            //         crate::println!("===========================");
+            //         crate::print!("\x1b[0m");
+            //                         crate::print!("\x1b[36;5m");
+            // crate::println!("{}",*self);
+            // crate::print!("\x1b[0m");
 
             return ptr;
         }
-        // crate::print!("\x1b[91;5m");    
+        // crate::print!("\x1b[91;5m");
         // crate::println!("args: {:#018x} {:#018x} {:#018x}",previous as u64, size, self.heap_end());
         // crate::println!("===========================");
         // crate::println!("            NULL           ");
@@ -186,7 +194,6 @@ unsafe impl GlobalAlloc for MainAllocator {
         // crate::println!("!!!!!!!!!!!!!!!!!!!!!!!!!!!");
         // crate::print!("\x1b[0m");
 
-
         let mut current = (*previous).next;
         // TOTALY UNSAFE FOR NOW
         while current != block && current != null_mut() && (current as u64) < (block as u64) {
@@ -206,9 +213,9 @@ unsafe impl GlobalAlloc for MainAllocator {
     }
 }
 
-impl MainAllocator {
+impl SystemAllocator {
     pub const fn new(heap_size: u64) -> Self {
-        MainAllocator {
+        SystemAllocator {
             heap_size: heap_size as usize,
             first_block: UnsafeCell::new(Block {
                 next: null_mut(),
@@ -218,9 +225,40 @@ impl MainAllocator {
     }
 }
 
-
 #[alloc_error_handler]
 pub fn bad_alloc(layout: core::alloc::Layout) -> ! {
     crate::println!("bad_alloc: {:?}", layout);
     aarch64::halt();
 }
+
+// unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
+//     let mut previous = self.block_list();
+//     let mut current = (*previous).next;
+
+//     while current != null_mut() {
+//         if is_the_space_big_enough(previous, layout, current as usize) {
+//             // FOUND PLACE
+//             let mut new_block =
+//                 align_address(previous as usize + (*previous).size_of(), layout.align()) as *mut Block;
+//             (*new_block).next = current;
+//             (*new_block).data_size = layout.size();
+//             (*previous).next = new_block;
+//             let ptr = (new_block as usize + size_of::<Block>()) as *mut u8;
+//             return ptr;
+//         }
+//         previous = current;
+//         current = (*current).next;
+//     }
+
+//     if is_the_space_big_enough(previous, layout, self.heap_end()) {
+//         // FOUND PLACE
+//         let mut new_block =
+//             align_address(previous as usize + (*previous).size_of(), 8) as *mut Block;
+//         (*new_block).next = null_mut();
+//         (*new_block).data_size = layout.size();
+//         (*previous).next = new_block;
+//         let ptr = (new_block as usize + size_of::<Block>()) as *mut u8;
+//         return ptr;
+//     }
+//     return null_mut();
+// }

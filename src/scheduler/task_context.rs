@@ -89,7 +89,11 @@ impl TaskContext {
     }
 
     /// create new task
-    pub fn new(start_function: extern "C" fn(), priority: u32, is_user_task: bool) -> Result<Self, TaskError> {
+    pub fn new(
+        start_function: extern "C" fn(),
+        priority: u32,
+        is_user_task: bool,
+    ) -> Result<Self, TaskError> {
         let mut task = Self::empty();
         // Initialize task
         // crate::println!("\x1b[34;5m{}\x1b[0m", crate::memory::allocator::A);
@@ -102,13 +106,23 @@ impl TaskContext {
 
         // set lr new_task_func to clear up registers, finalize scheduling and jump to start_function on first run of task
         task.gpr.lr = new_task_func as *const () as u64;
-        crate::println!("Stack - [{:#018x} - {:#018x}] size: {:x}]", stack.stack_base(), stack.stack_top(), stack.size());
+        // crate::println!(
+        //     "Stack - [{:#018x} - {:#018x}] size: {:x}]",
+        //     stack.stack_base(),
+        //     stack.stack_top(),
+        //     stack.size()
+        // );
 
         if is_user_task {
+            let user_stack =
+                TaskStack::new(TASK_STACK_SIZE).ok_or(TaskError::StackAllocationFail)?;
 
-            let user_stack = TaskStack::new(TASK_STACK_SIZE).ok_or(TaskError::StackAllocationFail)?;
-            
-            crate::println!("User Stack - [{:#018x} - {:#018x}] size: {:x}]", user_stack.stack_base(), user_stack.stack_top(), user_stack.size());
+            // crate::println!(
+            //     "User Stack - [{:#018x} - {:#018x}] size: {:x}]",
+            //     user_stack.stack_base(),
+            //     user_stack.stack_top(),
+            //     user_stack.size()
+            // );
 
             // x19 of task is address of userspace transition start_function
             task.gpr.x19[0] = switch_to_user_space as *const () as u64;
@@ -123,11 +137,16 @@ impl TaskContext {
             // x19 of task is address of start_function
             task.gpr.x19[0] = start_function as *const () as u64;
         }
-        crate::println!("lr: {:#018x}\nx19: {:#018x}\nx20: {:#018x}\nx21: {:#018x}\n", task.gpr.lr,task.gpr.x19[0],task.gpr.x19[1],task.gpr.x19[2]);
+        // crate::println!(
+        //     "lr: {:#018x}\nx19: {:#018x}\nx20: {:#018x}\nx21: {:#018x}\n",
+        //     task.gpr.lr,
+        //     task.gpr.x19[0],
+        //     task.gpr.x19[1],
+        //     task.gpr.x19[2]
+        // );
 
         // set stack pointer to the oldest address of task stack space
         task.gpr.sp = stack.stack_base() as u64;
-        
 
         task.stack = Some(stack);
         Ok(task)
@@ -139,15 +158,21 @@ impl TaskContext {
     }
 }
 
+pub extern "C" fn user_task(task: extern "C" fn() -> usize) -> ! {
+    let return_value = task();
+    crate::userspace::syscall::terminate_user_task(return_value);
+}
+
 extern "C" fn switch_to_user_space(start_function: u64, stack_pointer: u64) -> ! {
-    let context = ExceptionContext {
-        gpr: crate::interupt::GPR { x: [0; 30], lr : 0},
+    let mut context = ExceptionContext {
+        gpr: crate::interupt::GPR { x: [0; 30], lr: 0 },
         spsr_el1: 0,
-        elr_el1: start_function,
+        elr_el1: user_task as u64,
         esr_el1: 0,
         sp_el0: stack_pointer,
-        far_el1 : 0
+        far_el1: 0,
     };
+    context.gpr.x[0] = start_function;
     unsafe {
         drop_el0(&context);
     }

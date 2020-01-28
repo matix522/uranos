@@ -1,4 +1,5 @@
 use super::*;
+pub use crate::framebuffer::charbuffer::CharBuffer;
 use crate::interupt::ExceptionContext;
 use crate::print;
 use crate::println;
@@ -8,7 +9,6 @@ use core::slice;
 use core::str::*;
 use core::sync::atomic::AtomicBool;
 pub use num_traits::FromPrimitive;
-pub use crate::framebuffer::charbuffer::CharBuffer;
 use timer::ArmQemuTimer as Timer;
 #[derive(FromPrimitive)]
 enum SynchronousCause {
@@ -17,7 +17,10 @@ enum SynchronousCause {
 #[no_mangle]
 pub unsafe extern "C" fn default_interupt_handler(context: &mut ExceptionContext, id: usize) -> ! {
     super::disable_irqs();
-    println!("Interupt Happened of ID-{}:\n  SP : {:#018x}\n {}", id, context as *mut ExceptionContext as u64, *context);
+    println!(
+        "Interupt Happened of ID-{}:\n  SP : {:#018x}\n {}",
+        id, context as *mut ExceptionContext as u64, *context
+    );
     println!("{:?}", boot::mode::ExceptionLevel::get_current());
     context.esr_el1 = 0;
 
@@ -30,10 +33,9 @@ pub unsafe extern "C" fn default_interupt_handler(context: &mut ExceptionContext
     // gpio::blink();
     // context.elr_el1 += 8;
     loop {}
-
 }
 
-static mut is_scheduling: AtomicBool = AtomicBool::new(false);
+static is_scheduling: AtomicBool = AtomicBool::new(false);
 
 #[no_mangle]
 pub extern "C" fn end_scheduling() {
@@ -44,14 +46,15 @@ pub extern "C" fn end_scheduling() {
 
 #[no_mangle]
 pub unsafe extern "C" fn current_elx_irq(_context: &mut ExceptionContext) {
-        // super::disable_irqs();
-    Timer::interupt_after(Timer::get_frequency());
+    // super::disable_irqs();
+    Timer::interupt_after(Timer::get_frequency() / 1000);
     Timer::enable();
     super::enable_irqs();
     if is_scheduling.load(core::sync::atomic::Ordering::Relaxed) {
         return;
     }
     is_scheduling.store(true, core::sync::atomic::Ordering::Relaxed);
+    // println!("dsdfsfsdff");
     scheduler::schedule();
     is_scheduling.store(false, core::sync::atomic::Ordering::Relaxed);
 }
@@ -72,27 +75,24 @@ pub unsafe extern "C" fn lower_aarch64_synchronous(context: &mut ExceptionContex
                 return;
             }
             let syscall_type = syscall_type.unwrap();
-// println!("{}",*context);
+            // println!("{}",*context);
             // println!("{} {:?}",context.gpr.x[8] ,syscall_type);
 
             match syscall_type {
                 Syscalls::Print => handle_print_syscall(context),
-                Syscalls::NewTask => {
-                    // println!("{}",*context);
-                    // println!("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
-
-                    handle_new_task_syscall(context);
-                    // println!("DSDFGHJKJHGFDSDFGHJHGFDFG");
-                    // println!("{}",*context);
-                },
+                Syscalls::NewTask => handle_new_task_syscall(context),
+                Syscalls::TerminateTask => handle_terminate_task_syscall(context),
+                Syscalls::GetTime => handle_get_time_syscall(context),
+                Syscalls::GetFrequency => handle_get_frequency_syscall(context),
+                Syscalls::Yield => handle_yield_syscall(context),
             }
         }
         None => {
             let mut charbuffer = crate::framebuffer::charbuffer::CHARBUFFER.lock();
             if charbuffer.is_some() {
                 let charbuffer = charbuffer.as_mut().unwrap();
-                charbuffer.set_cursor((0,0));
-                charbuffer.background = (0,0,180,255);
+                charbuffer.set_cursor((0, 0));
+                charbuffer.background = (0, 0, 180, 255);
                 charbuffer.puts("                                       *   * \n");
                 charbuffer.puts(" THE TURQUOISE SCREEN OF ETERNAL DOOM!   |   \n");
                 charbuffer.puts("                                      /\\/\\/\\/   \n");
@@ -100,7 +100,6 @@ pub unsafe extern "C" fn lower_aarch64_synchronous(context: &mut ExceptionContex
                     charbuffer.putc('\n');
                 }
                 charbuffer.update();
-                
             }
             println!(
                 "[Task Fault]\n\tReason: Unknown code '{:#018x}'\n\tProgram location:    '{:#018x}'\n\tAddress:             '{:#018x}'\n\tStack:               '{:#018x}\n",
@@ -112,9 +111,19 @@ pub unsafe extern "C" fn lower_aarch64_synchronous(context: &mut ExceptionContex
             loop {}
         }
     }
-
 }
 
+fn handle_get_time_syscall(context: &mut ExceptionContext) {
+    context.gpr.x[0] = timer::ArmQemuTimer::get_time();
+}
+fn handle_yield_syscall(context: &mut ExceptionContext) {
+    is_scheduling.store(true, core::sync::atomic::Ordering::SeqCst);
+    scheduler::schedule();
+    is_scheduling.store(false, core::sync::atomic::Ordering::SeqCst);
+}
+fn handle_get_frequency_syscall(context: &mut ExceptionContext) {
+    context.gpr.x[0] = timer::ArmQemuTimer::get_frequency() as u64;
+}
 fn handle_print_syscall(context: &mut ExceptionContext) {
     let ptr = context.gpr.x[0] as *const u8;
     let len = context.gpr.x[1] as usize;
@@ -145,14 +154,8 @@ fn handle_print_syscall(context: &mut ExceptionContext) {
 }
 
 fn handle_new_task_syscall(context: &mut ExceptionContext) {
-    // println!("{}",*context);
-    // println!("sl");
-    crate::println!("KERNEL ADDRESS {:#018x}", context.gpr.x[0] as u64);
-
     let start_function = unsafe { &*(&context.gpr.x[0] as *const u64 as *const extern "C" fn()) };
-    crate::println!("KERNEL ADDRESS {:#018x}", *start_function as u64);
 
-    // println!("ls");
     let priority_difference = context.gpr.x[1] as u32;
 
     let curr_priority = 1; //scheduler::get_current_task_priority();
@@ -161,25 +164,34 @@ fn handle_new_task_syscall(context: &mut ExceptionContext) {
     } else {
         1
     };
-    // println!("{}",*context);
-    // println!("ADDRESS {:#018x}", context.gpr.x[0]);
-    // println!("a");
-    // crate::println!("\x1b[32;5m{}\x1b[0m", crate::memory::allocator::A);
-
     let task = scheduler::TaskContext::new(*start_function, new_priority, true).unwrap();
-
-// println!("{}",*context);
-
-    // println!("b");
+    is_scheduling.store(true, core::sync::atomic::Ordering::Relaxed);
     match task.start_task() {
-        Ok(_) => {},
-        Err(e) => { 
+        Ok(_) => {}
+        Err(e) => {
             println!(
-            "[Syscall Fault (New Task)] System was unable to create new task.
+                "[Syscall Fault (New Task)] System was unable to create new task.
             \n\t -- Caused by: '{:?}'",
-            e);
-        },
+                e
+            );
+        }
     }
-    // println!("c");
+    is_scheduling.store(false, core::sync::atomic::Ordering::Relaxed);
+}
+fn handle_terminate_task_syscall(context: &mut ExceptionContext) {
+    is_scheduling.store(true, core::sync::atomic::Ordering::Relaxed);
 
+    match scheduler::end_task(scheduler::get_current_task_id()) {
+        Ok(_) => {}
+        Err(e) => {
+            println!(
+                "[Kernel Fault] System was unable to terminate task.
+            \n\t -- Caused by: '{:?}'",
+                e
+            );
+            aarch64::halt();
+        }
+    }
+    scheduler::schedule();
+    is_scheduling.store(false, core::sync::atomic::Ordering::Relaxed);
 }
