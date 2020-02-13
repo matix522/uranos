@@ -41,8 +41,6 @@ const MMIO_BASE: u32 = 0x3F00_0000;
 #[cfg(feature = "raspi4")]
 const MMIO_BASE: u32 = 0xFE00_0000;
 
-use alloc::vec::Vec;
-
 extern "C" {
     pub fn _boot_cores() -> !;
     pub static __exception_vectors_start: u64;
@@ -74,7 +72,6 @@ fn kernel_entry() -> ! {
     // use framebuffer::charbuffer::CharBuffer;
     // let framebuffer = framebuffer.as_mut().unwrap();
     // let charbuffer = CharBuffer::new(framebuffer);
-
     println!(
         "Exception Level: {:?}",
         boot::mode::ExceptionLevel::get_current()
