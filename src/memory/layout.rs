@@ -115,7 +115,7 @@ impl<const NUM_SPECIAL_RANGES: usize> KernelVirtualLayout<{ NUM_SPECIAL_RANGES }
     }
 }
 
-const NUM_MEM_RANGES: usize = 2;
+const NUM_MEM_RANGES: usize = 3;
 pub static LAYOUT: KernelVirtualLayout<{ NUM_MEM_RANGES }> = KernelVirtualLayout::new(
     super::physical::MEMORY_END,
     [
@@ -162,6 +162,16 @@ pub static LAYOUT: KernelVirtualLayout<{ NUM_MEM_RANGES }> = KernelVirtualLayout
                 mem_attributes: MemAttributes::Device,
                 acc_perms: AccessPermissions::ReadWrite,
                 execute_never: true,
+            },
+        },
+        RangeDescriptor {
+            name: "Test Memory Range",
+            virtual_range: || RangeInclusive::new(0x3000_0000, 0x3100_0000),
+            translation: Translation::Offset(0x3000_0000),
+            attribute_fields: AttributeFields {
+                mem_attributes: MemAttributes::CacheableDRAM,
+                acc_perms: AccessPermissions::ReadOnly,
+                execute_never: false,
             },
         },
     ],

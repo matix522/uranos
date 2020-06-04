@@ -1,5 +1,5 @@
-pub mod syscall;
 pub mod mutex;
+pub mod syscall;
 pub use num_traits::FromPrimitive;
 
 use core::fmt;
@@ -30,7 +30,7 @@ pub fn _uprint(args: fmt::Arguments) {
 macro_rules! uprint {
     ($($arg:tt)*) => ($crate::userspace::_uprint(format_args!($($arg)*)));
 }
-pub static MUTEX : crate::userspace::mutex::Mutex<()> = crate::userspace::mutex::Mutex::new(());
+pub static MUTEX: crate::userspace::mutex::Mutex<()> = crate::userspace::mutex::Mutex::new(());
 #[macro_export]
 macro_rules! uprintln {
     () => ($crate::uprint!("\n"));

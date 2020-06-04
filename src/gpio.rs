@@ -28,7 +28,7 @@ use register::{mmio::ReadWrite, mmio::WriteOnly, register_bitfields};
 
 register_bitfields! {
     u32,
-    GPFSEL1 [
+    pub GPFSEL1 [
         /// Pin 15
         FSEL15 OFFSET(15) NUMBITS(3) [
             Input = 0b000,
@@ -55,7 +55,7 @@ register_bitfields! {
         ]
     ],
     /// GPIO Pull-up/down Clock Register 0
-    GPPUDCLK0 [
+    pub GPPUDCLK0 [
         /// Pin 21
         PUDCLK21 OFFSET(21) NUMBITS(1) [
             NoEffect = 0,

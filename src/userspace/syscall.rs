@@ -128,4 +128,3 @@ pub fn yield_cpu() -> u64 {
         return syscall0(Syscalls::Yield as usize) as u64;
     }
 }
-

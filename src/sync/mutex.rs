@@ -10,8 +10,8 @@ pub struct Mutex<T> {
     data: UnsafeCell<T>,
 }
 
-unsafe impl<T : Sync> Sync for Mutex<T> {}
-unsafe impl<T : Send> Send for Mutex<T> {}
+unsafe impl<T: Sync> Sync for Mutex<T> {}
+unsafe impl<T: Send> Send for Mutex<T> {}
 
 /// RAII Lock guard for mutex type
 pub struct MutexGuard<'a, T> {

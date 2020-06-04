@@ -26,7 +26,7 @@ TARGET_RASPI3 = aarch64-unknown-none-raspi3
 TARGET_RASPI4 = aarch64-unknown-none-raspi4
 
 
-SOURCES = $(shell find src/ -type f -regex ".*\.rs") $(shell find src/ -maxdepth 1 -type f -regex ".*\.S") link.ld Cargo.toml
+SOURCES = $(shell find src/ -type f -regex ".*\.rs") $(shell find src/ -type f -regex ".*\.S") link.ld Cargo.toml
 
 
 XRUSTC_CMD_RASPI3   = cargo xbuild --target=.cargo/$(TARGET_RASPI3).json --release --features="raspi3"

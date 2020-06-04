@@ -1,8 +1,8 @@
 // pub type Mutex<T> = crate::sync::mutex::Mutex<T>;
 
-use core::sync::atomic::*;
-use core::ops::*;
 use core::cell::*;
+use core::ops::*;
+use core::sync::atomic::*;
 
 /// Spinlock based Mutex type for allowing concurent access to protected data
 pub struct Mutex<T> {
@@ -10,8 +10,8 @@ pub struct Mutex<T> {
     data: UnsafeCell<T>,
 }
 
-unsafe impl<T : Sync> Sync for Mutex<T> {}
-unsafe impl<T : Send> Send for Mutex<T> {}
+unsafe impl<T: Sync> Sync for Mutex<T> {}
+unsafe impl<T: Send> Send for Mutex<T> {}
 
 /// RAII Lock guard for mutex type
 pub struct MutexGuard<'a, T> {
@@ -31,7 +31,6 @@ impl<'a, T> DerefMut for MutexGuard<'a, T> {
 }
 impl<'a, T> Drop for MutexGuard<'a, T> {
     fn drop(&mut self) {
-
         self.lock.store(false, Ordering::Release);
         // super::syscall::yield_cpu();
     }

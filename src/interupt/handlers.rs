@@ -10,29 +10,40 @@ use core::str::*;
 use core::sync::atomic::AtomicBool;
 pub use num_traits::FromPrimitive;
 use timer::ArmQemuTimer as Timer;
+
 #[derive(FromPrimitive)]
 enum SynchronousCause {
     SyscallFromEL0 = 0x5600_0000,
 }
+
+#[rustfmt::skip]
+static INTERPUT_NAMES : [&'static str; 12] = [
+    "'Current EL0 Stack Synchronous'",
+    "'Current EL0 Stack IRQ'",
+    "'Current EL0 Stack System Error'",
+
+    "'Current ELx Stack Synchronous'",
+    "'Current ELx Stack IRQ'",
+    "'Current ELx Stack System Error'",
+
+    "'Lower AArch64 Synchronous'",
+    "'Lower AArch64 IRQ'",
+    "'Lower AArch64 System Error'",
+
+    "'Lower AArch32 Synchronous'",
+    "'Lower AArch32 IRQ'",
+    "'Lower AArch32 System Error'",
+];
+
 #[no_mangle]
 pub unsafe extern "C" fn default_interupt_handler(context: &mut ExceptionContext, id: usize) -> ! {
     super::disable_irqs();
     println!(
-        "Interupt Happened of ID-{}:\n  SP : {:#018x}\n {}",
-        id, context as *mut ExceptionContext as u64, *context
+        "Unexpected {} Interupt happened:\n  SP : {:#018x}\n {}",
+        INTERPUT_NAMES[id], context as *mut ExceptionContext as u64, *context
     );
-    println!("{:?}", boot::mode::ExceptionLevel::get_current());
-    context.esr_el1 = 0;
 
-    // let sp : u64;
-    // unsafe {
-    //     asm!("mov x8, sp" : "={x8}"(sp) : : : "volatile");
-    // }
-    // println!("SP: {}",sp);
-    // unsafe { println!("*sp: {:x} *pc:{:x}", *(context.sp_el0 as *const u64), *(context.elr_el1 as *const u64) ) };
-    // gpio::blink();
-    // context.elr_el1 += 8;
-    loop {}
+    panic!("Kernel panic in {} interupt Handler", INTERPUT_NAMES[id])
 }
 
 static is_scheduling: AtomicBool = AtomicBool::new(false);

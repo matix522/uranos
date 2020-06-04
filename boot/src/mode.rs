@@ -14,7 +14,7 @@ pub enum ExceptionLevel {
 }
 
 
-const SCTLR_RESERVED: u64 = (3 << 28) | (3 << 22) | (1 << 20) | (1 << 11);
+const SCTLR_RESERVED: u64 = 3 << 28 | 3 << 22 | 1 << 20 | 1 << 11;
 const SCTLR_EE_LITTLE_ENDIAN: u64 = 0;
 
 const SCTLR_I_CACHE_DISABLED: u64 = 0;
@@ -22,24 +22,24 @@ const SCTLR_D_CACHE_DISABLED: u64 = 0;
 const SCTLR_MMU_DISABLED: u64 = 0;
 
 
-const SCTLR_VALUE_MMU_DISABLED: u64 = (SCTLR_RESERVED
+const SCTLR_VALUE_MMU_DISABLED: u64 = SCTLR_RESERVED
     | SCTLR_EE_LITTLE_ENDIAN
     | SCTLR_I_CACHE_DISABLED
     | SCTLR_D_CACHE_DISABLED
-    | SCTLR_MMU_DISABLED);
+    | SCTLR_MMU_DISABLED;
 
-const HCR_RW: u64 = (1 << 31);
+const HCR_RW: u64 = 1 << 31;
 const HCR_VALUE: u64 = HCR_RW;
 
-const SCR_RESERVED: u64 = (3 << 4);
-const SCR_RW: u64 = (1 << 10);
+const SCR_RESERVED: u64 = 3 << 4;
+const SCR_RW: u64 = 1 << 10;
 const SCR_NS: u64 = 1;
-const SCR_VALUE: u64 = (SCR_RESERVED | SCR_RW | SCR_NS);
+const SCR_VALUE: u64 = SCR_RESERVED | SCR_RW | SCR_NS;
 
 
-const SPSR_MASK_ALL: u64 = (7 << 6);
-const SPSR_EL1H: u64 = (5);
-const SPSR_VALUE: u64 = (SPSR_MASK_ALL | SPSR_EL1H);
+const SPSR_MASK_ALL: u64 = 7 << 6;
+const SPSR_EL1H: u64 = 5;
+const SPSR_VALUE: u64 = SPSR_MASK_ALL | SPSR_EL1H;
 
 
 impl ExceptionLevel {
