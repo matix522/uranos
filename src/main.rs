@@ -8,23 +8,23 @@
 #![feature(const_generics)]
 #![feature(const_in_array_repeat_expressions)]
 #![feature(crate_visibility_modifier)]
+#![allow(incomplete_features)]
+#![allow(clippy::fn_to_numeric_cast)]
+#![feature(panic_info_message)]
 // extern crate spin;
 extern crate alloc;
 #[macro_use]
 extern crate num_derive;
 
 pub mod framebuffer;
-pub mod gpio;
 
 pub mod interupt;
 pub mod io;
-pub mod mbox;
 pub mod memory;
 /// Task scheduler
 pub mod scheduler;
 pub mod sync;
 pub mod time;
-pub mod uart;
 pub mod userspace;
 
 pub mod utils;
@@ -35,7 +35,7 @@ use interupt::timer::ArmQemuTimer as Timer;
 pub mod devices;
 
 use aarch64::*;
-
+use devices::physical::*;
 #[cfg(not(feature = "raspi4"))]
 const MMIO_BASE: u32 = 0x3F00_0000;
 #[cfg(feature = "raspi4")]
@@ -95,34 +95,41 @@ fn kernel_entry() -> ! {
         memory::allocator::heap_end()
     );
 
-    unsafe {
-        use cortex_a::barrier;
-        use cortex_a::regs::*;
+    let setup_mmu = || -> Result<(), &str> {
+        unsafe {
+            use cortex_a::barrier;
+            use cortex_a::regs::*;
 
-        if !ID_AA64MMFR0_EL1.matches_all(ID_AA64MMFR0_EL1::TGran64::Supported) {
-            crate::println!("64 KiB translation granule not supported");
+            if !ID_AA64MMFR0_EL1.matches_all(ID_AA64MMFR0_EL1::TGran64::Supported) {
+                crate::println!("64 KiB translation granule not supported");
+            }
+
+            memory::setup_mair();
+            memory::setup_transaltion_tables()?;
+
+            // Set the "Translation Table Base Register".
+            TTBR0_EL1.set_baddr(memory::get_translation_table_address());
+
+            memory::configure_translation_control();
+            crate::println!("XDD");
+            // Switch the MMU on.
+            //
+            // First, force all previous changes to be seen before the MMU is enabled.
+            barrier::isb(barrier::SY);
+
+            // Enable the MMU and turn on data and instruction caching.
+            SCTLR_EL1
+                .modify(SCTLR_EL1::M::Enable + SCTLR_EL1::C::NonCacheable + SCTLR_EL1::I::NonCacheable);
+
+            // Force MMU init to complete before next instruction.
+            barrier::isb(barrier::SY);
+            crate::println!("XDD");
+            Ok(())
         }
+    };
+    println!("GICv2: {:x}", core::mem::size_of::<interupt::gicv2::RegisterBlock>());
+    // let _ = setup_mmu();
 
-        memory::setup_mair();
-        memory::setup_transaltion_tables();
-
-        // Set the "Translation Table Base Register".
-        TTBR0_EL1.set_baddr(memory::get_translation_table_address());
-
-        memory::configure_translation_control();
-        crate::println!("XDD");
-        // Switch the MMU on.
-        //
-        // First, force all previous changes to be seen before the MMU is enabled.
-        barrier::isb(barrier::SY);
-
-        // Enable the MMU and turn on data and instruction caching.
-        SCTLR_EL1.modify(SCTLR_EL1::M::Enable + SCTLR_EL1::C::Cacheable + SCTLR_EL1::I::Cacheable);
-
-        // Force MMU init to complete before next instruction.
-        barrier::isb(barrier::SY);
-        crate::println!("XDD");
-    }
     print!("Initializing Interupt Vector Table: ");
     unsafe {
         let exception_vectors_start: u64 = &__exception_vectors_start as *const _ as u64;
@@ -163,8 +170,19 @@ fn kernel_entry() -> ! {
 
     println!("time: {}", Timer::get_time());
 
-    scheduler::start();
-    halt();
+    panic!("Should not reach {:?}", scheduler::start().err().unwrap());
 }
 
 boot::entry!(kernel_entry);
+
+use core::panic::PanicInfo;
+#[panic_handler]
+fn panic(info: &PanicInfo) -> ! {
+    if let Some(args) = info.message() {
+        println!("\nKernel panic: {}", args);
+    } else {
+        println!("\nKernel panic!");
+    }
+
+    loop{}
+}

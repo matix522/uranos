@@ -6,7 +6,7 @@ pub const TASK_STACK_SIZE: usize = 0x8000;
 
 extern "C" {
     /// Signal end of scheduling, zero x0 - x18 and jump to x19
-    fn new_task_func() -> ();
+    fn new_task_func();
     fn drop_el0(context: &ExceptionContext) -> !;
 
 }
@@ -130,6 +130,7 @@ impl TaskContext {
             task.gpr.x19[1] = start_function as u64;
             // x21 of task is user stack pointer
             task.gpr.x19[2] = user_stack.stack_base() as u64;
+            crate::println!("STACK BASE: {:x}", task.gpr.x19[2]);
 
             task.user_stack = Some(user_stack);
             task.has_user_space = true;

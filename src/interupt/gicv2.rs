@@ -1,7 +1,7 @@
 use super::ExceptionContext;
 use super::InteruptController;
 use register::mmio::*;
-
+use register::register_structs;
 const GIC_CORE_BASE_ADDRESS: usize = 0xff84_1000;
 #[allow(unused)]
 const GIC_COMMON_BASE_ADDRESS: usize = 0xff84_2000;
@@ -13,44 +13,67 @@ const IRQ_LINES: usize = 256;
 const GICD_IPRIORITYR_DEFAULT: u32 = 0xA0;
 const GICD_ITARGETSR_CORE0: u32 = 0x01;
 
-const GICC_CTLR_ENABLE: u32 = 1 << 0;
+const GICC_CTLR_ENABLE: u32 = 1;
 
-const GICC_PMR_PRIORITY: u32 = 0xF0 << 0;
+const GICC_PMR_PRIORITY: u32 = 0xF0;
 
-#[allow(non_snake_case)]
-#[repr(C)]
-pub struct RegisterBlock {
-    GICD_CTLR: WriteOnly<u32>,                 // 0x000
-    __reserved_0: [u32; 0x1f],                 // 0x004
-    GICD_IGROUPR0: [WriteOnly<u32>; 0x20],     // 0x080
-    GICD_ISENABLER0: [WriteOnly<u32>; 0x20],   // 0x100
-    GICD_ICENABLER0: [WriteOnly<u32>; 0x20],   // 0x180
-    GICD_ISPENDR0: [WriteOnly<u32>; 0x20],     // 0x200
-    GICD_ICPENDR0: [WriteOnly<u32>; 0x20],     // 0x280
-    GICD_ISACTIVER0: [WriteOnly<u32>; 0x20],   // 0x300
-    GICD_ICACTIVER0: [WriteOnly<u32>; 0x20],   // 0x380
-    GICD_IPRIORITYR0: [WriteOnly<u32>; 0x100], // 0x400
-    GICD_ITARGETSR0: [WriteOnly<u32>; 0x100],  // 0x800
-    GICD_ICFGR0: [WriteOnly<u32>; 0x40],       // 0xc00
-    __reserved_1: [WriteOnly<u32>; 0x80],      // 0xc40
-    GICD_SGIR: [WriteOnly<u32>; 0x40],         // 0xf00
-    GICC_CTLR: WriteOnly<u32>,                 // 0x1000
-    GICC_PMR: WriteOnly<u32>,                  // 0x1004
-    __reserved_2: u32,                         // 0x1008
-    GICC_IAR: WriteOnly<u32>,                  // 0x100c
-    GICC_EOIR: WriteOnly<u32>,                 // 0x1010
+register_structs! {
+    #[allow(non_snake_case)]
+    pub RegisterBlock {
+        (0x000 => GICD_CTLR: WriteOnly<u32>),
+        (0x004 => __reserved_0),
+        (0x080 => GICD_IGROUPR0: [WriteOnly<u32>; 0x20]),
+        (0x100 => GICD_ISENABLER0: [WriteOnly<u32>; 0x20]),
+        (0x180 => GICD_ICENABLER0: [WriteOnly<u32>; 0x20]),
+        (0x200 => GICD_ISPENDR0: [WriteOnly<u32>; 0x20]),
+        (0x280 => GICD_ICPENDR0: [WriteOnly<u32>; 0x20]),
+        (0x300 => GICD_ISACTIVER0: [WriteOnly<u32>; 0x20]),
+        (0x380 => GICD_ICACTIVER0: [WriteOnly<u32>; 0x20]),
+        (0x400 => GICD_IPRIORITYR0: [WriteOnly<u32>; 0x100]),
+        (0x800 => GICD_ITARGETSR0: [WriteOnly<u32>; 0x100]),
+        (0xc00 => GICD_ICFGR0: [WriteOnly<u32>; 0x40]),
+        (0xd00 => __reserved_1),
+        (0xf00 => GICD_SGIR: [WriteOnly<u32>; 0x40]),
+        (0x1000 => GICC_CTLR: WriteOnly<u32>),
+        (0x1004 => GICC_PMR: WriteOnly<u32>),
+        (0x1008 => __reserved_2),
+        (0x100c => GICC_IAR: WriteOnly<u32>),
+        (0x1010 => GICC_EOIR: WriteOnly<u32>),
+        (0x1014 => @END),
+    }
 }
 
+// #[allow(non_snake_case)]
+// #[repr(C)]
+// pub struct RegisterBlock {
+//     GICD_CTLR: WriteOnly<u32>,                 // 0x000
+//     __reserved_0: [u32; 0x1f],                 // 0x004
+//     GICD_IGROUPR0: [WriteOnly<u32>; 0x20],     // 0x080
+//     GICD_ISENABLER0: [WriteOnly<u32>; 0x20],   // 0x100
+//     GICD_ICENABLER0: [WriteOnly<u32>; 0x20],   // 0x180
+//     GICD_ISPENDR0: [WriteOnly<u32>; 0x20],     // 0x200
+//     GICD_ICPENDR0: [WriteOnly<u32>; 0x20],     // 0x280
+//     GICD_ISACTIVER0: [WriteOnly<u32>; 0x20],   // 0x300
+//     GICD_ICACTIVER0: [WriteOnly<u32>; 0x20],   // 0x380
+//     GICD_IPRIORITYR0: [WriteOnly<u32>; 0x100], // 0x400
+//     GICD_ITARGETSR0: [WriteOnly<u32>; 0x100],  // 0x800
+//     GICD_ICFGR0: [WriteOnly<u32>; 0x40],       // 0xc00
+//     __reserved_1: [WriteOnly<u32>; 0x80],      // 0xc40
+//     GICD_SGIR: [WriteOnly<u32>; 0x40],         // 0xf00
+//     GICC_CTLR: WriteOnly<u32>,                 // 0x1000
+//     GICC_PMR: WriteOnly<u32>,                  // 0x1004
+//     __reserved_2: u32,                         // 0x1008
+//     GICC_IAR: WriteOnly<u32>,                  // 0x100c
+//     GICC_EOIR: WriteOnly<u32>,                 // 0x1010
+// }
+//10d4
+//1014
+#[derive(Default)]
 pub struct GICv2 {
     //irq_handlers: [Option<fn(&mut super::ExceptionContext)>; IRQ_LINES],
 }
 
 impl GICv2 {
-    pub fn new() -> Self {
-        GICv2 {
-            //irq_handlers: [None; IRQ_LINES],
-        }
-    }
     fn ptr(&self) -> *mut RegisterBlock {
         GIC_CORE_BASE_ADDRESS as *mut RegisterBlock
     }
@@ -65,7 +88,7 @@ use super::InteruptError;
 use super::InteruptResult;
 
 fn addressof<T>(t: &T) -> u64 {
-    return t as *const T as u64;
+    t as *const T as u64
 }
 
 impl InteruptController for GICv2 {

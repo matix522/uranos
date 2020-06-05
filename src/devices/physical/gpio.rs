@@ -23,7 +23,7 @@
  * SOFTWARE.
  */
 
-use super::MMIO_BASE;
+use crate::MMIO_BASE;
 use register::{mmio::ReadWrite, mmio::WriteOnly, register_bitfields};
 
 register_bitfields! {

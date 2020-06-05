@@ -1,5 +1,3 @@
-use crate::gpio;
-
 pub mod gicv2;
 pub mod handlers;
 pub mod timer;

@@ -16,6 +16,7 @@ impl Block {
 
 pub struct SystemAllocator {
     heap_size: usize,
+    _pad : usize,
     first_block: core::cell::UnsafeCell<Block>,
 }
 impl core::fmt::Display for Block {
@@ -35,7 +36,7 @@ impl core::fmt::Display for Block {
             self as *const Self as usize + size_of::<Self>()
         )?;
 
-        if (self.next == null_mut()) {
+        if self.next.is_null() {
             writeln!(f, "*Next:        NULL         *")?;
         } else {
             writeln!(f, "*Next:   {:#018x}*", self.next as u64)?;
@@ -53,7 +54,7 @@ impl core::fmt::Display for SystemAllocator {
 
         let mut block = self.block_list();
         unsafe {
-            while block != null_mut() {
+            while !block.is_null(){
                 writeln!(f, "{}", *block)?;
                 block = (*block).next
             }
@@ -64,13 +65,13 @@ impl core::fmt::Display for SystemAllocator {
 unsafe impl Sync for SystemAllocator {}
 impl SystemAllocator {
     fn heap_start(&self) -> usize {
-        return self.first_block.get() as usize;
+        self.first_block.get() as usize
     }
     fn heap_end(&self) -> usize {
-        return self.heap_start() + self.heap_size;
+        self.heap_start() + self.heap_size
     }
     fn block_list(&self) -> *mut Block {
-        return self.heap_start() as *mut Block;
+        self.heap_start() as *mut Block
     }
 }
 #[global_allocator]
@@ -78,10 +79,10 @@ impl SystemAllocator {
 pub static A: SystemAllocator = SystemAllocator::new(0x100_0000);
 
 pub fn heap_start() -> usize {
-    return A.heap_start();
+    A.heap_start()
 }
 pub fn heap_end() -> usize {
-    return A.heap_end();
+    A.heap_end()
 }
 
 unsafe fn is_the_space_big_enough(
@@ -99,11 +100,11 @@ unsafe fn is_the_space_big_enough(
 /// # Safety
 /// aligment must be non 0
 unsafe fn align_address(address: usize, aligment: usize) -> usize {
-    return if address % aligment == 0 {
+    if address % aligment == 0 {
         address
     } else {
         (address / aligment + 1) * aligment
-    };
+    }
 }
 unsafe impl GlobalAlloc for SystemAllocator {
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
@@ -116,7 +117,7 @@ unsafe impl GlobalAlloc for SystemAllocator {
 
         let size = layout.size();
         // crate::println!("alloc");
-        while current != null_mut() {
+        while !current.is_null() {
             if is_the_space_big_enough(previous, layout, current as usize) {
                 // FOUND PLACE
                 let mut new_block =
@@ -176,8 +177,9 @@ unsafe impl GlobalAlloc for SystemAllocator {
 
         // crate::println!("ptr null");
         // crate::println!("Null");
-        return null_mut();
+        null_mut()
     }
+    #[allow(clippy::cast_ptr_alignment)]
     unsafe fn dealloc(&self, ptr: *mut u8, _layout: Layout) {
         let block = ptr.offset(-(size_of::<Block>() as isize)) as *mut Block;
         // crate::println!("free {:?}: {:x}", layout, block as u64);
@@ -196,13 +198,13 @@ unsafe impl GlobalAlloc for SystemAllocator {
 
         let mut current = (*previous).next;
         // TOTALY UNSAFE FOR NOW
-        while current != block && current != null_mut() && (current as u64) < (block as u64) {
+        while current != block && !current.is_null() && (current as u64) < (block as u64) {
             previous = current;
             current = (*current).next;
         }
         // crate::println!("prev: {:#018x} current: {:#018x}", previous as u64, current as u64);
 
-        if current != null_mut() {
+        if !current.is_null() {
             (*previous).next = (*current).next;
         }
         //         crate::print!("\x1b[36;5m");
@@ -217,6 +219,7 @@ impl SystemAllocator {
     pub const fn new(heap_size: u64) -> Self {
         SystemAllocator {
             heap_size: heap_size as usize,
+            _pad : 0,
             first_block: UnsafeCell::new(Block {
                 next: null_mut(),
                 data_size: 0,

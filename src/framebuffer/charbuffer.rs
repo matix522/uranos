@@ -14,7 +14,7 @@ pub static FRAMEBUFFER: NullLock<Option<super::FrameBuffer>> = NullLock::new(Non
 pub static CHARBUFFER: NullLock<Option<CharBuffer>> = NullLock::new(None);
 
 impl CharBuffer {
-    pub fn new(framebuffer: &'static mut super::FrameBuffer) -> &'static mut Option<Self> {
+    pub fn init(framebuffer: &'static mut super::FrameBuffer) {
         // let framebuffer = (*FRAMEBUFFER.lock()).unwrap();
         let height = framebuffer.height as usize / 8;
         let width = framebuffer.width as usize / 8;
@@ -22,7 +22,7 @@ impl CharBuffer {
         let mut vec = Vec::new();
         vec.resize(height * width, '\0');
         let mut charbuffer = CharBuffer {
-            framebuffer: framebuffer,
+            framebuffer,
             charbuffer: vec,
             width,
             height,
@@ -34,8 +34,6 @@ impl CharBuffer {
         let mut charbuff = CHARBUFFER.lock();
 
         charbuff.replace(charbuffer);
-
-        CHARBUFFER.as_ref()
     }
 
     pub fn set_char(&mut self, (x, y): (usize, usize), c: char) {
@@ -103,10 +101,10 @@ impl CharBuffer {
     }
     fn cursor_next(&mut self) {
         let (mut x, mut y) = self.cursor;
-        x = x + 1;
+        x +=  1;
         if x == self.width {
             x = 0;
-            y = y + 1;
+            y += 1;
         }
         if y == self.height {
             y = 0;

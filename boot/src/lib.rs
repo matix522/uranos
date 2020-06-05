@@ -5,7 +5,7 @@
 #![feature(asm)]
 //! Low-level boot of the Raspberry's processor
 
-extern crate panic_abort;
+// extern crate panic_abort;
 extern crate aarch64;
 /// Module contains code for
 pub mod mode;

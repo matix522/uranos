@@ -7,7 +7,7 @@ pub struct RegisterBlocArm {
     route_clock: WriteOnly<u32>,
 }
 #[cfg(not(feature = "raspi4"))]
-const ARM_CLOCK_BASE: usize = 0x40000040;
+const ARM_CLOCK_BASE: usize = 0x4000_0040;
 
 pub struct ArmQemuTimer;
 #[cfg(not(feature = "raspi4"))]

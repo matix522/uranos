@@ -23,8 +23,8 @@
  * SOFTWARE.
  */
 
-use super::MMIO_BASE;
-use crate::gpio;
+use super::gpio;
+use crate::MMIO_BASE;
 use core::ops;
 use register::{mmio::*, register_bitfields};
 

@@ -23,9 +23,9 @@
  * SOFTWARE.
  */
 
-use super::MMIO_BASE;
-use crate::gpio;
-use crate::mbox;
+use super::gpio;
+use super::mbox;
+use crate::MMIO_BASE;
 use core::{
     ops,
     sync::atomic::{compiler_fence, Ordering},
@@ -275,5 +275,20 @@ impl Uart {
 
             self.send(n as u8 as char);
         }
+    }
+}
+
+use crate::devices::Device;
+impl Device for Uart {
+    fn device_type(&self) -> &str {
+        "PL011 Uart"
+    }
+
+    fn init(&self) -> Result<(), &str> {
+        Ok(())
+    }
+
+    fn destroy(&self) -> Result<(), &str> {
+        Ok(())
     }
 }

@@ -7,8 +7,8 @@ pub mod table_descriptor;
 pub use attributes::*;
 use cortex_a::regs::*;
 pub use layout::*;
-pub use page_descriptor::*;
-pub use table_descriptor::*;
+use page_descriptor::*;
+use table_descriptor::*;
 
 mod physical {
     #[cfg(feature = "raspi3")]
@@ -28,8 +28,8 @@ mod physical {
         #[cfg(not(feature = "raspi3"))]
         pub const BASE:            usize =        0xFE00_0000;
 
-        pub const GPIO_BASE:       usize = BASE + 0x0020_0000;
-        pub const UART_BASE:       usize = BASE + 0x0020_1000;
+        // pub const GPIO_BASE:       usize = BASE + 0x0020_0000;
+        // pub const UART_BASE:       usize = BASE + 0x0020_1000;
         #[cfg(feature = "raspi3")]
         pub const END:             usize =        0x4100_0000;
         #[cfg(not(feature = "raspi3"))]
@@ -37,7 +37,7 @@ mod physical {
 
     }
     pub const fn address_space_size() -> usize {
-        return MEMORY_END + 1;
+        MEMORY_END + 1
     }
 }
 
@@ -67,7 +67,7 @@ static mut TRANSLATION_TABLES: TopLevelTables<TRANSLATION_TABLES_LEVEL_2> = TopL
     level_2: [TableDescriptor(0); TRANSLATION_TABLES_LEVEL_2],
 };
 pub unsafe fn get_translation_table_address() -> u64 {
-    return TRANSLATION_TABLES.level_2.base_addr();
+    TRANSLATION_TABLES.level_2.base_addr()
 }
 pub unsafe fn setup_mair() {
     MAIR_EL1.write(
@@ -79,7 +79,7 @@ pub unsafe fn setup_mair() {
 }
 
 pub unsafe fn setup_transaltion_tables() -> Result<(), &'static str> {
-    let mut tables = &mut TRANSLATION_TABLES;
+    let tables = &mut TRANSLATION_TABLES;
     layout::LAYOUT.print_layout();
     for (l2_nr, l2_entry) in tables.level_2.iter_mut().enumerate() {
         *l2_entry = tables.level_3[l2_nr].base_addr().into();

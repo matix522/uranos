@@ -1,4 +1,8 @@
-pub mod d_physical;
 pub mod d_virtual;
+pub mod physical;
 
-static DEVICES: () = ();
+pub trait Device {
+    fn device_type(&self) -> &str;
+    fn init(&self) -> Result<(), &str>;
+    fn destroy(&self) -> Result<(), &str>;
+}

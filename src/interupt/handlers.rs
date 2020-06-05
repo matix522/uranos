@@ -17,7 +17,7 @@ enum SynchronousCause {
 }
 
 #[rustfmt::skip]
-static INTERPUT_NAMES : [&'static str; 12] = [
+static INTERPUT_NAMES : [&str; 12] = [
     "'Current EL0 Stack Synchronous'",
     "'Current EL0 Stack IRQ'",
     "'Current EL0 Stack System Error'",
@@ -46,13 +46,12 @@ pub unsafe extern "C" fn default_interupt_handler(context: &mut ExceptionContext
     panic!("Kernel panic in {} interupt Handler", INTERPUT_NAMES[id])
 }
 
-static is_scheduling: AtomicBool = AtomicBool::new(false);
+static IS_SCHEDULING: AtomicBool = AtomicBool::new(false);
 
+#[inline(never)]
 #[no_mangle]
 pub extern "C" fn end_scheduling() {
-    unsafe {
-        is_scheduling.store(false, core::sync::atomic::Ordering::Relaxed);
-    }
+    IS_SCHEDULING.store(false, core::sync::atomic::Ordering::Relaxed);
 }
 
 #[no_mangle]
@@ -61,21 +60,18 @@ pub unsafe extern "C" fn current_elx_irq(_context: &mut ExceptionContext) {
     Timer::interupt_after(Timer::get_frequency() / 1000);
     Timer::enable();
     super::enable_irqs();
-    if is_scheduling.load(core::sync::atomic::Ordering::Relaxed) {
+    if IS_SCHEDULING.load(core::sync::atomic::Ordering::Relaxed) {
         return;
     }
-    is_scheduling.store(true, core::sync::atomic::Ordering::Relaxed);
-    // println!("dsdfsfsdff");
+    IS_SCHEDULING.store(true, core::sync::atomic::Ordering::Relaxed);
     scheduler::schedule();
-    is_scheduling.store(false, core::sync::atomic::Ordering::Relaxed);
+    IS_SCHEDULING.store(false, core::sync::atomic::Ordering::Relaxed);
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn lower_aarch64_synchronous(context: &mut ExceptionContext) -> () {
-    // println!("{}",*context);
+pub unsafe extern "C" fn lower_aarch64_synchronous(context: &mut ExceptionContext) {
     match SynchronousCause::from_u64(context.esr_el1) {
         Some(_) => {
-            // println!("{}",*context);
             let syscall_type: Option<Syscalls> = Syscalls::from_u64(context.gpr.x[8]);
 
             if syscall_type.is_none() {
@@ -107,7 +103,7 @@ pub unsafe extern "C" fn lower_aarch64_synchronous(context: &mut ExceptionContex
                 charbuffer.puts("                                       *   * \n");
                 charbuffer.puts(" THE TURQUOISE SCREEN OF ETERNAL DOOM!   |   \n");
                 charbuffer.puts("                                      /\\/\\/\\/   \n");
-                for i in 0..charbuffer.height - 10 {
+                for _i in 0..charbuffer.height - 10 {
                     charbuffer.putc('\n');
                 }
                 charbuffer.update();
@@ -127,10 +123,10 @@ pub unsafe extern "C" fn lower_aarch64_synchronous(context: &mut ExceptionContex
 fn handle_get_time_syscall(context: &mut ExceptionContext) {
     context.gpr.x[0] = timer::ArmQemuTimer::get_time();
 }
-fn handle_yield_syscall(context: &mut ExceptionContext) {
-    is_scheduling.store(true, core::sync::atomic::Ordering::SeqCst);
+fn handle_yield_syscall(_context: &mut ExceptionContext) {
+    IS_SCHEDULING.store(true, core::sync::atomic::Ordering::SeqCst);
     scheduler::schedule();
-    is_scheduling.store(false, core::sync::atomic::Ordering::SeqCst);
+    IS_SCHEDULING.store(false, core::sync::atomic::Ordering::SeqCst);
 }
 fn handle_get_frequency_syscall(context: &mut ExceptionContext) {
     context.gpr.x[0] = timer::ArmQemuTimer::get_frequency() as u64;
@@ -138,9 +134,6 @@ fn handle_get_frequency_syscall(context: &mut ExceptionContext) {
 fn handle_print_syscall(context: &mut ExceptionContext) {
     let ptr = context.gpr.x[0] as *const u8;
     let len = context.gpr.x[1] as usize;
-
-    // println!("{:x} {}", ptr as u64, len);
-    // println!("{}", *context);
 
     let data = unsafe { slice::from_raw_parts(ptr, len) };
 
@@ -155,7 +148,6 @@ fn handle_print_syscall(context: &mut ExceptionContext) {
         return;
     }
     let string = string.unwrap();
-    // println!("{}", string);
     let mut charbuffer = crate::framebuffer::charbuffer::CHARBUFFER.lock();
     if charbuffer.is_some() {
         charbuffer.as_mut().unwrap().puts(string);
@@ -176,7 +168,7 @@ fn handle_new_task_syscall(context: &mut ExceptionContext) {
         1
     };
     let task = scheduler::TaskContext::new(*start_function, new_priority, true).unwrap();
-    is_scheduling.store(true, core::sync::atomic::Ordering::Relaxed);
+    IS_SCHEDULING.store(true, core::sync::atomic::Ordering::Relaxed);
     match task.start_task() {
         Ok(_) => {}
         Err(e) => {
@@ -187,10 +179,10 @@ fn handle_new_task_syscall(context: &mut ExceptionContext) {
             );
         }
     }
-    is_scheduling.store(false, core::sync::atomic::Ordering::Relaxed);
+    IS_SCHEDULING.store(false, core::sync::atomic::Ordering::Relaxed);
 }
-fn handle_terminate_task_syscall(context: &mut ExceptionContext) {
-    is_scheduling.store(true, core::sync::atomic::Ordering::Relaxed);
+fn handle_terminate_task_syscall(_context: &mut ExceptionContext) {
+    IS_SCHEDULING.store(true, core::sync::atomic::Ordering::Relaxed);
 
     match scheduler::end_task(scheduler::get_current_task_id()) {
         Ok(_) => {}
@@ -204,5 +196,5 @@ fn handle_terminate_task_syscall(context: &mut ExceptionContext) {
         }
     }
     scheduler::schedule();
-    is_scheduling.store(false, core::sync::atomic::Ordering::Relaxed);
+    IS_SCHEDULING.store(false, core::sync::atomic::Ordering::Relaxed);
 }

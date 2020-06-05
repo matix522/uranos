@@ -13,7 +13,7 @@ pub use task_stack::*;
 
 extern "C" {
     /// Change CPU context from prev task to next task
-    fn cpu_switch_to(prev_task_addr: u64, next_task_addr: u64) -> ();
+    fn cpu_switch_to(prev_task_addr: u64, next_task_addr: u64);
     /// Change CPU context to init task (dummy lands in unused x0 for sake of simplicity)
     fn cpu_switch_to_first(init_task_addr: u64) -> !;
 
@@ -32,8 +32,8 @@ pub extern "C" fn schedule_tail() {
 }
 
 /// Round-robin with priority scheduling algorithm choosing next task and switching to it
-pub fn schedule() -> Result<usize, TaskError> {
-    SCHEDULER.lock().schedule()
+pub fn schedule() {
+    let _ = SCHEDULER.lock().schedule();
 }
 /// Function statring scheduling process, should not return
 pub fn start() -> Result<!, TaskError> {
@@ -66,24 +66,6 @@ impl Scheduler {
     pub fn schedule(&mut self) -> Result<usize, TaskError> {
         let next_task_pid;
         let tasks = &mut self.tasks;
-
-        // let alive_tasks = tasks
-        //     .iter()
-        //     .filter(|t| {
-        //         if let TaskStates::Dead = t.task_state {
-        //             false
-        //         } else {
-        //             true
-        //         }
-        //     })
-        //     .count();
-
-        // crate::println!(
-        //     "\x1b[33:3mALIVE TASKS: {}\nVECTOR SIZE: {}\x1b[0m",
-        //     alive_tasks,
-        //     tasks.len()
-        // );
-
         'find_task: loop {
             for (i, task) in tasks.iter_mut().enumerate() {
                 // get mutable reference for currently examined task
@@ -112,7 +94,7 @@ impl Scheduler {
     pub fn start(&mut self) -> Result<!, TaskError> {
         let tasks = &mut self.tasks;
 
-        if tasks.len() == 0 {
+        if tasks.is_empty() {
             return Err(TaskError::ChangeTaskError);
         }
 

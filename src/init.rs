@@ -4,7 +4,7 @@ use crate::println;
 use crate::sync::mutex::Mutex;
 pub static mut COUNTER2: u64 = 0;
 
-static NAMES: [&'static str; 5] = [
+static NAMES: [&str; 5] = [
     "Platon",
     "Aristoteles",
     "Konfucjusz",
@@ -12,7 +12,7 @@ static NAMES: [&'static str; 5] = [
     "Schopenhauer",
 ];
 use core::sync::atomic::*;
-static IDs: [AtomicBool; 5] = [
+static ID: [AtomicBool; 5] = [
     AtomicBool::new(false),
     AtomicBool::new(false),
     AtomicBool::new(false),
@@ -20,7 +20,7 @@ static IDs: [AtomicBool; 5] = [
     AtomicBool::new(false),
 ];
 type Fork = Mutex<()>;
-static forks: [Fork; 5] = [
+static FORKS: [Fork; 5] = [
     Fork::new(()),
     Fork::new(()),
     Fork::new(()),
@@ -30,15 +30,16 @@ static forks: [Fork; 5] = [
 
 #[no_mangle]
 pub extern "C" fn init() {
-    crate::uprintln!("Creating Philisophers task");
+    // crate::uprintln!("Creating Philisophers task");
     for _i in 0..5 {
         crate::userspace::syscall::new_task(philisopher, 0);
     }
 }
+#[inline(never)]
 fn who_am_i_where_do_i_go() -> usize {
     'get: loop {
-        for (i, atomic) in IDs.iter().enumerate() {
-            if let Ok(_) = atomic.compare_exchange(false, true, Ordering::SeqCst, Ordering::Relaxed)
+        for (i, atomic) in ID.iter().enumerate() {
+            if atomic.compare_exchange(false, true, Ordering::SeqCst, Ordering::Relaxed).is_ok()
             {
                 break 'get i;
             }
@@ -59,16 +60,15 @@ pub extern "C" fn philisopher() {
         rigth_fork
     );
 
-
     let mut counter = 0;
     let mut times: u64 = 0;
     unsafe {
         loop {
             let start = crate::userspace::syscall::get_time();
             let (first, second) = if who_am_i % 2 == 0 {
-                (forks[left_fork].lock(), forks[rigth_fork].lock())
+                (FORKS[left_fork].lock(), FORKS[rigth_fork].lock())
             } else {
-                (forks[rigth_fork].lock(), forks[left_fork].lock())
+                (FORKS[rigth_fork].lock(), FORKS[left_fork].lock())
             };
             drop(first);
             drop(second);

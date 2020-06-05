@@ -40,9 +40,7 @@ impl<T> NullLock<T> {
             data: unsafe { &mut *self.data.get() },
         }
     }
-    pub fn as_ref(&self) -> &'static mut T {
-        unsafe { &mut *self.data.get() }
-    }
+
     /// Locks mutex and passes prtoected value to provided function F
     /// Releases Mutex afterwards, ad returns rusult of function F
     /// Prefered way of accesing data under mutex

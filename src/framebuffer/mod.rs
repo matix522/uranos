@@ -1,12 +1,8 @@
 pub mod charbuffer;
 
-use crate::mbox;
-use alloc::boxed::Box;
+use crate::devices::physical::mbox;
 use core::slice::from_raw_parts_mut as slice_form_raw;
-use core::{
-    ops,
-    sync::atomic::{compiler_fence, Ordering},
-};
+use core::sync::atomic::{compiler_fence, Ordering};
 
 pub struct FrameBuffer {
     pub height: usize,
@@ -20,7 +16,7 @@ pub enum FrameBufferError {
     ZeroSizedBuffer,
     UnsupportedDepth,
 }
-type FrameBufferResult = Result<&'static mut Option<FrameBuffer>, FrameBufferError>;
+type FrameBufferResult = Result<(), FrameBufferError>;
 
 impl FrameBuffer {
     // pub const fn new() -> Self {
@@ -31,7 +27,7 @@ impl FrameBuffer {
     //         pitch: 0
     //     }
     // }
-    pub fn new(mbox: &mut mbox::Mbox) -> FrameBufferResult {
+    pub fn init(mbox: &mut mbox::Mbox) -> FrameBufferResult {
         // mbox.buffer[0] = 13 * 4; // MSG SIZE
         // mbox.buffer[1] = mbox::REQUEST; // REQUEST
         // mbox.buffer[2] = mbox::tag::SET_PHYSICAL_SIZE; // TAG0: SET_PHYSICAL_SIZE
@@ -98,7 +94,7 @@ impl FrameBuffer {
         compiler_fence(Ordering::Release);
 
         match mbox.call(mbox::channel::PROP) {
-            SUCCESS => {
+            Ok(()) => {
                 let height = mbox.buffer[6];
                 let width = mbox.buffer[5];
                 if width == 0 || height == 0 {
@@ -125,14 +121,15 @@ impl FrameBuffer {
                     width: width as usize,
                     pitch: pitch as usize,
                 });
-                Ok(charbuffer::FRAMEBUFFER.as_ref())
+                Ok(())
             }
             _ => Err(FrameBufferError::MailboxError),
         }
     }
+    #[allow(clippy::many_single_char_names)]
     pub fn set_pixel(&mut self, (x, y): (usize, usize), (r, g, b, a): (u8, u8, u8, u8)) {
         let pitch = self.pitch;
-        let mut buffer = &mut self.buffer;
+        let buffer = &mut self.buffer;
         // crate::println!("({},{}) = ({},{},{},{})", x ,y ,r ,g, b, a );
         unsafe { asm!("WRITE0: nop" : : : : "volatile") };
         buffer[y * (pitch) + x * 4] = a;

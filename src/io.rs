@@ -1,4 +1,4 @@
-use crate::uart::*;
+use crate::devices::physical::uart::*;
 use core::fmt;
 pub static mut UART: Uart = Uart::new(); //Mutex::new(Uart); //= Uart::new();
 

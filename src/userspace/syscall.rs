@@ -1,7 +1,8 @@
 use super::Syscalls;
 
+
 #[inline(never)]
-pub unsafe fn syscall0(mut a: usize) -> usize {
+pub unsafe fn syscall0(a: usize) -> usize {
     let ret: usize;
     asm!("svc   0"
           : "={x0}"(ret)
@@ -9,11 +10,11 @@ pub unsafe fn syscall0(mut a: usize) -> usize {
           : "x8"
           : "volatile");
 
-    return ret;
+    ret
 }
 
 #[inline(never)]
-pub unsafe fn syscall1(mut a: usize, b: usize) -> usize {
+pub unsafe fn syscall1(a: usize, b: usize) -> usize {
     let ret: usize;
     asm!("svc   0"
           : "={x0}"(ret)
@@ -21,7 +22,7 @@ pub unsafe fn syscall1(mut a: usize, b: usize) -> usize {
           : "x0", "x8"
           : "volatile");
 
-    return ret;
+    ret
 }
 
 #[inline(never)]
@@ -33,11 +34,11 @@ pub unsafe fn syscall2(a: usize, b: usize, c: usize) -> usize {
           : "x0", "x1", "x8"
           : "volatile");
 
-    return ret;
+    ret
 }
 
 #[inline(never)]
-pub unsafe fn syscall3(mut a: usize, b: usize, c: usize, d: usize) -> usize {
+pub unsafe fn syscall3(a: usize, b: usize, c: usize, d: usize) -> usize {
     let ret: usize;
     asm!("svc   0"
           : "={x0}"(ret)
@@ -45,30 +46,26 @@ pub unsafe fn syscall3(mut a: usize, b: usize, c: usize, d: usize) -> usize {
           : "x0", "x1", "x2", "x8"
           : "volatile");
 
-    return ret;
+    ret
 }
 
+
 #[inline(never)]
-pub unsafe fn syscall4(mut a: usize, b: usize, c: usize, d: usize, e: usize) -> usize {
+#[allow(clippy::many_single_char_names)]
+pub unsafe fn syscall4(a: usize, b: usize, c: usize, d: usize, e: usize) -> usize {
+    let ret: usize;
     asm!("svc   0"
-          : "={x0}"(a)
+          : "={x0}"(ret)
           : "{x8}"(a), "{x0}"(b), "{x1}"(c), "{x2}"(d), "{x3}"(e)
           : "x0", "x1", "x2", "x3", "x8"
           : "volatile");
 
-    return a;
-    let ret: usize;
-    asm!("svc   0"
-          : "={x0}"(ret)
-          : "{x0}"(a), "{x1}"(b), "{x2}"(c), "{x3}"(d), "{x8}"(e)
-          : "x0", "x1", "x2", "x3", "x8"
-          : "volatile");
-
-    return ret;
+    ret
 }
 
 #[inline(never)]
-pub unsafe fn syscall5(mut a: usize, b: usize, c: usize, d: usize, e: usize, f: usize) -> usize {
+#[allow(clippy::many_single_char_names)]
+pub unsafe fn syscall5(a: usize, b: usize, c: usize, d: usize, e: usize, f: usize) -> usize {
     let ret: usize;
     asm!("svc   0"
           : "={x0}"(ret)
@@ -76,7 +73,7 @@ pub unsafe fn syscall5(mut a: usize, b: usize, c: usize, d: usize, e: usize, f: 
           : "x0", "x1", "x2", "x3", "x4", "x8"
           : "volatile");
 
-    return ret;
+    ret
 }
 
 pub fn write(msg: &str) {
@@ -114,17 +111,17 @@ pub fn terminate_user_task(return_value: usize) -> ! {
 }
 pub fn get_frequency() -> u64 {
     unsafe {
-        return syscall0(Syscalls::GetFrequency as usize) as u64;
+        syscall0(Syscalls::GetFrequency as usize) as u64
     }
 }
 
 pub fn get_time() -> u64 {
     unsafe {
-        return syscall0(Syscalls::GetTime as usize) as u64;
+        syscall0(Syscalls::GetTime as usize) as u64
     }
 }
 pub fn yield_cpu() -> u64 {
     unsafe {
-        return syscall0(Syscalls::Yield as usize) as u64;
+        syscall0(Syscalls::Yield as usize) as u64
     }
 }

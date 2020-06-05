@@ -23,7 +23,7 @@
  * SOFTWARE.
  */
 
-use super::MMIO_BASE;
+use crate::MMIO_BASE;
 use core::ops;
 use register::{
     mmio::{ReadOnly, WriteOnly},
