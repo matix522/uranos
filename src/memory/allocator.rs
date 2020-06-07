@@ -217,7 +217,7 @@ impl SystemAllocator {
     pub const fn new(heap_size: u64) -> Self {
         SystemAllocator {
             heap_size: heap_size as usize,
-            first_block: UnsafeCell::new(Block {
+                first_block : UnsafeCell::new(Block {
                 next: null_mut(),
                 data_size: 0,
             }),

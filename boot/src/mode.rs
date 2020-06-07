@@ -47,7 +47,7 @@ impl ExceptionLevel {
     pub fn get_current() -> ExceptionLevel {
         let mut level : u64;
         unsafe { 
-            asm!("mrs $0, CurrentEL" : "=r"(level) : : : "volatile"); 
+            llvm_asm!("mrs $0, CurrentEL" : "=r"(level) : : : "volatile"); 
         }
         match level >> 2 {
             0 => ExceptionLevel::User,

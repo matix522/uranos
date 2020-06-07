@@ -3,6 +3,7 @@
 #![no_std]
 #![feature(global_asm)]
 #![feature(asm)]
+#![feature(llvm_asm)]
 
 //! Low-level crate for aarch64 support
 
@@ -12,21 +13,21 @@ pub mod asm {
     ///Assembly nop (No operation) instruction
     pub fn nop() {
         unsafe {
-            asm!("nop" : : : : "volatile");
+            llvm_asm!("nop" : : : : "volatile");
         }
     }
     #[inline(always)]
     ///Assembly wfe (Wait for event) instruction
     pub fn wfe() {
         unsafe {
-            asm!("wfe" : : : : "volatile");
+            llvm_asm!("wfe" : : : : "volatile");
         }
     }
     #[inline(always)]
     ///Assembly eret (Exception return) instruction
     pub fn eret() -> ! {
         unsafe {
-            asm!("eret" : : : : "volatile");
+            llvm_asm!("eret" : : : : "volatile");
         }
         loop { wfe(); }
     }
@@ -34,7 +35,7 @@ pub mod asm {
     ///Set Stack Pointer of Kernel Mode
     pub fn copy_el1_to_el0_stack_pointer() {
          unsafe {
-            asm!("mov x0, sp
+            llvm_asm!("mov x0, sp
                   msr sp_el0, x0" : : : "x0": "volatile");
         }
     }
@@ -42,28 +43,28 @@ pub mod asm {
     ///Set Saved Program Status Register
     pub fn set_el0_saved_program_status_register(spsr: u64) {
         unsafe {
-            asm!("msr spsr_el0, $0" : : "r"(spsr) : : "volatile");
+            llvm_asm!("msr spsr_el0, $0" : : "r"(spsr) : : "volatile");
         }
     }
     #[inline(always)]
     ///Set Stack Pointer of Kernel Mode
     pub fn set_el1_stack_pointer(sp: u64) {
         unsafe {
-            asm!("msr sp_el1, $0" :  : "r"(sp) : : "volatile");
+            llvm_asm!("msr sp_el1, $0" :  : "r"(sp) : : "volatile");
         }
     }
     #[inline(always)]
     ///Set System Control Register for Kernel Mode
     pub fn set_el1_system_control_register(sctrl: u64) {
         unsafe {
-            asm!("msr sctlr_el1, $0" :  :  "r"(sctrl) : : "volatile");
+            llvm_asm!("msr sctlr_el1, $0" :  :  "r"(sctrl) : : "volatile");
         }
     }
     #[inline(always)]
     ///Set Hypervisor Configuration Register
     pub fn set_el2_configuration_register(hcr: u64) {
         unsafe {
-            asm!("msr hcr_el2, $0" :  : "r"(hcr) : : "volatile");
+            llvm_asm!("msr hcr_el2, $0" :  : "r"(hcr) : : "volatile");
         }
     }
 
@@ -71,35 +72,35 @@ pub mod asm {
     ///Set Saved Program Status Register for Hypervisor
     pub fn set_el2_saved_program_status_register(spsr: u64) {
         unsafe {
-            asm!("msr spsr_el2, $0" :  : "r"(spsr) : : "volatile");
+            llvm_asm!("msr spsr_el2, $0" :  : "r"(spsr) : : "volatile");
         }
     }
     #[inline(always)]
     ///Set Saved Program Status Register for Hypervisor
     pub fn set_el2_exception_return_adrress(spsr: u64) {
         unsafe {
-            asm!("msr elr_el2, $0" :  : "r"(spsr) : : "volatile");
+            llvm_asm!("msr elr_el2, $0" :  : "r"(spsr) : : "volatile");
         }
     }
     #[inline(always)]
     ///Set Configuration Register for Firmawre
     pub fn set_el3_configuration_register_safe(scr: u64) {
         unsafe {
-            asm!("msr scr_el3, $0" :  : "r"(scr) : : "volatile");
+            llvm_asm!("msr scr_el3, $0" :  : "r"(scr) : : "volatile");
         }
     }
     #[inline(always)]
     ///Set Saved Program Status Register for Firmawre
     pub fn set_el3_saved_program_status_register(spsr: u64) {
         unsafe {
-            asm!("msr spsr_el3, $0" :  : "r"(spsr) : : "volatile");
+            llvm_asm!("msr spsr_el3, $0" :  : "r"(spsr) : : "volatile");
         }
     }
     #[inline(always)]
     ///Set Saved Program Status Register for Firmawre
     pub fn set_el3_exception_return_adrress(spsr: u64) {
         unsafe {
-            asm!("msr elr_el3, $0" :  : "r"(spsr) : : "volatile");
+            llvm_asm!("msr elr_el3, $0" :  : "r"(spsr) : : "volatile");
         }
     }
     /// enable usage of physical timer in el1
@@ -107,7 +108,7 @@ pub mod asm {
     pub fn initialize_timers_el1(){
           let _value : u64;
           unsafe {
-              asm!("
+              llvm_asm!("
             mrs	$0, cnthctl_el2
             orr	$0, $0, #0x3
             msr	cnthctl_el2, $0

@@ -134,11 +134,11 @@ impl FrameBuffer {
         let pitch = self.pitch;
         let mut buffer = &mut self.buffer;
         // crate::println!("({},{}) = ({},{},{},{})", x ,y ,r ,g, b, a );
-        unsafe { asm!("WRITE0: nop" : : : : "volatile") };
+        unsafe { llvm_asm!("WRITE0: nop" : : : : "volatile") };
         buffer[y * (pitch) + x * 4] = a;
         buffer[y * (pitch) + x * 4 + 1] = b;
         buffer[y * (pitch) + x * 4 + 2] = g;
         buffer[y * (pitch) + x * 4 + 3] = r;
-        unsafe { asm!("WRITE: nop" : : : : "volatile") };
+        unsafe { llvm_asm!("WRITE: nop" : : : : "volatile") };
     }
 }

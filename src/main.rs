@@ -1,6 +1,7 @@
 #![no_std]
 #![no_main]
 #![feature(asm)]
+#![feature(llvm_asm)]
 #![feature(global_asm)]
 #![feature(alloc_error_handler)]
 #![feature(never_type)]
@@ -16,22 +17,22 @@ extern crate num_derive;
 pub mod framebuffer;
 pub mod gpio;
 
-pub mod interupt;
+// pub mod interupt;
 pub mod io;
 pub mod mbox;
 pub mod memory;
 /// Task scheduler
-pub mod scheduler;
+// pub mod scheduler;
 pub mod sync;
 pub mod time;
 pub mod uart;
-pub mod userspace;
+// pub mod userspace;
 
 pub mod utils;
 
-mod init;
+// mod init;
 
-use interupt::timer::ArmQemuTimer as Timer;
+// use interupt::timer::ArmQemuTimer as Timer;
 pub mod devices;
 
 use aarch64::*;
@@ -95,50 +96,26 @@ fn kernel_entry() -> ! {
         memory::allocator::heap_end()
     );
 
-    unsafe {
-        use cortex_a::barrier;
-        use cortex_a::regs::*;
+    // print!("Initializing Interupt Vector Table: ");
+    // unsafe {
+    //     let exception_vectors_start: u64 = &__exception_vectors_start as *const _ as u64;
+    //     println!("{:x}", exception_vectors_start);
+    //     interupt::set_vector_table_pointer(exception_vectors_start);
 
-        if !ID_AA64MMFR0_EL1.matches_all(ID_AA64MMFR0_EL1::TGran64::Supported) {
-            crate::println!("64 KiB translation granule not supported");
-        }
-
-        memory::setup_mair();
-        memory::setup_transaltion_tables();
-
-        // Set the "Translation Table Base Register".
-        TTBR0_EL1.set_baddr(memory::get_translation_table_address());
-
-        memory::configure_translation_control();
-        crate::println!("XDD");
-        // Switch the MMU on.
-        //
-        // First, force all previous changes to be seen before the MMU is enabled.
-        barrier::isb(barrier::SY);
-
-        // Enable the MMU and turn on data and instruction caching.
-        SCTLR_EL1.modify(SCTLR_EL1::M::Enable + SCTLR_EL1::C::Cacheable + SCTLR_EL1::I::Cacheable);
-
-        // Force MMU init to complete before next instruction.
-        barrier::isb(barrier::SY);
-        crate::println!("XDD");
-    }
-    print!("Initializing Interupt Vector Table: ");
-    unsafe {
-        let exception_vectors_start: u64 = &__exception_vectors_start as *const _ as u64;
-        println!("{:x}", exception_vectors_start);
-        interupt::set_vector_table_pointer(exception_vectors_start);
-    }
     println!("Kernel Initialization complete.");
 
-    println!("Proceeding init task initialization");
+    loop {
+        uart.send(uart.getc());
+    }
 
-    let init_task = scheduler::TaskContext::new(init::init, 1, true).unwrap();
-    println!("Init task created");
-    // println!("{:?}",init_task);
-    init_task.start_task().unwrap();
+    // println!("Proceeding init task initialization");
 
-    println!("Init task created and started");
+    // let init_task = scheduler::TaskContext::new(init::init, 1, true).unwrap();
+    // println!("Init task created");
+    // // println!("{:?}",init_task);
+    // init_task.start_task().unwrap();
+
+    // println!("Init task created and started");
     // let another_task = scheduler::TaskContext::new(init::test_task, 1, true);
 
     // another_task.start_task().unwrap();
@@ -148,22 +125,22 @@ fn kernel_entry() -> ! {
     // another_task2.start_task().unwrap();
     // println!("Another_task2 created");
 
-    if cfg!(feature = "raspi4") {
-        use interupt::InteruptController;
-        let mut gicv2 = interupt::gicv2::GICv2 {};
-        gicv2.init().unwrap();
-    }
+    // if cfg!(feature = "raspi4") {
+    //     use interupt::InteruptController;
+    //     let mut gicv2 = interupt::gicv2::GICv2 {};
+    //     gicv2.init().unwrap();
+    // }
 
-    println!("freq: {}", Timer::get_frequency());
+    // println!("freq: {}", Timer::get_frequency());
 
-    interupt::enable_irqs();
-    Timer::interupt_after(Timer::get_frequency() / 100);
-    Timer::enable();
-    println!("Timer enabled");
+    // interupt::enable_irqs();
+    // Timer::interupt_after(Timer::get_frequency() / 100);
+    // Timer::enable();
+    // println!("Timer enabled");
 
-    println!("time: {}", Timer::get_time());
+    // println!("time: {}", Timer::get_time());
 
-    scheduler::start();
+    // scheduler::start();
     halt();
 }
 

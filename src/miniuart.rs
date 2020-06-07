@@ -168,14 +168,14 @@ impl MiniUart {
 
             (*gpio::GPPUD).set(0); // enable pins 14 and 15
             for _ in 0..150 {
-                asm!("nop" :::: "volatile");
+                llvm_asm!("nop" :::: "volatile");
             }
 
             (*gpio::GPPUDCLK0).write(
                 gpio::GPPUDCLK0::PUDCLK14::AssertClock + gpio::GPPUDCLK0::PUDCLK15::AssertClock,
             );
             for _ in 0..150 {
-                asm!("nop" :::: "volatile");
+                llvm_asm!("nop" :::: "volatile");
             }
 
             (*gpio::GPPUDCLK0).set(0);
@@ -193,7 +193,7 @@ impl MiniUart {
                 break;
             }
 
-            unsafe { asm!("nop" :::: "volatile") };
+            unsafe { llvm_asm!("nop" :::: "volatile") };
         }
 
         // write the character to the buffer
@@ -208,7 +208,7 @@ impl MiniUart {
                 break;
             }
 
-            unsafe { asm!("nop" :::: "volatile") };
+            unsafe { llvm_asm!("nop" :::: "volatile") };
         }
 
         // read it and return

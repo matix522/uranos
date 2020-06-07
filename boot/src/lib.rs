@@ -3,6 +3,8 @@
 #![no_std]
 #![feature(global_asm)]
 #![feature(asm)]
+#![feature(llvm_asm)]
+
 //! Low-level boot of the Raspberry's processor
 
 extern crate panic_abort;
