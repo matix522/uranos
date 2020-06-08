@@ -1,5 +1,6 @@
 pub mod handlers;
 
+use core::sync::atomic::{fence, Ordering};
 use cortex_a::barrier;
 use cortex_a::regs::*;
 
@@ -15,17 +16,12 @@ struct ExceptionContext {
     spsr_el1: u64,
 }
 
-pub unsafe fn init_exceptions() {
-    // Provided by interupt_context_saving.S.
-    extern "C" {
-        static mut __exception_vector_start: u64;
-    }
-    let addr: u64 = &__exception_vector_start as *const _ as u64;
-
-    VBAR_EL1.set(addr);
+pub unsafe fn init_exceptions(exception_vector_addr : usize) {
+    VBAR_EL1.set(exception_vector_addr as u64);
 
     // Force VBAR update to complete before next instruction.
     barrier::isb(barrier::SY);
+    fence(Ordering::SeqCst);
 }
 
 global_asm!(include_str!("interupts/interupt_context_saving.S"));

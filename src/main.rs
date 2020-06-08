@@ -95,17 +95,18 @@ fn kernel_entry() -> ! {
         Err(_) => halt(), // If UART fails, abort early
     }
     drop(uart);
-
-    println!("{}", BinaryInfo::get());
+    let binary_info = BinaryInfo::get();
+    println!("{}", binary_info);
     
     
     unsafe {
-        interupts::init_exceptions();
+        interupts::init_exceptions(binary_info.exception_vector);
     }
-    let big_addr: u64 = 1024 * 1024 * 1024 * 1024;
-    unsafe { core::ptr::read_volatile(big_addr as *mut u64) };
 
     println!("Kernel Initialization complete.");
+    unsafe {
+        llvm_asm!("svc 0" : : : : "volatile");
+    }
     println!("Echoing input.");
 
     let uart = drivers::UART.lock();
