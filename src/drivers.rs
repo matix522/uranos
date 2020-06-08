@@ -50,18 +50,14 @@ macro_rules! device_driver_impl {
 device_driver!(
     unsynchronized MINIUART: miniuart::MiniUart = miniuart::MiniUart::new( crate::MMIO_BASE + 0x20_0000 )
 );
-
 device_driver!(
     unsynchronized MBOX: mbox::Mbox = mbox::Mbox::new(crate::MMIO_BASE + 0x00_B880)
 );
-
 device_driver!(
     unsynchronized UART: uart::PL011Uart = uart::PL011Uart::new(crate::MMIO_BASE + 0x20_1000)
 );
 device_driver!(
-    unsynchronized GPIO: gpio::GpioType = gpio::GpioType {
-        base_address: crate::MMIO_BASE + 0x20_0000
-    }
+    unsynchronized GPIO: gpio::GpioType = gpio::GpioType::new(crate::MMIO_BASE + 0x20_0000)
 );
 device_driver!(
     unsynchronized FRAME_BUFFER: framebuffer::FrameBuffer = framebuffer::FrameBuffer::new(1024, 768)

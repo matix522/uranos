@@ -94,4 +94,4 @@ clean:
 	cargo clean
 
 nm:
-	cargo nm --target $(TARGET_RASPI4s) -- kernel8 | sort
+	cargo nm --target ./.cargo/$(TARGET_RASPI4).json -- kernel8-raspi4 | sort

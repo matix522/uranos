@@ -41,19 +41,7 @@ pub unsafe extern "C" fn reset() -> ! {
         fn main() -> !;
     }
     mode::ExceptionLevel::drop_to_el1(main);
-    //main();
 }
-
-// /// Dummy Implementation
-// #[panic_handler]
-// fn panic(_: &PanicInfo) -> ! {
-//     loop {
-//         aarch64::asm::wfe();
-//     }
-// }
-// /// Dummy Implementation
-// #[lang = "eh_personality"]
-// extern "C" fn eh_personality() {}
 
 // Disable all cores except core 0, and then jump to reset()
 global_asm!(include_str!("boot.S"));

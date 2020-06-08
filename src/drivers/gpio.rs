@@ -22,7 +22,6 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-use crate::utils::delay;
 use register::{mmio::ReadWrite, mmio::WriteOnly, register_bitfields};
 register_bitfields! {
     u32,
@@ -89,20 +88,11 @@ pub struct GpioType {
 }
 
 impl GpioType {
+    pub fn new (base_address : usize) -> GpioType {
+        GpioType { base_address}
+    }
     fn ptr(&self) -> *const Registers {
         self.base_address as *const Registers
-    }
-
-    pub fn init(&self) {
-        self.GPFSEL2.modify(GPFSEL2::FSEL21::Output);
-
-        self.GPPUD.set(0); // enable pin 21
-        delay(150);
-
-        self.GPPUDCLK0.write(GPPUDCLK0::PUDCLK21::AssertClock);
-        delay(150);
-
-        self.GPPUDCLK0.set(0);
     }
 }
 use core::ops::Deref;

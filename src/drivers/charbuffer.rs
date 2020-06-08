@@ -39,10 +39,7 @@ impl CharBuffer {
             '\n' => {
                 let (x, _) = self.cursor;
 
-                for _ in x..self.width {
-                    self.putc(' ')
-                }
-                for _ in 0..self.width {
+                for _ in x..self.width * 2 {
                     self.putc(' ')
                 }
                 let (_, ref mut y) = self.cursor;

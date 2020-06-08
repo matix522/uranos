@@ -3,16 +3,19 @@ rustflags = [
   "-C", "link-arg=-Tlink.ld",
   "-C", "target-cpu=cortex-a53",
   "-Z", "macro-backtrace",
+  "-C", "relocation-model=pic",
 ] 
 [target.aarch64-unknown-none-raspi4]
 rustflags = [
   "-C", "link-arg=-Tlink.ld",
   "-C", "target-cpu=cortex-a72",
   "-Z", "macro-backtrace",
+  "-C", "relocation-model=pic",
 ] 
 [target.aarch64-unknown-none-softfloat]
 rustflags = [
   "-C", "link-arg=-Tlink.ld",
   "-C", "target-cpu=cortex-a53",
   "-Z", "macro-backtrace",
+  "-C", "relocation-model=pic",
 ] 

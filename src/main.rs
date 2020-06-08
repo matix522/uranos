@@ -58,20 +58,7 @@ fn kernel_entry() -> ! {
 
 
     println!("TESTING");
-    // let mut framebuffer = match framebuffer::FrameBuffer::new(&mut mbox) {
-    //     Ok(framebuffer) => {
-    //         println!("HDMI OK");
-    //         framebuffer
-    //     }
-    //     Err(_) => {
-    //         println!("HDMI FAILED");
-    //         halt();
-    //     }
-    // };
-
-    // use framebuffer::charbuffer::CharBuffer;
-    // let framebuffer = framebuffer.as_mut().unwrap();
-    // let charbuffer = CharBuffer::new(framebuffer);
+ 
     println!(
         "Exception Level: {:?}",
         boot::mode::ExceptionLevel::get_current()
@@ -95,11 +82,6 @@ fn kernel_entry() -> ! {
         memory::allocator::heap_end()
     );
 
-    // print!("Initializing Interupt Vector Table: ");
-    // unsafe {
-    //     let exception_vectors_start: u64 = &__exception_vectors_start as *const _ as u64;
-    //     println!("{:x}", exception_vectors_start);
-    //     interupt::set_vector_table_pointer(exception_vectors_start);
 
     println!("Kernel Initialization complete.");
     let gpio = drivers::GPIO.lock();

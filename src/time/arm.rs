@@ -37,11 +37,10 @@ impl super::Timer for ArmTimer {
         }
         frequency
     }
-    fn interupt_after(ticks: u32) -> Result<(), &'static str> {
+    fn interupt_after(ticks: u32) {
         unsafe {
             llvm_asm!("msr cntv_tval_el0, $0" : : "r"(ticks) : : "volatile");
         }
-        Ok(())
     }
     fn get_time() -> u64 {
         let ticks;
