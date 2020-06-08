@@ -20,7 +20,6 @@ pub struct SystemAllocator {
 }
 impl core::fmt::Display for Block {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        // writeln!(f, "0x0000000000000000");
         writeln!(f, "****************************")?;
         writeln!(f, "*Start:  {:#018x}*", self as *const Self as u64)?;
         writeln!(f, "*D Size: {:#018x}*", self.data_size)?;
@@ -110,12 +109,7 @@ unsafe impl GlobalAlloc for SystemAllocator {
         let mut previous = self.block_list();
         let mut current = (*previous).next;
 
-        // crate::print!("\x1b[33;5m");
-        // crate::println!("{}",*self);
-        // crate::print!("\x1b[0m");
-
         let size = layout.size();
-        // crate::println!("alloc");
         while !current.is_null() {
             if is_the_space_big_enough(previous, layout, current as usize) {
                 // FOUND PLACE
@@ -126,73 +120,30 @@ unsafe impl GlobalAlloc for SystemAllocator {
                 (*new_block).data_size = size;
                 (*previous).next = new_block;
                 let ptr = (new_block as usize + size_of::<Block>()) as *mut u8;
-                // crate::print!("\x1b[32;5m");
-                // crate::println!("===========================");
-                // crate::println!("{}", *new_block);
-                // crate::println!("===========================");
-                // crate::print!("\x1b[0m");
-
-                // crate::print!("\x1b[36;5m");
-                // crate::println!("{}",*self);
-                // crate::print!("\x1b[0m");
 
                 return ptr;
             }
             previous = current;
             current = (*current).next;
         }
-        // crate::println!("end");
 
         if is_the_space_big_enough(previous, layout, self.heap_end()) {
             // FOUND PLACE
             let mut new_block =
                 align_address(previous as usize + (*previous).size_of(), 8) as *mut Block;
-            // crate::println!("prev: {:#018x} block: {:#018x}", previous as u64, new_block as u64);
             (*new_block).next = null_mut();
             (*new_block).data_size = size;
             (*previous).next = new_block;
             let ptr = (new_block as usize + size_of::<Block>()) as *mut u8;
-            //  crate::println!("prev: {:#018x} block: {:#018x}", previous as u64, new_block as u64);
-            //     crate::print!("\x1b[32;5m");
-            //         crate::println!("===========================");
-            //         crate::println!("{}", *new_block);
-            //         crate::println!("===========================");
-            //         crate::print!("\x1b[0m");
-            //                         crate::print!("\x1b[36;5m");
-            // crate::println!("{}",*self);
-            // crate::print!("\x1b[0m");
 
             return ptr;
         }
-        // crate::print!("\x1b[91;5m");
-        // crate::println!("args: {:#018x} {:#018x} {:#018x}",previous as u64, size, self.heap_end());
-        // crate::println!("===========================");
-        // crate::println!("            NULL           ");
-        // crate::println!("===========================");
-        // crate::print!("\x1b[0m");
-
-        // ERROR_OOM
-        // crate::println!("alloc {:?} ", layout);
-
-        // crate::println!("ptr null");
-        // crate::println!("Null");
         null_mut()
     }
     unsafe fn dealloc(&self, ptr: *mut u8, _layout: Layout) {
         let block = ptr.offset(-(size_of::<Block>() as isize)) as *mut Block;
-        // crate::println!("free {:?}: {:x}", layout, block as u64);
 
         let mut previous = self.block_list();
-
-        // crate::print!("\x1b[33;5m");
-        // crate::println!("{}",*self);
-        // // crate::println!("prev: {:#018x} block: {:#018x}", previous as u64, block as u64);
-        // crate::print!("\x1b[91;5m");
-
-        // crate::println!("!!!!!!!!!!!!!!!!!!!!!!!!!!!");
-        // crate::println!("{}", *block);
-        // crate::println!("!!!!!!!!!!!!!!!!!!!!!!!!!!!");
-        // crate::print!("\x1b[0m");
 
         let mut current = (*previous).next;
         // TOTALY UNSAFE FOR NOW
@@ -200,16 +151,10 @@ unsafe impl GlobalAlloc for SystemAllocator {
             previous = current;
             current = (*current).next;
         }
-        // crate::println!("prev: {:#018x} current: {:#018x}", previous as u64, current as u64);
 
         if !current.is_null() {
             (*previous).next = (*current).next;
         }
-        //         crate::print!("\x1b[36;5m");
-        // crate::println!("{}",*self);
-        // crate::print!("\x1b[0m");
-
-        // crate::println!("freed");
     }
 }
 
@@ -230,35 +175,3 @@ pub fn bad_alloc(layout: core::alloc::Layout) -> ! {
     crate::println!("bad_alloc: {:?}", layout);
     crate::aarch64::halt()
 }
-
-// unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
-//     let mut previous = self.block_list();
-//     let mut current = (*previous).next;
-
-//     while current != null_mut() {
-//         if is_the_space_big_enough(previous, layout, current as usize) {
-//             // FOUND PLACE
-//             let mut new_block =
-//                 align_address(previous as usize + (*previous).size_of(), layout.align()) as *mut Block;
-//             (*new_block).next = current;
-//             (*new_block).data_size = layout.size();
-//             (*previous).next = new_block;
-//             let ptr = (new_block as usize + size_of::<Block>()) as *mut u8;
-//             return ptr;
-//         }
-//         previous = current;
-//         current = (*current).next;
-//     }
-
-//     if is_the_space_big_enough(previous, layout, self.heap_end()) {
-//         // FOUND PLACE
-//         let mut new_block =
-//             align_address(previous as usize + (*previous).size_of(), 8) as *mut Block;
-//         (*new_block).next = null_mut();
-//         (*new_block).data_size = layout.size();
-//         (*previous).next = new_block;
-//         let ptr = (new_block as usize + size_of::<Block>()) as *mut u8;
-//         return ptr;
-//     }
-//     return null_mut();
-// }

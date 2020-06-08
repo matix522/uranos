@@ -147,9 +147,11 @@ impl MiniUart {
     fn ptr(&self) -> *const RegisterBlock {
         self.base_address as *const _
     }
-
+}
+use crate::drivers::traits;
+impl traits::Init  for MiniUart {
     ///Set baud rate and characteristics (115200 8N1) and map to GPIO
-    pub fn init(&self) {
+    fn init(&self) -> Result<(), &'static str> {
         // initialize UART
         self.AUX_ENABLES.modify(AUX_ENABLES::MINI_UART_ENABLE::SET);
         self.AUX_MU_IER.set(0);
@@ -179,54 +181,33 @@ impl MiniUart {
 
         self.AUX_MU_CNTL
             .write(AUX_MU_CNTL::RX_EN::Enabled + AUX_MU_CNTL::TX_EN::Enabled);
+        Ok(())
     }
-
+}
+impl traits::console::Write for MiniUart {
     /// putc a character
-    pub fn putc(&self, c: char) {
+    fn putb(&self, b: u8) {
         // wait until we can putc
-        loop {
-            if self.AUX_MU_LSR.is_set(AUX_MU_LSR::TX_EMPTY) {
-                break;
-            }
-
-            unsafe { llvm_asm!("nop" :::: "volatile") };
-        }
+        while !self.AUX_MU_LSR.is_set(AUX_MU_LSR::TX_EMPTY) {}
 
         // write the character to the buffer
-        self.AUX_MU_IO.set(c as u32);
+        self.AUX_MU_IO.set(b as u32);
     }
-
-    /// Receive a character
-    pub fn getc(&self) -> char {
+}
+impl traits::console::Read for MiniUart {
+    /// Receive a byte character
+    fn getb(&self) -> u8 {
         // wait until something is in the buffer
-        loop {
-            if self.AUX_MU_LSR.is_set(AUX_MU_LSR::DATA_READY) {
-                break;
-            }
+        while !self.AUX_MU_LSR.is_set(AUX_MU_LSR::DATA_READY) {}
 
-            unsafe { llvm_asm!("nop" :::: "volatile") };
-        }
-
-        // read it and return
-        let mut ret = self.AUX_MU_IO.get() as u8 as char;
+        // read it
+        let mut ret = self.AUX_MU_IO.get() as u8;
 
         // convert carrige return to newline
-        if ret == '\r' {
-            ret = '\n'
+        if ret == b'\r' {
+            ret = b'\n'
         }
 
         ret
-    }
-
-    /// Display a string
-    pub fn puts(&self, string: &str) {
-        for c in string.chars() {
-            // convert newline to carrige return + newline
-            if c == '\n' {
-                self.putc('\r')
-            }
-
-            self.putc(c);
-        }
     }
 }

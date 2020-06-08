@@ -45,16 +45,19 @@ extern "C" {
     pub static __read_only_end: usize;
 }
 
+use drivers::traits::Init;
+use drivers::traits::console::*;
+
 fn kernel_entry() -> ! {
-    let mut mbox = drivers::MBOX.lock();
     let uart = drivers::UART.lock();
-    match uart.init(&mut mbox) {
+    match uart.init() {
         Ok(_) => println!("\x1B[2J\x1B[2;1H[ Ok ] UART is live!"),
         Err(_) => halt(), // If UART fails, abort early
     }
     drop(uart);
-    drop(mbox);
 
+
+    println!("TESTING");
     // let mut framebuffer = match framebuffer::FrameBuffer::new(&mut mbox) {
     //     Ok(framebuffer) => {
     //         println!("HDMI OK");

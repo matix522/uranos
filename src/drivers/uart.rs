@@ -125,10 +125,7 @@ pub struct RegisterBlock {
     INTERUPT_CLEAR_REGISTER: WriteOnly<u32, ICR::Register>, // 0x44
 }
 
-pub enum UartError {
-    MailboxError,
-}
-pub type UartResult = ::core::result::Result<(), UartError>;
+pub type UartResult = Result<(), &'static str>;
 
 pub struct PL011Uart {
     base_address: usize,
@@ -151,34 +148,41 @@ impl PL011Uart {
     fn ptr(&self) -> *const RegisterBlock {
         self.base_address as *const _
     }
-
+}
+use crate::drivers::traits;
+impl traits::Init for PL011Uart {
     ///Set baud rate and characteristics (115200 8N1) and map to GPIO
-    pub fn init(&self, mbox: &mut mbox::Mbox) -> UartResult {
+    fn init(&self) -> UartResult {
+
         // turn off UART0
         self.CONTROL_REGISTER.set(0);
-
+        let mut mbox_buffer = mbox::Mbox::make_buffer();
         // set up clock for consistent divisor values
-        mbox.buffer[0] = 9 * 4;
-        mbox.buffer[1] = mbox::REQUEST;
-        mbox.buffer[2] = mbox::tag::SETCLKRATE;
-        mbox.buffer[3] = 12;
-        mbox.buffer[4] = 8;
-        mbox.buffer[5] = mbox::clock::UART; // UART clock
-        mbox.buffer[6] = 4_000_000; // 4Mhz
-        mbox.buffer[7] = 0; // skip turbo setting
-        mbox.buffer[8] = mbox::tag::LAST;
+        mbox_buffer.buffer[0] = 9 * 4;
+        mbox_buffer.buffer[1] = mbox::REQUEST;
+        mbox_buffer.buffer[2] = mbox::tag::SETCLKRATE;
+        mbox_buffer.buffer[3] = 12;
+        mbox_buffer.buffer[4] = 8;
+        mbox_buffer.buffer[5] = mbox::clock::UART; // UART clock
+        mbox_buffer.buffer[6] = 4_000_000; // 4Mhz
+        mbox_buffer.buffer[7] = 0; // skip turbo setting
+        mbox_buffer.buffer[8] = mbox::tag::LAST;
 
-        // Insert a compiler fence that ensures that all stores to the
+        // Insert a fence that ensures that all stores to the
         // mbox buffer are finished before the GPU is signaled (which
         // is done by a store operation as well).
         fence(Ordering::Release);
 
-        if mbox.call(mbox::channel::PROP).is_err() {
-            return Err(UartError::MailboxError); // Abort if UART clocks couldn't be set
+        let _response_buffer = {
+            let mbox = crate::drivers::MBOX.lock();
+
+            match mbox.call(mbox_buffer, mbox::channel::PROP) {
+                Ok(response_buffer) => response_buffer,
+                _ => return Err("Mbox Error"),
+            }
         };
 
         // map UART0 to GPIO pins
-
         use crate::drivers::gpio::*;
         use crate::utils::delay;
 
@@ -205,18 +209,22 @@ impl PL011Uart {
 
         Ok(())
     }
+}
+impl traits::console::Write for PL011Uart{
 
     /// Send a character
-    pub fn putb(&self, b: u8) {
+    fn putb(&self, b: u8) {
         // wait until we can send
         while self.FLAG_REGISTER.is_set(FR::TX_FULL) {}
 
         // write the character to the buffer
         self.DR.set(b as u32);
     }
+}
+impl traits::console::Read for PL011Uart {
 
-    /// Receive a character
-    pub fn getb(&self) -> u8 {
+    /// Receive a byte character
+    fn getb(&self) -> u8 {
         // wait until something is in the buffer
         while self.FLAG_REGISTER.is_set(FR::RX_EMPTY) {}
 
@@ -228,46 +236,5 @@ impl PL011Uart {
             return b'\n';
         }
         b
-    }
-    pub fn getc(&self) -> Result<char, &'static str> {
-        let first_byte = self.getb();
-
-        let width = crate::utils::utf8_char_width(first_byte);
-        if width == 1 {
-            return Ok(first_byte as char);
-        }
-        if width == 0 {
-            return Err("NotUtf8");
-        }
-        let mut buf = [first_byte, 0, 0, 0];
-        {
-            let mut start = 1;
-            while start < width {
-                buf[start] = self.getb();
-                start += 1;
-            }
-        }
-        match core::str::from_utf8(&buf[..width]) {
-            Ok(s) => Ok(s.chars().next().unwrap()),
-            Err(_) => Err("NotUtf8"),
-        }
-    }
-    pub fn putc(&self, c: char) {
-        let mut buffer = [0; 4];
-        let bytes = c.encode_utf8(&mut buffer).as_bytes();
-        for b in bytes {
-            self.putb(*b);
-        }
-    }
-
-    /// Display a string
-    pub fn puts(&self, string: &str) {
-        for c in string.bytes() {
-            // convert newline to carrige return + newline
-            if c == b'\n' {
-                self.putb(b'\r')
-            }
-            self.putb(c);
-        }
     }
 }

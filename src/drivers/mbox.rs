@@ -88,15 +88,20 @@ mod response {
 }
 
 pub const REQUEST: u32 = 0;
-// Public interface to the mailbox
-#[repr(C)]
-#[repr(align(16))]
+/// Public interface to the mailbox
+
 pub struct Mbox {
-    // The address for buffer needs to be 16-byte aligned so that the
-    // Videcore can handle it properly.
-    pub buffer: [u32; 36],
     base_address: usize,
 }
+/// Buffer for the mailbox interface
+#[repr(C)]
+#[repr(align(16))]
+pub struct MboxBuffer {
+    /// The address for buffer needs to be 16-byte aligned so that the
+    /// Videcore can handle it properly.
+    pub buffer: [u32; 36],
+}
+
 
 impl ops::Deref for Mbox {
     type Target = RegisterBlock;
@@ -109,9 +114,12 @@ impl ops::Deref for Mbox {
 impl Mbox {
     pub fn new(base_address: usize) -> Mbox {
         Mbox {
-            buffer: [0; 36],
             base_address,
         }
+    }
+
+    pub fn make_buffer() -> MboxBuffer {
+        MboxBuffer { buffer : [0;36] }
     }
 
     /// Returns a pointer to the register block
@@ -120,17 +128,12 @@ impl Mbox {
     }
 
     /// Make a mailbox call. Returns Err(MboxError) on failure, Ok(()) success
-    pub fn call(&self, channel: u32) -> Result<()> {
+    pub fn call(&self, mbox_buffer : MboxBuffer, channel: u32) -> Result<MboxBuffer> {
         // wait until we can write to the mailbox
-        loop {
-            if !self.STATUS.is_set(STATUS::FULL) {
-                break;
-            }
+        
+        while self.STATUS.is_set(STATUS::FULL) {}
 
-            unsafe { llvm_asm!("nop" :::: "volatile") };
-        }
-
-        let buf_ptr = self.buffer.as_ptr() as u32;
+        let buf_ptr = mbox_buffer.buffer.as_ptr() as u32;
 
         // write the address of our message to the mailbox with channel identifier
         self.WRITE.set((buf_ptr & !0xF) | (channel & 0xF));
@@ -138,21 +141,15 @@ impl Mbox {
         // now wait for the response
         loop {
             // is there a response?
-            loop {
-                if !self.STATUS.is_set(STATUS::EMPTY) {
-                    break;
-                }
-
-                unsafe { llvm_asm!("nop" :::: "volatile") };
-            }
+            while self.STATUS.is_set(STATUS::EMPTY) {}
 
             let resp: u32 = self.READ.get();
 
             // is it a response to our message?
             if ((resp & 0xF) == channel) && ((resp & !0xF) == buf_ptr) {
                 // is it a valid successful response?
-                return match self.buffer[1] {
-                    response::SUCCESS => Ok(()),
+                return match mbox_buffer.buffer[1] {
+                    response::SUCCESS => Ok(mbox_buffer),
                     response::ERROR => Err(MboxError::ResponseError),
                     _ => Err(MboxError::UnknownError),
                 };

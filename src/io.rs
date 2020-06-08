@@ -4,6 +4,7 @@ use core::fmt;
 
 impl fmt::Write for PL011Uart {
     fn write_str(&mut self, s: &str) -> Result<(), fmt::Error> {
+        use crate::drivers::traits::console::Write;
         self.puts(s);
         Ok(())
     }

@@ -22,8 +22,6 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-use crate::MMIO_BASE;
-
 use crate::utils::delay;
 use register::{mmio::ReadWrite, mmio::WriteOnly, register_bitfields};
 register_bitfields! {
@@ -128,20 +126,3 @@ pub struct Registers {
     pub GPPUD: ReadWrite<u32>,                      // 0x94
     pub GPPUDCLK0: ReadWrite<u32, GPPUDCLK0::Register>, // 0x98
 }
-
-pub const GPFSEL1: *const ReadWrite<u32, GPFSEL1::Register> =
-    (MMIO_BASE + 0x0020_0004) as *const ReadWrite<u32, GPFSEL1::Register>;
-
-pub const GPFSEL2: *const ReadWrite<u32, GPFSEL2::Register> =
-    (MMIO_BASE + 0x0020_0008) as *const ReadWrite<u32, GPFSEL2::Register>;
-
-pub const GPSET0: *const WriteOnly<u32, GPSET0::Register> =
-    (MMIO_BASE + 0x0020_001C) as *const WriteOnly<u32, GPSET0::Register>;
-
-pub const GPCLR0: *const WriteOnly<u32, GPCLR0::Register> =
-    (MMIO_BASE + 0x0020_0028) as *const WriteOnly<u32, GPCLR0::Register>;
-
-pub const GPPUD: *const ReadWrite<u32> = (MMIO_BASE + 0x0020_0094) as *const ReadWrite<u32>;
-
-pub const GPPUDCLK0: *const ReadWrite<u32, GPPUDCLK0::Register> =
-    (MMIO_BASE + 0x0020_0098) as *const ReadWrite<u32, GPPUDCLK0::Register>;

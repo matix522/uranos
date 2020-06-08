@@ -5,6 +5,8 @@ pub mod mbox;
 pub mod miniuart;
 pub mod uart;
 
+pub mod traits;
+
 macro_rules! device_driver {
     (synchronized $device_name : ident : $device_type : path = $initializer : expr) => {
         static_assertions::const_assert!(true);
