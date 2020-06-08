@@ -22,10 +22,10 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-
 use crate::MMIO_BASE;
-use register::{mmio::ReadWrite, mmio::WriteOnly, register_bitfields};
 
+use crate::utils::delay;
+use register::{mmio::ReadWrite, mmio::WriteOnly, register_bitfields};
 register_bitfields! {
     u32,
     pub GPFSEL1 [
@@ -86,6 +86,48 @@ register_bitfields! {
         ]
     ]
 }
+pub struct GpioType {
+    pub base_address: usize,
+}
+
+impl GpioType {
+    fn ptr(&self) -> *const Registers {
+        self.base_address as *const Registers
+    }
+
+    pub fn init(&self) {
+        self.GPFSEL2.modify(GPFSEL2::FSEL21::Output);
+
+        self.GPPUD.set(0); // enable pin 21
+        delay(150);
+
+        self.GPPUDCLK0.write(GPPUDCLK0::PUDCLK21::AssertClock);
+        delay(150);
+
+        self.GPPUDCLK0.set(0);
+    }
+}
+use core::ops::Deref;
+impl Deref for GpioType {
+    type Target = Registers;
+    fn deref(&self) -> &Registers {
+        unsafe { &*self.ptr() }
+    }
+}
+#[repr(C)]
+#[allow(non_snake_case)]
+pub struct Registers {
+    _res0: [u8; 0x4],
+    pub GPFSEL1: ReadWrite<u32, GPFSEL1::Register>, // 0x04
+    pub GPFSEL2: ReadWrite<u32, GPFSEL2::Register>, // 0x08
+    _res1: [u8; 0x1C - 0x0C],                       // [0x0C - 0x1C)
+    pub GPSET0: WriteOnly<u32, GPSET0::Register>,   // 0x1C
+    _res2: [u8; 0x28 - 0x20],                       // [0x20 - 0x28)
+    pub GPCLR0: WriteOnly<u32, GPCLR0::Register>,   // 0x28
+    _res3: [u8; 0x94 - 0x2C],                       // [0x2C - 0x94)
+    pub GPPUD: ReadWrite<u32>,                      // 0x94
+    pub GPPUDCLK0: ReadWrite<u32, GPPUDCLK0::Register>, // 0x98
+}
 
 pub const GPFSEL1: *const ReadWrite<u32, GPFSEL1::Register> =
     (MMIO_BASE + 0x0020_0004) as *const ReadWrite<u32, GPFSEL1::Register>;
@@ -103,36 +145,3 @@ pub const GPPUD: *const ReadWrite<u32> = (MMIO_BASE + 0x0020_0094) as *const Rea
 
 pub const GPPUDCLK0: *const ReadWrite<u32, GPPUDCLK0::Register> =
     (MMIO_BASE + 0x0020_0098) as *const ReadWrite<u32, GPPUDCLK0::Register>;
-
-pub fn setup() {
-    unsafe {
-        (*GPFSEL2).modify(GPFSEL2::FSEL21::Output);
-
-        (*GPPUD).set(0); // enable pin 21
-        for _ in 0..150 {
-            llvm_asm!("nop" :::: "volatile");
-        }
-
-        (*GPPUDCLK0).write(GPPUDCLK0::PUDCLK21::AssertClock);
-        for _ in 0..150 {
-            llvm_asm!("nop" :::: "volatile");
-        }
-
-        (*GPPUDCLK0).set(0);
-    }
-}
-
-pub fn blink() -> ! {
-    unsafe {
-        loop {
-            for _ in 0..150_000 {
-                llvm_asm!("nop" :::: "volatile");
-            }
-            (*GPSET0).write(GPSET0::PIN21::Set);
-            for _ in 0..150_000 {
-                llvm_asm!("nop" :::: "volatile");
-            }
-            (*GPCLR0).write(GPCLR0::PIN21::Reset);
-        }
-    }
-}

@@ -1,10 +1,3 @@
-#![deny(missing_docs)]
-#![deny(warnings)]
-#![no_std]
-#![feature(global_asm)]
-#![feature(asm)]
-#![feature(llvm_asm)]
-
 //! Low-level crate for aarch64 support
 
 /// Module containg varius inline asm functions for aarch64 architecture.
@@ -29,12 +22,14 @@ pub mod asm {
         unsafe {
             llvm_asm!("eret" : : : : "volatile");
         }
-        loop { wfe(); }
+        loop {
+            wfe();
+        }
     }
     #[inline(always)]
     ///Set Stack Pointer of Kernel Mode
     pub fn copy_el1_to_el0_stack_pointer() {
-         unsafe {
+        unsafe {
             llvm_asm!("mov x0, sp
                   msr sp_el0, x0" : : : "x0": "volatile");
         }
@@ -105,20 +100,22 @@ pub mod asm {
     }
     /// enable usage of physical timer in el1
     #[inline(always)]
-    pub fn initialize_timers_el1(){
-          let _value : u64;
-          unsafe {
-              llvm_asm!("
+    pub fn initialize_timers_el1() {
+        let _value: u64;
+        unsafe {
+            llvm_asm!("
             mrs	$0, cnthctl_el2
             orr	$0, $0, #0x3
             msr	cnthctl_el2, $0
             msr	cntvoff_el2, xzr"
             : "=r"(_value): : : "volatile");
         }
-     }
+    }
 }
 #[inline(always)]
 ///Enters into unending loop of wfe instructions
 pub fn halt() -> ! {
-    loop { asm::wfe(); }
+    loop {
+        asm::wfe();
+    }
 }

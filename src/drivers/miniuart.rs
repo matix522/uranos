@@ -23,8 +23,6 @@
  * SOFTWARE.
  */
 
-use super::MMIO_BASE;
-use crate::gpio;
 use core::ops;
 use register::{mmio::*, register_bitfields};
 
@@ -100,8 +98,6 @@ register_bitfields! {
     ]
 }
 
-const MINI_UART_BASE: u32 = MMIO_BASE + 0x21_5000;
-
 #[allow(non_snake_case)]
 #[repr(C)]
 pub struct RegisterBlock {
@@ -120,7 +116,9 @@ pub struct RegisterBlock {
     AUX_MU_BAUD: WriteOnly<u32, AUX_MU_BAUD::Register>, // 0x68
 }
 
-pub struct MiniUart;
+pub struct MiniUart{
+    base_address: usize,
+}
 
 /// Deref to RegisterBlock
 ///
@@ -136,18 +134,18 @@ impl ops::Deref for MiniUart {
     type Target = RegisterBlock;
 
     fn deref(&self) -> &Self::Target {
-        unsafe { &*Self::ptr() }
+        unsafe { &*self.ptr() }
     }
 }
 
 impl MiniUart {
-    pub const fn new() -> MiniUart {
-        MiniUart
+    pub const fn new(base_address: usize) -> MiniUart {
+        MiniUart{base_address}
     }
 
     /// Returns a pointer to the register block
-    fn ptr() -> *const RegisterBlock {
-        MINI_UART_BASE as *const _
+    fn ptr(&self) -> *const RegisterBlock {
+        self.base_address as *const _
     }
 
     ///Set baud rate and characteristics (115200 8N1) and map to GPIO
@@ -162,32 +160,32 @@ impl MiniUart {
         self.AUX_MU_IIR.write(AUX_MU_IIR::FIFO_CLEAR::All);
         self.AUX_MU_BAUD.write(AUX_MU_BAUD::RATE.val(270)); // 115200 baud
 
-        // map UART1 to GPIO pins
-        unsafe {
-            (*gpio::GPFSEL1).modify(gpio::GPFSEL1::FSEL14::TXD1 + gpio::GPFSEL1::FSEL15::RXD1);
 
-            (*gpio::GPPUD).set(0); // enable pins 14 and 15
-            for _ in 0..150 {
-                llvm_asm!("nop" :::: "volatile");
-            }
+        use crate::drivers::gpio::*;
+        use crate::utils::delay;
 
-            (*gpio::GPPUDCLK0).write(
-                gpio::GPPUDCLK0::PUDCLK14::AssertClock + gpio::GPPUDCLK0::PUDCLK15::AssertClock,
-            );
-            for _ in 0..150 {
-                llvm_asm!("nop" :::: "volatile");
-            }
+        let gpio = crate::drivers::GPIO.lock();
+        gpio.GPFSEL1
+            .modify(GPFSEL1::FSEL14::TXD1 + GPFSEL1::FSEL15::RXD1);
+        gpio.GPPUD.set(0); // enable pins 14 and 15
 
-            (*gpio::GPPUDCLK0).set(0);
-        }
+        delay(1500);
+        
+        gpio.GPPUDCLK0
+            .write(GPPUDCLK0::PUDCLK14::AssertClock + GPPUDCLK0::PUDCLK15::AssertClock);
+        
+        delay(1500);
+
+        gpio.GPPUDCLK0.set(0);
+        
 
         self.AUX_MU_CNTL
             .write(AUX_MU_CNTL::RX_EN::Enabled + AUX_MU_CNTL::TX_EN::Enabled);
     }
 
-    /// Send a character
-    pub fn send(&self, c: char) {
-        // wait until we can send
+    /// putc a character
+    pub fn putc(&self, c: char) {
+        // wait until we can putc
         loop {
             if self.AUX_MU_LSR.is_set(AUX_MU_LSR::TX_EMPTY) {
                 break;
@@ -227,10 +225,10 @@ impl MiniUart {
         for c in string.chars() {
             // convert newline to carrige return + newline
             if c == '\n' {
-                self.send('\r')
+                self.putc('\r')
             }
 
-            self.send(c);
+            self.putc(c);
         }
     }
 }

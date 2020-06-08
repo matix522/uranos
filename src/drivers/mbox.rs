@@ -23,7 +23,6 @@
  * SOFTWARE.
  */
 
-use super::MMIO_BASE;
 use core::ops;
 use register::{
     mmio::{ReadOnly, WriteOnly},
@@ -39,7 +38,6 @@ register_bitfields! {
     ]
 }
 
-const VIDEOCORE_MBOX: u32 = MMIO_BASE + 0xB880;
 
 #[allow(non_snake_case)]
 #[repr(C)]
@@ -98,24 +96,25 @@ pub struct Mbox {
     // The address for buffer needs to be 16-byte aligned so that the
     // Videcore can handle it properly.
     pub buffer: [u32; 36],
+    base_address: usize
 }
 
 impl ops::Deref for Mbox {
     type Target = RegisterBlock;
 
     fn deref(&self) -> &Self::Target {
-        unsafe { &*Self::ptr() }
+        unsafe { &*self.ptr() }
     }
 }
 
 impl Mbox {
-    pub fn new() -> Mbox {
-        Mbox { buffer: [0; 36] }
+    pub fn new(base_address : usize) -> Mbox {
+        Mbox { buffer: [0; 36] , base_address}
     }
 
     /// Returns a pointer to the register block
-    fn ptr() -> *const RegisterBlock {
-        VIDEOCORE_MBOX as *const _
+    fn ptr(&self) -> *const RegisterBlock {
+        self.base_address as *const _
     }
 
     /// Make a mailbox call. Returns Err(MboxError) on failure, Ok(()) success
@@ -160,8 +159,3 @@ impl Mbox {
     }
 }
 
-impl Default for Mbox {
-    fn default() -> Self {
-        Self::new()
-    }
-}

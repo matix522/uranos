@@ -23,9 +23,7 @@
  * SOFTWARE.
  */
 
-use super::MMIO_BASE;
-use crate::gpio;
-use crate::mbox;
+use super::mbox;
 use core::{
     ops,
     sync::atomic::{compiler_fence, Ordering},
@@ -112,8 +110,6 @@ register_bitfields! {
     ]
 }
 
-const UART_BASE: u32 = MMIO_BASE + 0x20_1000;
-
 #[allow(non_snake_case)]
 #[repr(C)]
 pub struct RegisterBlock {
@@ -134,24 +130,26 @@ pub enum UartError {
 }
 pub type UartResult = ::core::result::Result<(), UartError>;
 
-pub struct Uart;
+pub struct PL011Uart {
+    base_address: usize,
+}
 
-impl ops::Deref for Uart {
+impl ops::Deref for PL011Uart {
     type Target = RegisterBlock;
 
     fn deref(&self) -> &Self::Target {
-        unsafe { &*Self::ptr() }
+        unsafe { &*self.ptr() }
     }
 }
 
-impl Uart {
-    pub const fn new() -> Uart {
-        Uart
+impl PL011Uart {
+    pub const fn new(base_address: usize) -> PL011Uart {
+        PL011Uart { base_address }
     }
 
     /// Returns a pointer to the register block
-    fn ptr() -> *const RegisterBlock {
-        UART_BASE as *const _
+    fn ptr(&self) -> *const RegisterBlock {
+        self.base_address as *const _
     }
 
     ///Set baud rate and characteristics (115200 8N1) and map to GPIO
@@ -180,24 +178,42 @@ impl Uart {
         };
 
         // map UART0 to GPIO pins
-        unsafe {
-            (*gpio::GPFSEL1).modify(gpio::GPFSEL1::FSEL14::TXD0 + gpio::GPFSEL1::FSEL15::RXD0);
 
-            (*gpio::GPPUD).set(0); // enable pins 14 and 15
-            for _ in 0..150 {
-                llvm_asm!("nop" :::: "volatile");
-            }
+    
+        use crate::drivers::gpio::*;
+        use crate::utils::delay;
 
-            (*gpio::GPPUDCLK0).write(
-                gpio::GPPUDCLK0::PUDCLK14::AssertClock + gpio::GPPUDCLK0::PUDCLK15::AssertClock,
-            );
-            for _ in 0..150 {
-                llvm_asm!("nop" :::: "volatile");
-            }
+        let gpio = crate::drivers::GPIO.lock();
+        gpio.GPFSEL1
+            .modify(GPFSEL1::FSEL14::TXD0 + GPFSEL1::FSEL15::RXD0);
+        gpio.GPPUD.set(0); // enable pins 14 and 15
 
-            (*gpio::GPPUDCLK0).set(0);
-        }
+        delay(1500);
+        
+        gpio.GPPUDCLK0
+            .write(GPPUDCLK0::PUDCLK14::AssertClock + GPPUDCLK0::PUDCLK15::AssertClock);
+        
+        delay(1500);
 
+        gpio.GPPUDCLK0.set(0);
+        
+        // unsafe {
+        //     use crate::drivers::gpio;
+        //     (*gpio::GPFSEL1).modify(gpio::GPFSEL1::FSEL14::TXD0 + gpio::GPFSEL1::FSEL15::RXD0);
+
+        //     (*gpio::GPPUD).set(0); // enable pins 14 and 15
+        //     for _ in 0..150 {
+        //         llvm_asm!("nop" :::: "volatile");
+        //     }
+
+        //     (*gpio::GPPUDCLK0).write(
+        //         gpio::GPPUDCLK0::PUDCLK14::AssertClock + gpio::GPPUDCLK0::PUDCLK15::AssertClock,
+        //     );
+        //     for _ in 0..150 {
+        //         llvm_asm!("nop" :::: "volatile");
+        //     }
+        //     (*gpio::GPPUDCLK0).set(0);
+        // }
         self.INTERUPT_CLEAR_REGISTER.write(ICR::ALL::CLEAR);
         self.IBRD.write(IBRD::IBRD.val(2)); // Results in 115200 baud
         self.FBRD.write(FBRD::FBRD.val(0xB));
@@ -209,7 +225,7 @@ impl Uart {
     }
 
     /// Send a character
-    pub fn send(&self, c: char) {
+    pub fn putc(&self, c: char) {
         // wait until we can send
         loop {
             if !self.FLAG_REGISTER.is_set(FR::TX_FULL) {
@@ -250,10 +266,10 @@ impl Uart {
         for c in string.chars() {
             // convert newline to carrige return + newline
             if c == '\n' {
-                self.send('\r')
+                self.putc('\r')
             }
 
-            self.send(c);
+            self.putc(c);
         }
     }
 
@@ -273,7 +289,7 @@ impl Uart {
                 n += 0x30;
             }
 
-            self.send(n as u8 as char);
+            self.putc(n as u8 as char);
         }
     }
 }

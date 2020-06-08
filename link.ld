@@ -48,8 +48,8 @@ SECTIONS
     .data ALIGN(65536):
     {
         *(.data .data.*)
+        *(.devices)
     }
-
     .bss ALIGN(8) (NOLOAD):
     {
         __bss_start = .;

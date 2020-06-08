@@ -1,8 +1,3 @@
-use core::cell::UnsafeCell;
-use core::hint::unreachable_unchecked;
-use core::ops::Deref;
-use core::ops::DerefMut;
-
 // pub struct Global<T>{ data : UnsafeCell<Option<T>> }
 
 // impl<T> Deref for Global<T>{

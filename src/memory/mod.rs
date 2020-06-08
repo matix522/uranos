@@ -1,9 +1,6 @@
 pub mod allocator;
 
-
-use cortex_a::regs::*;
-
-
+#[allow(dead_code)]
 mod physical {
     #[cfg(feature = "raspi3")]
     #[rustfmt::skip]

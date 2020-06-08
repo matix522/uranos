@@ -35,7 +35,7 @@ impl core::fmt::Display for Block {
             self as *const Self as usize + size_of::<Self>()
         )?;
 
-        if (self.next == null_mut()) {
+        if self.next.is_null() {
             writeln!(f, "*Next:        NULL         *")?;
         } else {
             writeln!(f, "*Next:   {:#018x}*", self.next as u64)?;
@@ -217,7 +217,7 @@ impl SystemAllocator {
     pub const fn new(heap_size: u64) -> Self {
         SystemAllocator {
             heap_size: heap_size as usize,
-                first_block : UnsafeCell::new(Block {
+            first_block: UnsafeCell::new(Block {
                 next: null_mut(),
                 data_size: 0,
             }),
@@ -228,7 +228,7 @@ impl SystemAllocator {
 #[alloc_error_handler]
 pub fn bad_alloc(layout: core::alloc::Layout) -> ! {
     crate::println!("bad_alloc: {:?}", layout);
-    aarch64::halt();
+    crate::aarch64::halt()
 }
 
 // unsafe fn alloc(&self, layout: Layout) -> *mut u8 {

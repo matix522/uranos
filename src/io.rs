@@ -1,8 +1,8 @@
-use crate::uart::*;
+use crate::drivers::uart::*;
+use crate::drivers::UART;
 use core::fmt;
-pub static mut UART: Uart = Uart::new(); //Mutex::new(Uart); //= Uart::new();
 
-impl fmt::Write for Uart {
+impl fmt::Write for PL011Uart {
     fn write_str(&mut self, s: &str) -> Result<(), fmt::Error> {
         self.puts(s);
         Ok(())
@@ -31,9 +31,7 @@ macro_rules! eprintln {
 
 pub fn _print(args: fmt::Arguments) {
     use core::fmt::Write;
-    unsafe {
-        UART.write_fmt(args).unwrap();
-    }
+    UART.lock().write_fmt(args).unwrap();
 }
 
 #[macro_export]

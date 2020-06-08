@@ -1,4 +1,4 @@
-use aarch64::asm;
+use crate::aarch64::asm;
 use core::cell::UnsafeCell;
 use core::ops::Deref;
 use core::ops::DerefMut;

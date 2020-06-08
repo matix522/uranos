@@ -9,38 +9,34 @@
 #![feature(const_generics)]
 #![feature(const_in_array_repeat_expressions)]
 #![feature(crate_visibility_modifier)]
-// extern crate spin;
+#![feature(panic_info_message)]
+#![feature(concat_idents)]
+#![allow(incomplete_features)]
+
 extern crate alloc;
-#[macro_use]
 extern crate num_derive;
-
+extern crate static_assertions;
+pub mod drivers;
 pub mod framebuffer;
-pub mod gpio;
 
-// pub mod interupt;
+pub mod aarch64;
+pub mod boot;
 pub mod io;
-pub mod mbox;
 pub mod memory;
-/// Task scheduler
-// pub mod scheduler;
+
 pub mod sync;
 pub mod time;
-pub mod uart;
-// pub mod userspace;
 
 pub mod utils;
 
-// mod init;
-
-// use interupt::timer::ArmQemuTimer as Timer;
-pub mod devices;
+use core::panic::PanicInfo;
 
 use aarch64::*;
 
 #[cfg(not(feature = "raspi4"))]
-const MMIO_BASE: u32 = 0x3F00_0000;
+const MMIO_BASE: usize = 0x3F00_0000;
 #[cfg(feature = "raspi4")]
-const MMIO_BASE: u32 = 0xFE00_0000;
+const MMIO_BASE: usize = 0xFE00_0000;
 
 extern "C" {
     pub fn _boot_cores() -> !;
@@ -51,13 +47,14 @@ extern "C" {
 }
 
 fn kernel_entry() -> ! {
-    let mut mbox = mbox::Mbox::new();
-    let uart = uart::Uart::new();
-
+    let mut mbox = drivers::MBOX.lock();
+    let uart = drivers::UART.lock();
     match uart.init(&mut mbox) {
         Ok(_) => println!("\x1B[2J\x1B[2;1H[ Ok ] UART is live!"),
         Err(_) => halt(), // If UART fails, abort early
     }
+    drop(uart);
+    drop(mbox);
 
     // let mut framebuffer = match framebuffer::FrameBuffer::new(&mut mbox) {
     //     Ok(framebuffer) => {
@@ -103,9 +100,18 @@ fn kernel_entry() -> ! {
     //     interupt::set_vector_table_pointer(exception_vectors_start);
 
     println!("Kernel Initialization complete.");
+    let gpio = drivers::GPIO.lock();
+    println!("GPFSEL1 {:x}", &gpio.GPFSEL1 as *const _ as u64);
+    println!("GPFSEL2 {:x}", &gpio.GPFSEL2 as *const _ as u64);
+    println!("GPSET0 {:x}", &gpio.GPSET0 as *const _ as u64);
+    println!("GPCLR0 {:x}", &gpio.GPCLR0 as *const _ as u64);
+    println!("GPPUD {:x}", &gpio.GPPUD as *const _ as u64);
+    println!("GPPUDCLK0 {:x}", &gpio.GPPUDCLK0 as *const _ as u64);
+    drop(gpio);
 
+    let uart = drivers::UART.lock();
     loop {
-        uart.send(uart.getc());
+        uart.putc(uart.getc());
     }
 
     // println!("Proceeding init task initialization");
@@ -141,7 +147,16 @@ fn kernel_entry() -> ! {
     // println!("time: {}", Timer::get_time());
 
     // scheduler::start();
-    halt();
 }
 
-boot::entry!(kernel_entry);
+entry!(kernel_entry);
+
+#[panic_handler]
+fn panic(info: &PanicInfo) -> ! {
+    if let Some(args) = info.message() {
+        println!("\nKernel panic: {}", args);
+    } else {
+        println!("\nKernel panic!");
+    }
+    halt();
+}

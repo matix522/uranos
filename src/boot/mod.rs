@@ -1,17 +1,7 @@
-#![deny(missing_docs)]
-#![deny(warnings)]
-#![no_std]
-#![feature(global_asm)]
-#![feature(asm)]
-#![feature(llvm_asm)]
-
 //! Low-level boot of the Raspberry's processor
 
-extern crate panic_abort;
-extern crate aarch64;
 /// Module contains code for
 pub mod mode;
-
 
 /// Type check the user-supplied entry function.
 #[macro_export]

@@ -1,12 +1,8 @@
 pub mod charbuffer;
 
-use crate::mbox;
-use alloc::boxed::Box;
+use crate::drivers::mbox;
 use core::slice::from_raw_parts_mut as slice_form_raw;
-use core::{
-    ops,
-    sync::atomic::{compiler_fence, Ordering},
-};
+use core::sync::atomic::{compiler_fence, Ordering};
 
 pub struct FrameBuffer {
     pub height: usize,
@@ -98,7 +94,7 @@ impl FrameBuffer {
         compiler_fence(Ordering::Release);
 
         match mbox.call(mbox::channel::PROP) {
-            SUCCESS => {
+            Ok(()) => {
                 let height = mbox.buffer[6];
                 let width = mbox.buffer[5];
                 if width == 0 || height == 0 {
@@ -132,7 +128,7 @@ impl FrameBuffer {
     }
     pub fn set_pixel(&mut self, (x, y): (usize, usize), (r, g, b, a): (u8, u8, u8, u8)) {
         let pitch = self.pitch;
-        let mut buffer = &mut self.buffer;
+        let buffer = &mut self.buffer;
         // crate::println!("({},{}) = ({},{},{},{})", x ,y ,r ,g, b, a );
         unsafe { llvm_asm!("WRITE0: nop" : : : : "volatile") };
         buffer[y * (pitch) + x * 4] = a;
