@@ -88,8 +88,8 @@ pub struct GpioType {
 }
 
 impl GpioType {
-    pub fn new (base_address : usize) -> GpioType {
-        GpioType { base_address}
+    pub fn new(base_address: usize) -> GpioType {
+        GpioType { base_address }
     }
     fn ptr(&self) -> *const Registers {
         self.base_address as *const Registers

@@ -153,7 +153,6 @@ use crate::drivers::traits;
 impl traits::Init for PL011Uart {
     ///Set baud rate and characteristics (115200 8N1) and map to GPIO
     fn init(&self) -> UartResult {
-
         // turn off UART0
         self.CONTROL_REGISTER.set(0);
         let mut mbox_buffer = mbox::Mbox::make_buffer();
@@ -210,8 +209,7 @@ impl traits::Init for PL011Uart {
         Ok(())
     }
 }
-impl traits::console::Write for PL011Uart{
-
+impl traits::console::Write for PL011Uart {
     /// Send a character
     fn putb(&self, b: u8) {
         // wait until we can send
@@ -222,7 +220,6 @@ impl traits::console::Write for PL011Uart{
     }
 }
 impl traits::console::Read for PL011Uart {
-
     /// Receive a byte character
     fn getb(&self) -> u8 {
         // wait until something is in the buffer

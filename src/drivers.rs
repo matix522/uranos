@@ -48,7 +48,7 @@ macro_rules! device_driver_impl {
     };
 }
 device_driver!(
-    unsynchronized MINIUART: miniuart::MiniUart = miniuart::MiniUart::new( crate::MMIO_BASE + 0x20_0000 )
+    unsynchronized MINIUART: miniuart::MiniUart = miniuart::MiniUart::new( crate::MMIO_BASE + 0x21_5000 )
 );
 device_driver!(
     unsynchronized MBOX: mbox::Mbox = mbox::Mbox::new(crate::MMIO_BASE + 0x00_B880)

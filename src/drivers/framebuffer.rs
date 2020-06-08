@@ -84,12 +84,12 @@ impl FrameBuffer {
         let response_buffer = {
             let mbox = crate::drivers::MBOX.lock();
 
-            match mbox.call(mbox_buffer,mbox::channel::PROP) {
-                Ok(response_buffer) =>  response_buffer,
-                _  => return Err("Mailbox Error"),
+            match mbox.call(mbox_buffer, mbox::channel::PROP) {
+                Ok(response_buffer) => response_buffer,
+                _ => return Err("Mailbox Error"),
             }
         };
-    
+
         let height = response_buffer.buffer[6];
         let width = response_buffer.buffer[5];
         if width == 0 || height == 0 {
@@ -105,9 +105,8 @@ impl FrameBuffer {
         if depth != 32 {
             return Err("FrameBufferError::UnsupportedDepth");
         }
-        let buffer = unsafe {
-            slice_form_raw(buffer_address as usize as *mut u8, buffer_size as usize)
-        };
+        let buffer =
+            unsafe { slice_form_raw(buffer_address as usize as *mut u8, buffer_size as usize) };
         let pitch = response_buffer.buffer[33];
 
         self.width = width as usize;

@@ -27,7 +27,6 @@ ENTRY(_boot_cores);
 
 SECTIONS
 {
-    /*. = 0x80000; */
     . = 0x80000;
 
     __read_only_start = .;
@@ -70,4 +69,3 @@ SECTIONS
 
     /DISCARD/ : { *(.comment) *(.gnu*) *(.note*) *(.eh_frame*) }
 }
-

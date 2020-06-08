@@ -149,7 +149,7 @@ impl MiniUart {
     }
 }
 use crate::drivers::traits;
-impl traits::Init  for MiniUart {
+impl traits::Init for MiniUart {
     ///Set baud rate and characteristics (115200 8N1) and map to GPIO
     fn init(&self) -> Result<(), &'static str> {
         // initialize UART

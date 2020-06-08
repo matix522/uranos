@@ -20,6 +20,7 @@ pub mod drivers;
 
 pub mod aarch64;
 pub mod boot;
+pub mod interupts;
 pub mod io;
 pub mod memory;
 
@@ -39,14 +40,53 @@ const MMIO_BASE: usize = 0xFE00_0000;
 
 extern "C" {
     pub fn _boot_cores() -> !;
-    pub static __exception_vectors_start: u64;
+    pub static __exception_vector_start: u64;
     pub static __binary_end: u64;
     pub static __read_only_start: usize;
     pub static __read_only_end: usize;
 }
 
-use drivers::traits::Init;
+#[derive(Debug)]
+struct BinaryInfo {
+    binary_start : usize,
+    binary_end : usize,
+    read_only_start : usize,
+    read_only_end : usize,
+    exception_vector : usize,
+    heap_start : usize,
+    heap_end : usize,
+}
+impl BinaryInfo {
+    fn get () -> BinaryInfo {
+        unsafe {
+            BinaryInfo {
+                binary_start : _boot_cores as *const () as usize,
+                binary_end : &__binary_end as *const _ as usize,
+                read_only_start : &__read_only_start as *const _ as usize,
+                read_only_end : &__read_only_end as *const _ as usize,
+                exception_vector : &__exception_vector_start as *const _ as usize,
+                heap_start : memory::allocator::heap_start(),
+                heap_end : memory::allocator::heap_end(),
+            }
+        }
+    }
+}
+use core::fmt;
+impl fmt::Display for BinaryInfo {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> { 
+        use memory::allocator::{heap_start, heap_end};
+        writeln!(f, "Binary definition:")?;
+        writeln!(f, "\tRange:            [{:#10x}  {:#10x}]", self.binary_start, self.binary_end)?;
+        writeln!(f, "\tRead Only Range:  [{:#10x}  {:#10x}]", self.read_only_start, self.read_only_end)?;
+        writeln!(f, "\tException Vector: [{:#10x}            ]", self.exception_vector)?;
+        writeln!(f, "\tMain Heap:        [{:#10x}  {:#10x}]", heap_start(), heap_end())?;
+        Ok(())
+    }
+}
+
+
 use drivers::traits::console::*;
+use drivers::traits::Init;
 
 fn kernel_entry() -> ! {
     let uart = drivers::UART.lock();
@@ -56,42 +96,17 @@ fn kernel_entry() -> ! {
     }
     drop(uart);
 
-
-    println!("TESTING");
- 
-    println!(
-        "Exception Level: {:?}",
-        boot::mode::ExceptionLevel::get_current()
-    );
-
-    println!(
-        "Binary loaded at: {:x} - {:x}",
-        _boot_cores as *const () as u64,
-        unsafe { &__binary_end as *const u64 as u64 }
-    );
-    println!("Read only data ended at: {:x}", unsafe {
-        &__read_only_end as *const usize as u64
-    });
-    println!(
-        "Init Task Stack: {:x} - {:x}",
-        _boot_cores as *const () as u64, 0
-    );
-    println!(
-        "Main Heap: {:x} - {:x}",
-        memory::allocator::heap_start(),
-        memory::allocator::heap_end()
-    );
-
+    println!("{}", BinaryInfo::get());
+    
+    
+    unsafe {
+        interupts::init_exceptions();
+    }
+    let big_addr: u64 = 1024 * 1024 * 1024 * 1024;
+    unsafe { core::ptr::read_volatile(big_addr as *mut u64) };
 
     println!("Kernel Initialization complete.");
-    let gpio = drivers::GPIO.lock();
-    println!("GPFSEL1 {:x}", &gpio.GPFSEL1 as *const _ as u64);
-    println!("GPFSEL2 {:x}", &gpio.GPFSEL2 as *const _ as u64);
-    println!("GPSET0 {:x}", &gpio.GPSET0 as *const _ as u64);
-    println!("GPCLR0 {:x}", &gpio.GPCLR0 as *const _ as u64);
-    println!("GPPUD {:x}", &gpio.GPPUD as *const _ as u64);
-    println!("GPPUDCLK0 {:x}", &gpio.GPPUDCLK0 as *const _ as u64);
-    drop(gpio);
+    println!("Echoing input.");
 
     let uart = drivers::UART.lock();
     let echo_loop = || -> Result<!, &str> {

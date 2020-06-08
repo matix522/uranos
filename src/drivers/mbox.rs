@@ -102,7 +102,6 @@ pub struct MboxBuffer {
     pub buffer: [u32; 36],
 }
 
-
 impl ops::Deref for Mbox {
     type Target = RegisterBlock;
 
@@ -113,13 +112,11 @@ impl ops::Deref for Mbox {
 
 impl Mbox {
     pub fn new(base_address: usize) -> Mbox {
-        Mbox {
-            base_address,
-        }
+        Mbox { base_address }
     }
 
     pub fn make_buffer() -> MboxBuffer {
-        MboxBuffer { buffer : [0;36] }
+        MboxBuffer { buffer: [0; 36] }
     }
 
     /// Returns a pointer to the register block
@@ -128,9 +125,9 @@ impl Mbox {
     }
 
     /// Make a mailbox call. Returns Err(MboxError) on failure, Ok(()) success
-    pub fn call(&self, mbox_buffer : MboxBuffer, channel: u32) -> Result<MboxBuffer> {
+    pub fn call(&self, mbox_buffer: MboxBuffer, channel: u32) -> Result<MboxBuffer> {
         // wait until we can write to the mailbox
-        
+
         while self.STATUS.is_set(STATUS::FULL) {}
 
         let buf_ptr = mbox_buffer.buffer.as_ptr() as u32;

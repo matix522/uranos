@@ -1,5 +1,5 @@
 pub trait Init {
-    fn init (&self) -> Result<(), &'static str>;
+    fn init(&self) -> Result<(), &'static str>;
 }
 
 pub mod console {
@@ -9,7 +9,7 @@ pub mod console {
         /// read byte UTF-8 character
         fn getc(&self) -> Result<char, &'static str> {
             let first_byte = self.getb();
-        
+
             let width = crate::utils::utf8_char_width(first_byte);
             if width == 1 {
                 return Ok(first_byte as char);
@@ -33,9 +33,9 @@ pub mod console {
     }
     pub trait Write {
         // Display a byte character
-        fn putb(&self, b : u8);
+        fn putb(&self, b: u8);
         /// Display a UTF-8 character
-        fn putc(&self, c : char) {
+        fn putc(&self, c: char) {
             let mut bytes: [u8; 4] = [0; 4];
             let _ = c.encode_utf8(&mut bytes);
             for b in &bytes {
@@ -52,7 +52,5 @@ pub mod console {
                 self.putb(b);
             }
         }
-
     }
 }
-
