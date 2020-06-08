@@ -1,6 +1,5 @@
-pub mod charbuffer;
-
 use crate::drivers::mbox;
+use crate::utils::color::*;
 use core::slice::from_raw_parts_mut as slice_form_raw;
 use core::sync::atomic::{compiler_fence, Ordering};
 
@@ -8,7 +7,7 @@ pub struct FrameBuffer {
     pub height: usize,
     pub width: usize,
     pub pitch: usize,
-    pub buffer: &'static mut [u8],
+    pub buffer: Option<&'static mut [u8]>,
 }
 pub enum FrameBufferError {
     MailboxError,
@@ -16,33 +15,21 @@ pub enum FrameBufferError {
     ZeroSizedBuffer,
     UnsupportedDepth,
 }
-type FrameBufferResult = Result<&'static mut Option<FrameBuffer>, FrameBufferError>;
+type FrameBufferResult = Result<(), FrameBufferError>;
 
 impl FrameBuffer {
-    // pub const fn new() -> Self {
-    //     FrameBuffer {
-    //         buffer: Box::new_uninit(),
-    //         height: 0,
-    //         width: 0,
-    //         pitch: 0
-    //     }
-    // }
-    pub fn new(mbox: &mut mbox::Mbox) -> FrameBufferResult {
-        // mbox.buffer[0] = 13 * 4; // MSG SIZE
-        // mbox.buffer[1] = mbox::REQUEST; // REQUEST
-        // mbox.buffer[2] = mbox::tag::SET_PHYSICAL_SIZE; // TAG0: SET_PHYSICAL_SIZE
-        // mbox.buffer[3] = 8; // TAG0: VALUE SIZE
-        // mbox.buffer[4] = 0; // TAG0: CONTROL
-        // mbox.buffer[5] = 640; // TAG0 VALUE 0: PHYSICAL WIDTH
-        // mbox.buffer[6] = 480; // TAG0 VALUE 1: PHYSICAL HEIGHT
-        // mbox.buffer[7] = mbox::tag::ALLOCATE_FRAMEBUFFER; // TAG1: GET FRAMEBUFFER
-        // mbox.buffer[8] = 8; // TAG1: VALUE SIZE
-        // mbox.buffer[9] = 0; // TAG1: CONTROL
-        // mbox.buffer[10] = 0x8; // TAG1 VALUE 0: ALIGMENT / RESPONSE: ADDRESS
-        // mbox.buffer[11] = 0; // TAG1 VALUE 1: NONE / RESPONSE: SIZE
-        // mbox.buffer[12] = mbox::tag::LAST; // END MSG
-        let width = 1024;
-        let height = 768;
+    pub fn new(width: usize, height: usize) -> FrameBuffer {
+        FrameBuffer {
+            width,
+            height,
+            pitch: width * 4,
+            buffer: None,
+        }
+    }
+    pub fn init(&mut self) -> FrameBufferResult {
+        let mut mbox = crate::drivers::MBOX.lock();
+        let width = self.width as u32;
+        let height = self.height as u32;
 
         mbox.buffer[0] = 35 * 4;
         mbox.buffer[1] = mbox::REQUEST;
@@ -100,6 +87,7 @@ impl FrameBuffer {
                 if width == 0 || height == 0 {
                     return Err(FrameBufferError::UnsupportedResolution);
                 }
+
                 let buffer_address = mbox.buffer[28] & 0x3FFF_FFFF;
                 let buffer_size = mbox.buffer[29];
                 if buffer_address == 0 || buffer_size == 0 {
@@ -114,27 +102,26 @@ impl FrameBuffer {
                 };
                 let pitch = mbox.buffer[33];
 
-                let mut framebuffer = charbuffer::FRAMEBUFFER.lock();
-                framebuffer.replace(FrameBuffer {
-                    buffer,
-                    height: height as usize,
-                    width: width as usize,
-                    pitch: pitch as usize,
-                });
-                Ok(charbuffer::FRAMEBUFFER.as_ref())
+                self.width = width as usize;
+                self.height = height as usize;
+                self.pitch = pitch as usize;
+                self.buffer = Some(buffer);
+                Ok(())
             }
             _ => Err(FrameBufferError::MailboxError),
         }
     }
-    pub fn set_pixel(&mut self, (x, y): (usize, usize), (r, g, b, a): (u8, u8, u8, u8)) {
+    pub fn set_pixel(&mut self, (x, y): (usize, usize), color: RGBA) {
         let pitch = self.pitch;
-        let buffer = &mut self.buffer;
+        let buffer = (&mut self.buffer)
+            .as_mut()
+            .expect("Buffer must be allocated");
         // crate::println!("({},{}) = ({},{},{},{})", x ,y ,r ,g, b, a );
-        unsafe { llvm_asm!("WRITE0: nop" : : : : "volatile") };
-        buffer[y * (pitch) + x * 4] = a;
-        buffer[y * (pitch) + x * 4 + 1] = b;
-        buffer[y * (pitch) + x * 4 + 2] = g;
-        buffer[y * (pitch) + x * 4 + 3] = r;
-        unsafe { llvm_asm!("WRITE: nop" : : : : "volatile") };
+        crate::aarch64::asm::nop();
+        buffer[y * (pitch) + x * 4] = color.a;
+        buffer[y * (pitch) + x * 4 + 1] = color.b;
+        buffer[y * (pitch) + x * 4 + 2] = color.g;
+        buffer[y * (pitch) + x * 4 + 3] = color.r;
+        crate::aarch64::asm::nop();
     }
 }

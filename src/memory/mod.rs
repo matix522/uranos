@@ -28,7 +28,7 @@ mod physical {
 
     }
     pub const fn address_space_size() -> usize {
-        return MEMORY_END + 1;
+        MEMORY_END + 1
     }
 }
 

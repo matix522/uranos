@@ -38,7 +38,6 @@ register_bitfields! {
     ]
 }
 
-
 #[allow(non_snake_case)]
 #[repr(C)]
 pub struct RegisterBlock {
@@ -96,7 +95,7 @@ pub struct Mbox {
     // The address for buffer needs to be 16-byte aligned so that the
     // Videcore can handle it properly.
     pub buffer: [u32; 36],
-    base_address: usize
+    base_address: usize,
 }
 
 impl ops::Deref for Mbox {
@@ -108,8 +107,11 @@ impl ops::Deref for Mbox {
 }
 
 impl Mbox {
-    pub fn new(base_address : usize) -> Mbox {
-        Mbox { buffer: [0; 36] , base_address}
+    pub fn new(base_address: usize) -> Mbox {
+        Mbox {
+            buffer: [0; 36],
+            base_address,
+        }
     }
 
     /// Returns a pointer to the register block
@@ -158,4 +160,3 @@ impl Mbox {
         }
     }
 }
-

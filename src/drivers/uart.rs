@@ -26,7 +26,7 @@
 use super::mbox;
 use core::{
     ops,
-    sync::atomic::{compiler_fence, Ordering},
+    sync::atomic::{fence, Ordering},
 };
 use register::{mmio::*, register_bitfields};
 
@@ -171,7 +171,7 @@ impl PL011Uart {
         // Insert a compiler fence that ensures that all stores to the
         // mbox buffer are finished before the GPU is signaled (which
         // is done by a store operation as well).
-        compiler_fence(Ordering::Release);
+        fence(Ordering::Release);
 
         if mbox.call(mbox::channel::PROP).is_err() {
             return Err(UartError::MailboxError); // Abort if UART clocks couldn't be set
@@ -179,7 +179,6 @@ impl PL011Uart {
 
         // map UART0 to GPIO pins
 
-    
         use crate::drivers::gpio::*;
         use crate::utils::delay;
 
@@ -189,31 +188,14 @@ impl PL011Uart {
         gpio.GPPUD.set(0); // enable pins 14 and 15
 
         delay(1500);
-        
+
         gpio.GPPUDCLK0
             .write(GPPUDCLK0::PUDCLK14::AssertClock + GPPUDCLK0::PUDCLK15::AssertClock);
-        
+
         delay(1500);
 
         gpio.GPPUDCLK0.set(0);
-        
-        // unsafe {
-        //     use crate::drivers::gpio;
-        //     (*gpio::GPFSEL1).modify(gpio::GPFSEL1::FSEL14::TXD0 + gpio::GPFSEL1::FSEL15::RXD0);
 
-        //     (*gpio::GPPUD).set(0); // enable pins 14 and 15
-        //     for _ in 0..150 {
-        //         llvm_asm!("nop" :::: "volatile");
-        //     }
-
-        //     (*gpio::GPPUDCLK0).write(
-        //         gpio::GPPUDCLK0::PUDCLK14::AssertClock + gpio::GPPUDCLK0::PUDCLK15::AssertClock,
-        //     );
-        //     for _ in 0..150 {
-        //         llvm_asm!("nop" :::: "volatile");
-        //     }
-        //     (*gpio::GPPUDCLK0).set(0);
-        // }
         self.INTERUPT_CLEAR_REGISTER.write(ICR::ALL::CLEAR);
         self.IBRD.write(IBRD::IBRD.val(2)); // Results in 115200 baud
         self.FBRD.write(FBRD::FBRD.val(0xB));
@@ -225,71 +207,67 @@ impl PL011Uart {
     }
 
     /// Send a character
-    pub fn putc(&self, c: char) {
+    pub fn putb(&self, b: u8) {
         // wait until we can send
-        loop {
-            if !self.FLAG_REGISTER.is_set(FR::TX_FULL) {
-                break;
-            }
-
-            unsafe { llvm_asm!("nop" :::: "volatile") };
-        }
+        while self.FLAG_REGISTER.is_set(FR::TX_FULL) {}
 
         // write the character to the buffer
-        self.DR.set(c as u32);
+        self.DR.set(b as u32);
     }
 
     /// Receive a character
-    pub fn getc(&self) -> char {
+    pub fn getb(&self) -> u8 {
         // wait until something is in the buffer
-        loop {
-            if !self.FLAG_REGISTER.is_set(FR::RX_EMPTY) {
-                break;
-            }
+        while self.FLAG_REGISTER.is_set(FR::RX_EMPTY) {}
 
-            unsafe { llvm_asm!("nop" :::: "volatile") };
-        }
-
-        // read it and return
-        let mut ret = self.DR.get() as u8 as char;
+        // read byte
+        let b = self.DR.get() as u8;
 
         // convert carrige return to newline
-        if ret == '\r' {
-            ret = '\n'
+        if b == b'\r' {
+            return b'\n';
         }
+        b
+    }
+    pub fn getc(&self) -> Result<char, &'static str> {
+        let first_byte = self.getb();
 
-        ret
+        let width = crate::utils::utf8_char_width(first_byte);
+        if width == 1 {
+            return Ok(first_byte as char);
+        }
+        if width == 0 {
+            return Err("NotUtf8");
+        }
+        let mut buf = [first_byte, 0, 0, 0];
+        {
+            let mut start = 1;
+            while start < width {
+                buf[start] = self.getb();
+                start += 1;
+            }
+        }
+        match core::str::from_utf8(&buf[..width]) {
+            Ok(s) => Ok(s.chars().next().unwrap()),
+            Err(_) => Err("NotUtf8"),
+        }
+    }
+    pub fn putc(&self, c: char) {
+        let mut buffer = [0; 4];
+        let bytes = c.encode_utf8(&mut buffer).as_bytes();
+        for b in bytes {
+            self.putb(*b);
+        }
     }
 
     /// Display a string
     pub fn puts(&self, string: &str) {
-        for c in string.chars() {
+        for c in string.bytes() {
             // convert newline to carrige return + newline
-            if c == '\n' {
-                self.putc('\r')
+            if c == b'\n' {
+                self.putb(b'\r')
             }
-
-            self.putc(c);
-        }
-    }
-
-    /// Display a binary value in hexadecimal
-    pub fn hex(&self, d: u32) {
-        let mut n;
-
-        for i in 0..8 {
-            // get highest tetrad
-            n = d.wrapping_shr(28 - i * 4) & 0xF;
-
-            // 0-9 => '0'-'9', 10-15 => 'A'-'F'
-            // Add proper offset for ASCII table
-            if n > 9 {
-                n += 0x37;
-            } else {
-                n += 0x30;
-            }
-
-            self.putc(n as u8 as char);
+            self.putb(c);
         }
     }
 }

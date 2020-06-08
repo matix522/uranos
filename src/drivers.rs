@@ -1,3 +1,5 @@
+pub mod charbuffer;
+pub mod framebuffer;
 pub mod gpio;
 pub mod mbox;
 pub mod miniuart;
@@ -58,4 +60,10 @@ device_driver!(
     unsynchronized GPIO: gpio::GpioType = gpio::GpioType {
         base_address: crate::MMIO_BASE + 0x20_0000
     }
+);
+device_driver!(
+    unsynchronized FRAME_BUFFER: framebuffer::FrameBuffer = framebuffer::FrameBuffer::new(1024, 768)
+);
+device_driver!(
+    unsynchronized CHAR_BUFFER: charbuffer::CharBuffer = charbuffer::CharBuffer::new()
 );

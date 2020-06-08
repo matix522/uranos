@@ -1,73 +1,62 @@
-use crate::sync::nulllock::NullLock;
+use crate::utils::color::*;
 use alloc::vec::Vec;
-
 pub struct CharBuffer {
     pub height: usize,
     pub width: usize,
-    charbuffer: Vec<char>,
-    framebuffer: &'static mut super::FrameBuffer,
+    characters: Vec<char>,
     cursor: (usize, usize),
-    pub foreground: (u8, u8, u8, u8),
-    pub background: (u8, u8, u8, u8),
+    pub foreground: RGBA,
+    pub background: RGBA,
 }
-pub static FRAMEBUFFER: NullLock<Option<super::FrameBuffer>> = NullLock::new(None);
-pub static CHARBUFFER: NullLock<Option<CharBuffer>> = NullLock::new(None);
 
 impl CharBuffer {
-    pub fn new(framebuffer: &'static mut super::FrameBuffer) -> &'static mut Option<Self> {
-        // let framebuffer = (*FRAMEBUFFER.lock()).unwrap();
-        let height = framebuffer.height as usize / 8;
-        let width = framebuffer.width as usize / 8;
-        // crate::println!("Value: {} {}", width, height);
-        let mut vec = Vec::new();
-        vec.resize(height * width, '\0');
-        let mut charbuffer = CharBuffer {
-            framebuffer: framebuffer,
-            charbuffer: vec,
-            width,
-            height,
+    pub fn new() -> CharBuffer {
+        CharBuffer {
+            height: 0,
+            width: 0,
+            characters: Vec::new(),
             cursor: (0, 0),
-            foreground: (255, 255, 255, 255),
-            background: (255, 0, 0, 0),
-        };
-        charbuffer.update();
-        let mut charbuff = CHARBUFFER.lock();
+            background: BLACK,
+            foreground: WHITE,
+        }
+    }
+    pub fn init(&mut self) {
+        let framebuffer = super::FRAME_BUFFER.lock();
+        self.height = framebuffer.height as usize / 8;
+        self.width = framebuffer.width as usize / 8;
+        self.characters.resize(self.height * self.width, '\0');
 
-        charbuff.replace(charbuffer);
-
-        CHARBUFFER.as_ref()
+        self.update();
     }
 
     pub fn set_char(&mut self, (x, y): (usize, usize), c: char) {
-        self.charbuffer[y * self.width + x] = c;
+        self.characters[y * self.width + x] = c;
         self.update_char((x, y));
     }
 
     pub fn putc(&mut self, c: char) {
-        if c < ' ' {
-            if c == '\n' {
-                let (x, mut y) = self.cursor;
+        match c {
+            '\n' => {
+                let (x, _) = self.cursor;
 
-                for i in x..self.width {
-                    self.charbuffer[y * self.width + i] = ' ';
-                    self.update_char((x, y));
+                for _ in x..self.width {
+                    self.putc(' ')
                 }
-                y += 1;
-                if y == self.height {
-                    y = 0
+                for _ in 0..self.width {
+                    self.putc(' ')
                 }
-                self.cursor = (0, y);
-                for x in 0..self.width {
-                    self.charbuffer[y * self.width + x] = ' ';
-                    self.update_char((x, y));
-                }
+                let (_, ref mut y) = self.cursor;
+
+                *y -= 1;
             }
-            return;
+            special if special < ' ' => {}
+            normal => {
+                let (x, y) = self.cursor;
+                self.characters[y * self.width + x] = normal;
+                self.cursor_next();
+                self.update_char((x, y));
+            }
         }
-        let (x, y) = self.cursor;
-        self.charbuffer[y * self.width + x] = c;
-        self.cursor_next();
-        self.update_char((x, y));
     }
     pub fn puts(&mut self, s: &str) {
         for c in s.chars() {
@@ -76,7 +65,7 @@ impl CharBuffer {
     }
 
     pub fn get_char(&mut self, (x, y): (usize, usize)) -> char {
-        self.charbuffer[y * self.width + x]
+        self.characters[y * self.width + x]
     }
     pub fn update(&mut self) {
         for y in 0..self.height {
@@ -89,6 +78,7 @@ impl CharBuffer {
         let id = self.get_char((x, y)) as u8 as usize;
         let x8 = x * 8;
         let y8 = y * 8;
+        let mut framebuffer = super::FRAME_BUFFER.lock();
         for i in 0..8 {
             for j in 0..8 {
                 let color = if CHARACTERS[id][i] & (1 << j) != 0 {
@@ -96,22 +86,16 @@ impl CharBuffer {
                 } else {
                     self.background
                 };
-                self.framebuffer.set_pixel((x8 + j, y8 + i), color);
-                // crate::println!("{},{} = {:?}", x8 + j, y8 + i, color);
+                framebuffer.set_pixel((x8 + j, y8 + i), color);
             }
         }
     }
     fn cursor_next(&mut self) {
-        let (mut x, mut y) = self.cursor;
-        x = x + 1;
-        if x == self.width {
-            x = 0;
-            y = y + 1;
+        self.cursor = match self.cursor {
+            (x, y) if x == self.width - 1 && y == self.height - 1 => (0, 0),
+            (x, y) if x == self.width - 1 => (0, y + 1),
+            (x, y) => (x + 1, y),
         }
-        if y == self.height {
-            y = 0;
-        }
-        self.cursor = (x, y);
     }
     pub fn set_cursor(&mut self, (x, y): (usize, usize)) {
         self.cursor = (x, y);

@@ -45,11 +45,11 @@ impl<T> Mutex<T> {
     /// Locks the mutex and returns dereferncable lock guard
     /// For most cases prefer using sync method
     ///
-    pub unsafe fn lock(&self) -> MutexGuard<T> {
+    pub fn lock(&self) -> MutexGuard<T> {
         self.take_lock();
         MutexGuard {
             lock: &self.lock,
-            data: &mut *self.data.get(),
+            data: unsafe { &mut *self.data.get() },
         }
     }
     /// Locks mutex and passes prtoected value to provided function F

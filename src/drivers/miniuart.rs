@@ -116,7 +116,7 @@ pub struct RegisterBlock {
     AUX_MU_BAUD: WriteOnly<u32, AUX_MU_BAUD::Register>, // 0x68
 }
 
-pub struct MiniUart{
+pub struct MiniUart {
     base_address: usize,
 }
 
@@ -140,7 +140,7 @@ impl ops::Deref for MiniUart {
 
 impl MiniUart {
     pub const fn new(base_address: usize) -> MiniUart {
-        MiniUart{base_address}
+        MiniUart { base_address }
     }
 
     /// Returns a pointer to the register block
@@ -160,7 +160,6 @@ impl MiniUart {
         self.AUX_MU_IIR.write(AUX_MU_IIR::FIFO_CLEAR::All);
         self.AUX_MU_BAUD.write(AUX_MU_BAUD::RATE.val(270)); // 115200 baud
 
-
         use crate::drivers::gpio::*;
         use crate::utils::delay;
 
@@ -170,14 +169,13 @@ impl MiniUart {
         gpio.GPPUD.set(0); // enable pins 14 and 15
 
         delay(1500);
-        
+
         gpio.GPPUDCLK0
             .write(GPPUDCLK0::PUDCLK14::AssertClock + GPPUDCLK0::PUDCLK15::AssertClock);
-        
+
         delay(1500);
 
         gpio.GPPUDCLK0.set(0);
-        
 
         self.AUX_MU_CNTL
             .write(AUX_MU_CNTL::RX_EN::Enabled + AUX_MU_CNTL::TX_EN::Enabled);

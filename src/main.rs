@@ -17,7 +17,6 @@ extern crate alloc;
 extern crate num_derive;
 extern crate static_assertions;
 pub mod drivers;
-pub mod framebuffer;
 
 pub mod aarch64;
 pub mod boot;
@@ -110,43 +109,15 @@ fn kernel_entry() -> ! {
     drop(gpio);
 
     let uart = drivers::UART.lock();
+    let echo_loop = || -> Result<!, &str> {
+        loop {
+            uart.putc(uart.getc()?);
+        }
+    };
     loop {
-        uart.putc(uart.getc());
+        let value = echo_loop().unwrap_err();
+        println!("{}", value);
     }
-
-    // println!("Proceeding init task initialization");
-
-    // let init_task = scheduler::TaskContext::new(init::init, 1, true).unwrap();
-    // println!("Init task created");
-    // // println!("{:?}",init_task);
-    // init_task.start_task().unwrap();
-
-    // println!("Init task created and started");
-    // let another_task = scheduler::TaskContext::new(init::test_task, 1, true);
-
-    // another_task.start_task().unwrap();
-    // println!("Another_task created");
-    // let another_task2 = scheduler::TaskContext::new(init::test_task2, 1, false);
-
-    // another_task2.start_task().unwrap();
-    // println!("Another_task2 created");
-
-    // if cfg!(feature = "raspi4") {
-    //     use interupt::InteruptController;
-    //     let mut gicv2 = interupt::gicv2::GICv2 {};
-    //     gicv2.init().unwrap();
-    // }
-
-    // println!("freq: {}", Timer::get_frequency());
-
-    // interupt::enable_irqs();
-    // Timer::interupt_after(Timer::get_frequency() / 100);
-    // Timer::enable();
-    // println!("Timer enabled");
-
-    // println!("time: {}", Timer::get_time());
-
-    // scheduler::start();
 }
 
 entry!(kernel_entry);
