@@ -12,6 +12,7 @@
 #![feature(panic_info_message)]
 #![feature(concat_idents)]
 #![allow(incomplete_features)]
+#![feature(new_uninit)]
 
 extern crate alloc;
 extern crate num_derive;
@@ -51,15 +52,16 @@ fn kernel_entry() -> ! {
     drop(uart);
     let binary_info = binary_info::BinaryInfo::get();
     println!("{}", binary_info);
-    
-    
+
     unsafe {
         interupts::init_exceptions(binary_info.exception_vector);
     }
 
     println!("Kernel Initialization complete.");
     unsafe {
-        llvm_asm!("svc 0" : : : : "volatile");
+        println!("TEST mmu");
+
+        let _ = memory::armv8::mmu::test();
     }
     println!("Echoing input.");
 
@@ -84,5 +86,6 @@ fn panic(info: &PanicInfo) -> ! {
     } else {
         println!("\nKernel panic!");
     }
+
     halt();
 }

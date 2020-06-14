@@ -30,27 +30,27 @@ SECTIONS
     . = 0x80000;
 
     __read_only_start = .;
-    .text ALIGN(65536):
+    .text ALIGN(4096):
     {
         KEEP(*(.text.boot)) *(.text .text.*)
-    }
-
-    .rodata :
-    {
-        *(.rodata .rodata.*)
     }
     .vectors ALIGN(2048):
     {
         *(.vectors)
     }
+    .rodata ALIGN(4096):
+    {
+        *(.rodata .rodata.*)
+    }
+    . = ALIGN(4096);
     __read_only_end = .;
 
-    .data ALIGN(65536):
+    .data ALIGN(4096):
     {
         *(.data .data.*)
         *(.devices)
     }
-    .bss ALIGN(8) (NOLOAD):
+    .bss ALIGN(8):
     {
         __bss_start = .;
         *(.bss .bss.*)

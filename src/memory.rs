@@ -1,5 +1,6 @@
 pub mod allocator;
-
+pub mod armv8;
+pub mod memory_controler;
 #[allow(dead_code)]
 mod physical {
     #[cfg(feature = "raspi3")]
@@ -26,18 +27,5 @@ mod physical {
         #[cfg(not(feature = "raspi3"))]
         pub const END:             usize =        0xFFFF_FFFF;
 
-    }
-    pub const fn address_space_size() -> usize {
-        MEMORY_END + 1
-    }
-}
-
-trait BaseAddr<U> {
-    fn base_addr(&self) -> U;
-}
-
-impl<T, const N: usize> BaseAddr<u64> for [T; N] {
-    fn base_addr(&self) -> u64 {
-        self as *const T as u64
     }
 }

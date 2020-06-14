@@ -30,11 +30,11 @@ SOURCES = $(shell find src/ -type f -regex ".*\.rs") $(shell find src/ -type f -
 
 
 XRUSTC_CMD_RASPI3   = cargo xbuild --target=.cargo/$(TARGET_RASPI3).json --release --features="raspi3"
-CARGO_OUTPUT_RASPI3 = target/$(TARGET_RASPI3)/release/kernel8
+CARGO_OUTPUT_RASPI3 = target/$(TARGET_RASPI3)/release/uranos
 
 
 XRUSTC_CMD_RASPI4   = cargo xbuild --target=.cargo/$(TARGET_RASPI4).json --release --features="raspi4" 
-CARGO_OUTPUT_RASPI4 = target/$(TARGET_RASPI4)/release/kernel8
+CARGO_OUTPUT_RASPI4 = target/$(TARGET_RASPI4)/release/uranos
 
 OBJCOPY        = cargo objcopy --
 OBJCOPY_PARAMS = --strip-all -O binary
@@ -45,23 +45,25 @@ DOCKER_CMD        = docker run -it --rm
 DOCKER_CMD_DEBUG  = docker run -it --rm -p 1234:1234
 DOCKER_ARG_CURDIR = -v $(shell pwd):/work -w /work
 
-DOCKER_EXEC_QEMU     = qemu-system-aarch64 -M raspi3 -kernel kernel8-raspi3
+DOCKER_EXEC_QEMU     = qemu-system-aarch64 -M raspi3 -kernel bin/uranos-raspi3
 
 .PHONY: all qemu clippy clean objdump nm
 
-all:  kernel8-raspi4.img kernel8-raspi3.img
+all:  bin/uranos-raspi4.img bin/uranos-raspi3.img
 
 
 #### RASPBERRY PI3 ####
 $(CARGO_OUTPUT_RASPI3): $(SOURCES)
 	$(XRUSTC_CMD_RASPI3)
 
-kernel8-raspi3.img: $(CARGO_OUTPUT_RASPI3)
-	cp $< ./kernel8-raspi3
-	$(OBJCOPY) $(OBJCOPY_PARAMS) kernel8-raspi3 kernel8-raspi3.img 
+bin/uranos-raspi3.img: $(CARGO_OUTPUT_RASPI3)
+	
+	mkdir -p ./bin
+	cp $< bin/uranos-raspi3
+	$(OBJCOPY) $(OBJCOPY_PARAMS) bin/uranos-raspi3 bin/uranos-raspi3.img 
 
 objdump-raspi3:
-	cargo objdump --target .cargo/$(TARGET_RASPI3).json -- -disassemble -print-imm-hex kernel8-raspi3
+	cargo objdump --target .cargo/$(TARGET_RASPI3).json -- -disassemble -print-imm-hex uranos-raspi3
 
 
 
@@ -69,12 +71,13 @@ objdump-raspi3:
 $(CARGO_OUTPUT_RASPI4): $(SOURCES)
 	$(XRUSTC_CMD_RASPI4)
 
-kernel8-raspi4.img: $(CARGO_OUTPUT_RASPI4)
-	cp $< ./kernel8-raspi4
-	$(OBJCOPY) $(OBJCOPY_PARAMS) kernel8-raspi4 kernel8-raspi4.img
+bin/uranos-raspi4.img: $(CARGO_OUTPUT_RASPI4)
+	mkdir -p ./bin
+	cp $< ./bin/uranos-raspi4
+	$(OBJCOPY) $(OBJCOPY_PARAMS) bin/uranos-raspi4 bin/uranos-raspi4.img
 
 objdump-raspi4:
-	cargo objdump --target .cargo/$(TARGET_RASPI4).json -- -disassemble -print-imm-hex kernel8-raspi4
+	cargo objdump --target .cargo/$(TARGET_RASPI4).json -- -disassemble -print-imm-hex uranos-raspi4
 
 
 
@@ -92,6 +95,6 @@ clippy:
 
 clean:
 	cargo clean
-
+	rm bin/*
 nm:
-	cargo nm --target ./.cargo/$(TARGET_RASPI4).json -- kernel8-raspi4 | sort
+	cargo nm --target ./.cargo/$(TARGET_RASPI4).json -- uranos-raspi4 | sort

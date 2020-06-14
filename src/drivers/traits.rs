@@ -44,12 +44,12 @@ pub mod console {
         }
         /// Display a string
         fn puts(&self, string: &str) {
-            for b in string.bytes() {
+            for b in string.chars() {
                 // convert newline to carrige return + newline
-                if b == b'\n' {
-                    self.putb(b'\r')
+                if b == '\n' {
+                    self.putc('\r')
                 }
-                self.putb(b);
+                self.putc(b);
             }
         }
     }

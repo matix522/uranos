@@ -15,8 +15,10 @@ struct ExceptionContext {
     /// Saved program status.
     spsr_el1: u64,
 }
-
-pub unsafe fn init_exceptions(exception_vector_addr : usize) {
+///
+/// # Safety
+/// User is required to make sure exception_vector_addr is address of correct interupt vector
+pub unsafe fn init_exceptions(exception_vector_addr: usize) {
     VBAR_EL1.set(exception_vector_addr as u64);
 
     // Force VBAR update to complete before next instruction.
@@ -25,5 +27,3 @@ pub unsafe fn init_exceptions(exception_vector_addr : usize) {
 }
 
 global_asm!(include_str!("interupts/interupt_context_saving.S"));
-
-

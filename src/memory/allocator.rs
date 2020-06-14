@@ -74,7 +74,7 @@ impl SystemAllocator {
 }
 #[global_allocator]
 #[link_section = ".heap"]
-pub static A: SystemAllocator = SystemAllocator::new(0x100_0000);
+pub static A: SystemAllocator = SystemAllocator::new(0x400_0000);
 
 pub fn heap_start() -> usize {
     A.heap_start()
@@ -88,11 +88,11 @@ unsafe fn is_the_space_big_enough(
     required_layout: Layout,
     end_address: usize,
 ) -> bool {
-    let base =
-        base_address as usize + align_address((*base_address).size_of(), required_layout.align());
-    let required_size = required_layout.size() + size_of::<Block>();
-    let alligned_end = align_address(base + required_size, required_layout.align());
-    alligned_end <= end_address
+    let potential_address = align_address(
+        base_address as usize + (*base_address).size_of() + size_of::<Block>(),
+        required_layout.align(),
+    );
+    potential_address + required_layout.size() <= end_address
 }
 ///
 /// # Safety
@@ -108,14 +108,15 @@ unsafe impl GlobalAlloc for SystemAllocator {
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
         let mut previous = self.block_list();
         let mut current = (*previous).next;
+        crate::println!("{:?}", layout);
 
         let size = layout.size();
         while !current.is_null() {
             if is_the_space_big_enough(previous, layout, current as usize) {
                 // FOUND PLACE
                 let mut new_block =
-                    align_address(previous as usize + (*previous).size_of(), layout.align())
-                        as *mut Block;
+                    (align_address(previous as usize + (*previous).size_of(), layout.align())
+                        - size_of::<Block>()) as *mut Block;
                 (*new_block).next = current;
                 (*new_block).data_size = size;
                 (*previous).next = new_block;
@@ -130,7 +131,10 @@ unsafe impl GlobalAlloc for SystemAllocator {
         if is_the_space_big_enough(previous, layout, self.heap_end()) {
             // FOUND PLACE
             let mut new_block =
-                align_address(previous as usize + (*previous).size_of(), 8) as *mut Block;
+                (align_address(previous as usize + (*previous).size_of(), layout.align())
+                    - size_of::<Block>()) as *mut Block;
+            crate::println!("{:#018x}", new_block as u64);
+
             (*new_block).next = null_mut();
             (*new_block).data_size = size;
             (*previous).next = new_block;
@@ -141,8 +145,10 @@ unsafe impl GlobalAlloc for SystemAllocator {
         null_mut()
     }
     unsafe fn dealloc(&self, ptr: *mut u8, _layout: Layout) {
+        // Every pointer returned by alloc is allignred at least to aligment of Block
+        #[allow(clippy::cast_ptr_alignment)]
         let block = ptr.offset(-(size_of::<Block>() as isize)) as *mut Block;
-
+        #[deny(clippy::cast_ptr_alignment)]
         let mut previous = self.block_list();
 
         let mut current = (*previous).next;

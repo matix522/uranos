@@ -1,4 +1,4 @@
-//! Low-level boot of the Raspberry's processor
+//! Low-level boot of the Raspberry Pi Cortex A53 and A72 processor
 
 /// Module contains code for
 pub mod mode;
