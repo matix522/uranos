@@ -1,7 +1,7 @@
 pub mod arm;
 // pub mod bcmclock;
 
-trait Timer {
+pub trait Timer {
     fn get_time() -> u64;
     fn interupt_after(ticks: u32);
     fn enable();

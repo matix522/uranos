@@ -40,8 +40,15 @@ const MMIO_BASE: usize = 0x3F00_0000;
 #[cfg(feature = "raspi4")]
 const MMIO_BASE: usize = 0xFE00_0000;
 
+const INTERRUPT_CONTROLLER_BASE: usize = 0x7E00_B000;
+
 use drivers::traits::console::*;
 use drivers::traits::Init;
+
+use drivers::rpi3InterruptController::Rpi3InterruptController;
+
+use crate::time::Timer;
+use time::arm::ArmTimer;
 
 fn kernel_entry() -> ! {
     let uart = drivers::UART.lock();
@@ -56,6 +63,15 @@ fn kernel_entry() -> ! {
     unsafe {
         interupts::init_exceptions(binary_info.exception_vector);
     }
+
+    println!("Enabling ARM Timer");
+    
+    interupts::enable_irqs();
+
+    Rpi3InterruptController::disable_IRQ();
+
+    ArmTimer::interupt_after(1000);
+    ArmTimer::enable();
 
     println!("Kernel Initialization complete.");
     unsafe {
