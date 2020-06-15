@@ -46,7 +46,7 @@ use drivers::traits::Init;
 fn kernel_entry() -> ! {
     let uart = drivers::UART.lock();
     match uart.init() {
-        Ok(_) => println!("\x1B[2J\x1B[2;1H[ Ok ] UART is live!"),
+        Ok(_) => println!("\x1B[2J\x1B[2;1H\x1B[2J\x1B[2;1H[ Ok ] UART is live!"),
         Err(_) => halt(), // If UART fails, abort early
     }
     drop(uart);
@@ -62,6 +62,17 @@ fn kernel_entry() -> ! {
         println!("TEST mmu");
 
         let _ = memory::armv8::mmu::test();
+
+        let t_string: &'static str = "Hello String";
+        let ptr = t_string.as_ptr();
+        let size = t_string.bytes().len();
+        let ptr = ptr.add(0x1_0000_0000);
+        let moved_str = core::str::from_utf8_unchecked(core::slice::from_raw_parts(ptr, size));
+        crate::println!("ORGINAL {}", t_string);
+        crate::println!("MOVED {}", moved_str);
+
+        // let address = 0x1_0000_0000 as *const u64;
+        // crate::println!("{}", *address);
     }
     println!("Echoing input.");
 

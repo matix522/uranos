@@ -20,6 +20,8 @@ unsafe fn get() -> alloc::boxed::Box<MMU<4>> {
 #[repr(C, align(4096))]
 struct TestTable<const N: usize> {
     page: [PageRecord; N],
+    blocks: [PageRecord; 512],
+    table: Table1Record,
 }
 
 impl<const N: usize> Default for TestTable<N> {
@@ -41,7 +43,14 @@ impl<const N: usize> Default for TestTable<N> {
                 PageRecord::new(addr, a)
             }
         }
-        TestTable { page: pages }
+        let mut blocks = [PageRecord(0); 512];
+        for (i, p) in blocks.iter_mut().enumerate() {
+            let addr = (1 << 21) * i;
+            *p = PageRecord::new(addr, Default::default())
+        }
+        let tt = TestTable {blocks,  page: pages,  table: Table1Record(0)};
+        tt
+        // TestTable { page: pages }
     }
 }
 #[cfg(feature = "raspi3")]
@@ -68,10 +77,17 @@ fn translate<const N: usize>(virt_address: u64, m: &alloc::boxed::Box<MMU<N>>) -
     let level_1 = (virt_address & level_1_mask) as usize >> 30;
     let level_2 = (virt_address & level_2_mask) as usize >> 21;
     let level_3 = (virt_address & level_3_mask) as usize >> 12;
+    unsafe {
+        let address_2 =
+            m.main_table.level_1[level_1].0 & (0b111_1111_1111_1111_1111_1111_1111 << 12);
 
-    (m.main_table.level_3[level_1][level_2][level_3].0
-        & (0b111_1111_1111_1111_1111_1111_1111 << 12))
-        + (virt_address & 0b1111_1111_1111)
+        let address_3 =
+            (*(address_2 as *const u64).add(level_2)) & (0b111_1111_1111_1111_1111_1111_1111 << 12);
+
+        let address_p =
+            (*(address_3 as *const u64).add(level_3)) & (0b111_1111_1111_1111_1111_1111_1111 << 12);
+        address_p + (virt_address & 0b1111_1111_1111)
+    }
 }
 
 pub unsafe fn test() -> Result<(), &'static str> {
@@ -92,21 +108,28 @@ pub unsafe fn test() -> Result<(), &'static str> {
     m.populate_tables();
 
     use alloc::boxed::Box;
-    let a = &m as *const _ as u64;
+    let a = 0x3F21_0000;
     crate::println!("{:#018x}     {:#018x}", a, translate(a, &m));
-    crate::println!("L1 Table: {:#018x}", m.main_table.level_1.as_addr() as u64);
+    // crate::println!("L1 Table: {:#018x}", m.main_table.level_1.as_addr() as u64);
 
-    let page = alloc::boxed::Box::new(get_t());
+    let translation = alloc::boxed::Box::new(get_t());
 
-    let page = Box::leak(page);
+    let translation = Box::leak(translation);
     // page.page.0 += 1 << 1;
     // Set the "Translation Table Base Register".
-    let addr = page as *const _ as u64;
+    // translation.table = translation.blocks.as_addr().into();
+    let addr = translation.page.as_addr() as u64;
+
+    for page in translation.page.iter() {
+        crate::println!("{:#018x} --- {}", page.0, page);
+    }
+
+    // let addr = m.main_table.level_1.as_addr() as u64;
     crate::println!("ADDR: {:#018x}", addr);
     TTBR0_EL1.set_baddr(addr);
 
     m.configure_translation_control();
-    alloc::boxed::Box::leak::<'static>(m);
+    Box::leak::<'static>(m);
 
     crate::println!("pre");
 
@@ -218,7 +241,7 @@ impl<const N: usize> MMU<N> {
                 + TCR_EL1::ORGN0::WriteBack_ReadAlloc_WriteAlloc_Cacheable
                 + TCR_EL1::IRGN0::WriteBack_ReadAlloc_WriteAlloc_Cacheable
                 + TCR_EL1::EPD0::EnableTTBR0Walks
-                + TCR_EL1::T0SZ.val(32), // TTBR0 spans 4 GiB total.
+                + TCR_EL1::T0SZ.val(28), // TTBR0 spans 4 GiB total.
         );
     }
 }

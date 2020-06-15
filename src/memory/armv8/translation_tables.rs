@@ -14,7 +14,7 @@ pub struct Table1Record(pub u64);
 register_bitfields! {u64,
     STAGE1_TABLE_1_DESCRIPTOR [
         /// Physical address of the next page table.
-        NEXT_LEVEL_TABLE_ADDR_4KiB OFFSET(30) NUMBITS(18) [], // [47:30]
+        NEXT_LEVEL_TABLE_ADDR_4KiB OFFSET(12) NUMBITS(36) [], // [47:12]
 
         TYPE  OFFSET(1) NUMBITS(1) [
             Block = 0,
@@ -32,7 +32,7 @@ register_bitfields! {u64,
 register_bitfields! {u64,
     STAGE1_TABLE_2_DESCRIPTOR [
         /// Physical address of the next page table.
-        NEXT_LEVEL_TABLE_ADDR_4KiB OFFSET(21) NUMBITS(27) [], // [47:21]
+        NEXT_LEVEL_TABLE_ADDR_4KiB OFFSET(12) NUMBITS(36) [], // [47:12]
 
         TYPE  OFFSET(1) NUMBITS(1) [
             Block = 0,
