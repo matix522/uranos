@@ -32,6 +32,7 @@ pub mod utils;
 
 use core::panic::PanicInfo;
 
+
 use aarch64::*;
 use utils::binary_info;
 
@@ -40,15 +41,20 @@ const MMIO_BASE: usize = 0x3F00_0000;
 #[cfg(feature = "raspi4")]
 const MMIO_BASE: usize = 0xFE00_0000;
 
-const INTERRUPT_CONTROLLER_BASE: usize = 0x7E00_B000;
+const INTERRUPT_CONTROLLER_BASE: usize = MMIO_BASE + 0xB200;
 
 use drivers::traits::console::*;
 use drivers::traits::Init;
 
 use drivers::rpi3InterruptController::Rpi3InterruptController;
+use crate::interupts::interruptController::interruptController;
+use drivers::rpi3InterruptController::IRQType;
+use drivers::rpi3InterruptController::printRegisterAddress;
 
 use crate::time::Timer;
 use time::arm::ArmTimer;
+
+use core::ops::Deref;
 
 fn kernel_entry() -> ! {
     let uart = drivers::UART.lock();
@@ -66,11 +72,15 @@ fn kernel_entry() -> ! {
 
     println!("Enabling ARM Timer");
     
+    let controller = Rpi3InterruptController::new(INTERRUPT_CONTROLLER_BASE);
+    
+    printRegisterAddress(&controller.deref());
+
     interupts::enable_irqs();
 
-    Rpi3InterruptController::disable_IRQ();
+    controller.disable_IRQ(IRQType::ARM_TIMER);
 
-    ArmTimer::interupt_after(1000);
+    ArmTimer::interupt_after(ArmTimer::get_frequency());
     ArmTimer::enable();
 
     println!("Kernel Initialization complete.");

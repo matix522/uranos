@@ -2,6 +2,7 @@
 use register::{mmio::*, register_bitfields};
 use core::ops;
 use crate::interupts::*;
+use crate::println;
 
 register_bitfields! {
     u32,
@@ -90,24 +91,39 @@ impl Rpi3InterruptController{
     }
 }
 
+pub fn printRegisterAddress(block: &RegisterBlock){
+    println!("IRQ_BASIC_PEND {:x}", &block.IRQ_BASIC_PENDING as *const _ as u64 );
+    println!("IRQ_PENDING_1  {:x}", &block.IRQ_PENDING_1 as *const _ as u64 );
+    println!("IRQ_PENDING_2  {:x}", &block.IRQ_PENDING_2 as *const _ as u64 );
+    println!("FIQ_CONTROL as {:x}", &block.FIQ_CONTROL as *const _ as u64 );
+    println!("ENABLE_IRQS_1  {:x}", &block.ENABLE_IRQS_1 as *const _ as u64 );
+    println!("ENABLE_IRQS_2  {:x}", &block.ENABLE_IRQS_2 as *const _ as u64 );
+    println!("ENABLE_BASIC_I {:x}", &block.ENABLE_BASIC_IRQS as *const _ as u64 );
+    println!("DISABLE_IRQS_1 {:x}", &block.DISABLE_IRQS_1 as *const _ as u64 );
+    println!("DISABLE_IRQS_2 {:x}", &block.DISABLE_IRQS_2 as *const _ as u64 );
+    println!("DISABLE_BASIC_ {:x}", &block.DISABLE_BASIC_IRQS as *const _ as u64);
+}
+
 impl interruptController::interruptController for Rpi3InterruptController{
     type IRQNumberType = IRQType;
 
-    fn enable_IRQ(&mut self, irq_number: Self::IRQNumberType) -> InterruptResult{
+    fn enable_IRQ(&self, irq_number: Self::IRQNumberType) -> InterruptResult{
         match irq_number{
-            IRQType::ARM_GPIO_HALTED => Self.ENABLE_BASIC_IRQS.modify(ENABLE_BASIC_IRQs::ARM_GPU0_HALTED_ENABLE::SET),
-            IRQType::ARM_MAILBOX     => Self.ENABLE_BASIC_IRQS.modify(ENABLE_BASIC_IRQs::ARM_MAILBOX_IRQ_ENABLE::SET),
-            IRQType::ARM_TIMER       => Self.ENABLE_BASIC_IRQS.modify(ENABLE_BASIC_IRQs::ARM_TIMER_IRQ_ENABLE::SET),
-            IRQType::UART            => Self.ENABLE_IRQS_2.modify(ENABLE_IRQs_2::UART_ENABLE::SET),
+            IRQType::ARM_GPIO_HALTED => self.ENABLE_BASIC_IRQS.write(ENABLE_BASIC_IRQs::ARM_GPU0_HALTED_ENABLE::SET),
+            IRQType::ARM_MAILBOX     => self.ENABLE_BASIC_IRQS.write(ENABLE_BASIC_IRQs::ARM_MAILBOX_IRQ_ENABLE::SET),
+            IRQType::ARM_TIMER       => self.ENABLE_BASIC_IRQS.write(ENABLE_BASIC_IRQs::ARM_TIMER_IRQ_ENABLE::SET),
+            IRQType::UART            => self.ENABLE_IRQS_2.write(ENABLE_IRQs_2::UART_ENABLE::SET),
         }
         Ok(())
     }
-    fn disable_IRQ(&mut self, irq_number: Self::IRQNumberType) -> InterruptResult{
+    fn disable_IRQ(&self, irq_number: Self::IRQNumberType) -> InterruptResult{
+        println!("HEUHUEHUEHUEHUEHHEUH");
         match irq_number{
-            IRQType::ARM_GPIO_HALTED => Self.DISABLE_BASIC_IRQS.modify(DISABLE_BASIC_IRQs::ARM_GPU0_HALTED_DISABLE::SET),
-            IRQType::ARM_MAILBOX     => Self.DISABLE_BASIC_IRQS.modify(DISABLE_BASIC_IRQs::ARM_MAILBOX_IRQ_DISABLE::SET),
-            IRQType::ARM_TIMER       => Self.DISABLE_BASIC_IRQS.modify(DISABLE_BASIC_IRQs::ARM_TIMER_IRQ_DISABLE::SET),
-            IRQType::UART            => Self.DISABLE_IRQS_2.modify(DISABLE_IRQs_2::UART_DISABLE::SET),
+            IRQType::ARM_GPIO_HALTED => self.DISABLE_BASIC_IRQS.write(DISABLE_BASIC_IRQs::ARM_GPU0_HALTED_DISABLE::SET),
+            IRQType::ARM_MAILBOX     => self.DISABLE_BASIC_IRQS.write(DISABLE_BASIC_IRQs::ARM_MAILBOX_IRQ_DISABLE::SET),
+            IRQType::ARM_TIMER       => self.DISABLE_BASIC_IRQS.set(0x1),
+            // IRQType::ARM_TIMER       => self.DISABLE_BASIC_IRQS.write(DISABLE_BASIC_IRQs::ARM_TIMER_IRQ_DISABLE::SET),
+            IRQType::UART            => self.DISABLE_IRQS_2.write(DISABLE_IRQs_2::UART_DISABLE::SET),
         }
         Ok(())
     }

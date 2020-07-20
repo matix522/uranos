@@ -1,4 +1,6 @@
 use crate::interupts::ExceptionContext;
+use crate::print;
+use crate::println;
 
 fn default_exception_handler(_e: &mut ExceptionContext) {
     panic!("Unknown Exception type recived.");
@@ -34,6 +36,7 @@ unsafe extern "C" fn current_elx_synchronous(e: &mut ExceptionContext) {
 
 #[no_mangle]
 unsafe extern "C" fn current_elx_irq(e: &mut ExceptionContext) {
+    println!("DAKSKLDJLASJDLASJKLDJKALSDJKLASJDKL");
     default_exception_handler(e);
 }
 
