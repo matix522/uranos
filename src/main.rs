@@ -46,10 +46,10 @@ const INTERRUPT_CONTROLLER_BASE: usize = MMIO_BASE + 0xB200;
 use drivers::traits::console::*;
 use drivers::traits::Init;
 
-use drivers::rpi3InterruptController::Rpi3InterruptController;
-use crate::interupts::interruptController::interruptController;
-use drivers::rpi3InterruptController::IRQType;
-use drivers::rpi3InterruptController::printRegisterAddress;
+use drivers::rpi3_interrupt_controller::Rpi3InterruptController;
+use crate::interupts::interrupt_controller::InterruptController;
+use drivers::rpi3_interrupt_controller::IRQType;
+use utils::debug::printRegisterAddress;
 
 use crate::time::Timer;
 use time::arm::ArmTimer;
@@ -74,11 +74,12 @@ fn kernel_entry() -> ! {
     
     let controller = Rpi3InterruptController::new(INTERRUPT_CONTROLLER_BASE);
     
+    #[cfg(feature = "debug")]
     printRegisterAddress(&controller.deref());
 
     interupts::enable_irqs();
 
-    controller.disable_IRQ(IRQType::ARM_TIMER);
+    controller.disable_IRQ(IRQType::ArmTimer);
 
     ArmTimer::interupt_after(ArmTimer::get_frequency());
     ArmTimer::enable();

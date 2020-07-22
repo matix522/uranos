@@ -1,5 +1,5 @@
 pub mod handlers;
-pub mod interruptController;
+pub mod interrupt_controller;
 
 use core::sync::atomic::{fence, Ordering};
 use cortex_a::barrier;

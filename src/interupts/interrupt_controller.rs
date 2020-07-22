@@ -1,6 +1,6 @@
 use crate::interupts::{IRQDescriptor, InterruptResult};
 
-pub trait interruptController {
+pub trait InterruptController {
     type IRQNumberType;
 
     fn enable_IRQ(&self, irq_number: Self::IRQNumberType) -> InterruptResult;

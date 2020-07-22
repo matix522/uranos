@@ -36,7 +36,7 @@ unsafe extern "C" fn current_elx_synchronous(e: &mut ExceptionContext) {
 
 #[no_mangle]
 unsafe extern "C" fn current_elx_irq(e: &mut ExceptionContext) {
-    println!("DAKSKLDJLASJDLASJKLDJKALSDJKLASJDKL");
+    println!("Received current_elx_irq interrupt");
     default_exception_handler(e);
 }
 
