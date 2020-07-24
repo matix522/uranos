@@ -2,8 +2,8 @@ use crate::interupts::ExceptionContext;
 use crate::print;
 use crate::println;
 
-fn default_exception_handler(_e: &mut ExceptionContext) {
-    panic!("Unknown Exception type recived.");
+fn default_exception_handler(_e: &mut ExceptionContext, source : &str) {
+    panic!("Unknown {} Exception type recived.", source);
 }
 
 //------------------------------------------------------------------------------
@@ -12,17 +12,17 @@ fn default_exception_handler(_e: &mut ExceptionContext) {
 
 #[no_mangle]
 unsafe extern "C" fn current_el0_synchronous(e: &mut ExceptionContext) {
-    default_exception_handler(e);
+    default_exception_handler(e, "current_el0_synchronous");
 }
 
 #[no_mangle]
 unsafe extern "C" fn current_el0_irq(e: &mut ExceptionContext) {
-    default_exception_handler(e);
+    default_exception_handler(e, "current_el0_irq");
 }
 
 #[no_mangle]
 unsafe extern "C" fn current_el0_serror(e: &mut ExceptionContext) {
-    default_exception_handler(e);
+    default_exception_handler(e, "current_el0_serror");
 }
 
 //------------------------------------------------------------------------------
@@ -31,18 +31,23 @@ unsafe extern "C" fn current_el0_serror(e: &mut ExceptionContext) {
 
 #[no_mangle]
 unsafe extern "C" fn current_elx_synchronous(e: &mut ExceptionContext) {
-    default_exception_handler(e);
+    use cortex_a::regs::*;
+    e.elr_el1 |= crate::kernel_offset as u64;
+    crate::println!("LR: {:x}", e.elr_el1);
+    crate::println!("x0: {:x}", e.gpr[0]);
+    e.elr_el1 = e.gpr[0] |  crate::kernel_offset as u64;
+    // default_exception_handler(e, "current_elx_synchronous");
 }
 
 #[no_mangle]
 unsafe extern "C" fn current_elx_irq(e: &mut ExceptionContext) {
     println!("Received current_elx_irq interrupt");
-    default_exception_handler(e);
+    default_exception_handler(e, "current_elx_irq");
 }
 
 #[no_mangle]
 unsafe extern "C" fn current_elx_serror(e: &mut ExceptionContext) {
-    default_exception_handler(e);
+    default_exception_handler(e, "current_elx_serror");
 }
 
 //------------------------------------------------------------------------------
@@ -51,17 +56,22 @@ unsafe extern "C" fn current_elx_serror(e: &mut ExceptionContext) {
 
 #[no_mangle]
 unsafe extern "C" fn lower_aarch64_synchronous(e: &mut ExceptionContext) {
-    default_exception_handler(e);
+    use cortex_a::regs::*;
+    e.elr_el1 |= crate::kernel_offset as u64;
+    crate::println!("LR: {:x}", e.elr_el1);
+    crate::println!("x0: {:x}", e.gpr[0]);
+    default_exception_handler(e, "lower_aarch64_synchronous")
+
 }
 
 #[no_mangle]
 unsafe extern "C" fn lower_aarch64_irq(e: &mut ExceptionContext) {
-    default_exception_handler(e);
+    default_exception_handler(e, "lower_aarch64_irq");
 }
 
 #[no_mangle]
 unsafe extern "C" fn lower_aarch64_serror(e: &mut ExceptionContext) {
-    default_exception_handler(e);
+    default_exception_handler(e, "lower_aarch64_serror");
 }
 
 //------------------------------------------------------------------------------
@@ -70,15 +80,15 @@ unsafe extern "C" fn lower_aarch64_serror(e: &mut ExceptionContext) {
 
 #[no_mangle]
 unsafe extern "C" fn lower_aarch32_synchronous(e: &mut ExceptionContext) {
-    default_exception_handler(e);
+    default_exception_handler(e, "lower_aarch32_synchronous");
 }
 
 #[no_mangle]
 unsafe extern "C" fn lower_aarch32_irq(e: &mut ExceptionContext) {
-    default_exception_handler(e);
+    default_exception_handler(e, "lower_aarch32_irq");
 }
 
 #[no_mangle]
 unsafe extern "C" fn lower_aarch32_serror(e: &mut ExceptionContext) {
-    default_exception_handler(e);
+    default_exception_handler(e, "lower_aarch32_serror");
 }

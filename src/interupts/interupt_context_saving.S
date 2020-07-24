@@ -122,7 +122,7 @@ __exception_vector_start:
 __exception_restore_context:
 
     ldr    x19,      [sp, #16 * 17]
-    ldp    x20, x21, [sp, #16 * 16]
+    ldp    x21, x20, [sp, #16 * 16]
     ldp    lr,  x22, [sp, #16 * 15]
 
     msr    FAR_EL1, x19  

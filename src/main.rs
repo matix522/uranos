@@ -42,6 +42,7 @@ const MMIO_BASE: usize = 0x3F00_0000;
 const MMIO_BASE: usize = 0xFE00_0000;
 
 const INTERRUPT_CONTROLLER_BASE: usize = MMIO_BASE + 0xB200;
+const kernel_offset : usize = 0xFFFF_0000_0000_0000usize | !((1 << 36) -1);
 
 use drivers::traits::console::*;
 use drivers::traits::Init;
@@ -95,12 +96,29 @@ fn kernel_entry() -> ! {
         let size = t_string.bytes().len();
         let ptr = ptr.add(0x1_0000_0000);
         let moved_str = core::str::from_utf8_unchecked(core::slice::from_raw_parts(ptr, size));
-        crate::println!("ORGINAL {}", t_string);
-        crate::println!("MOVED {}", moved_str);
 
-        // let address = 0x1_0000_0000 as *const u64;
-        // crate::println!("{}", *address);
+        let ptr = t_string.as_ptr();
+        let size = t_string.bytes().len();
+
+        crate::println!("{:#018x}", kernel_offset);
+
+        let ptr = (kernel_offset | ptr as usize) as *const u8;
+        let kernel_str = core::str::from_utf8_unchecked(core::slice::from_raw_parts(ptr, size));
+
+        crate::println!("ORGINAL {:#018x}: {}", t_string.as_ptr() as usize, t_string);
+        crate::println!("MOVED   {:#018x}: {}", moved_str.as_ptr() as usize, moved_str);
+        crate::println!("KERNEL  {:#018x}: {}", kernel_str.as_ptr() as usize, kernel_str);
+
     }
+    jump_to_kernel_space(echo);
+
+}
+extern "C" fn jump_to_kernel_space(f : fn () -> !) -> ! {
+    let address = f as * const () as u64;
+    unsafe { llvm_asm!("brk 0" : : "{x0}"(address) : : "volatile"); }
+    loop{};
+}
+fn echo () -> !{
     println!("Echoing input.");
 
     let uart = drivers::UART.lock();

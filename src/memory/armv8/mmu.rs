@@ -19,9 +19,12 @@ unsafe fn get() -> alloc::boxed::Box<MMU<4>> {
 
 #[repr(C, align(4096))]
 struct TestTable<const N: usize> {
-    page: [PageRecord; N],
     blocks: [PageRecord; 512],
+    // table0: Table1Record,
+    page: [PageRecord; N],
     table: Table1Record,
+    // blocks0: [PageRecord; 512],
+
 }
 
 impl<const N: usize> Default for TestTable<N> {
@@ -48,7 +51,19 @@ impl<const N: usize> Default for TestTable<N> {
             let addr = (1 << 21) * i;
             *p = PageRecord::new(addr, Default::default())
         }
-        let tt = TestTable {blocks,  page: pages,  table: Table1Record(0)};
+        // let mut blocks0 = [PageRecord(0); 512];
+        // for (i, p) in blocks0.iter_mut().enumerate() {
+        //     let addr = (1 << 21) * i;
+        //     *p = PageRecord::new(addr, Default::default())
+        // }
+
+        let tt = TestTable {
+            blocks,
+            page: pages,
+            table: Table1Record(0),
+            // table0: Table1Record(0),
+            // blocks0
+        };
         tt
         // TestTable { page: pages }
     }
@@ -117,8 +132,10 @@ pub unsafe fn test() -> Result<(), &'static str> {
     let translation = Box::leak(translation);
     // page.page.0 += 1 << 1;
     // Set the "Translation Table Base Register".
-    // translation.table = translation.blocks.as_addr().into();
-    let addr = translation.page.as_addr() as u64;
+    translation.table = translation.blocks.as_addr().into();
+    // translation.table0 = translation.blocks0.as_addr().into();
+
+    let addr = translation.page.as_ptr() as u64;
 
     for page in translation.page.iter() {
         crate::println!("{:#018x} --- {}", page.0, page);
@@ -127,6 +144,7 @@ pub unsafe fn test() -> Result<(), &'static str> {
     // let addr = m.main_table.level_1.as_addr() as u64;
     crate::println!("ADDR: {:#018x}", addr);
     TTBR0_EL1.set_baddr(addr);
+    TTBR1_EL1.set_baddr(addr);
 
     m.configure_translation_control();
     Box::leak::<'static>(m);
@@ -236,12 +254,20 @@ impl<const N: usize> MMU<N> {
         TCR_EL1.write(
             TCR_EL1::TBI0::Ignored
                 + TCR_EL1::IPS.val(ips)
+
                 + TCR_EL1::TG0::KiB_4
                 + TCR_EL1::SH0::Inner
                 + TCR_EL1::ORGN0::WriteBack_ReadAlloc_WriteAlloc_Cacheable
                 + TCR_EL1::IRGN0::WriteBack_ReadAlloc_WriteAlloc_Cacheable
                 + TCR_EL1::EPD0::EnableTTBR0Walks
-                + TCR_EL1::T0SZ.val(28), // TTBR0 spans 4 GiB total.
+                + TCR_EL1::T0SZ.val(28) // TTBR0 spans 64 GiB total.
+
+                + TCR_EL1::TG1::KiB_4
+                + TCR_EL1::SH1::Inner
+                + TCR_EL1::ORGN1::WriteBack_ReadAlloc_WriteAlloc_Cacheable
+                + TCR_EL1::IRGN1::WriteBack_ReadAlloc_WriteAlloc_Cacheable
+                + TCR_EL1::EPD1::EnableTTBR1Walks
+                + TCR_EL1::T1SZ.val(28), // TTBR1 spans 64 GiB total.
         );
     }
 }
