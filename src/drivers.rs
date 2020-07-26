@@ -4,6 +4,7 @@ pub mod gpio;
 pub mod mbox;
 pub mod miniuart;
 pub mod uart;
+pub mod rpi3_interrupt_controller;
 
 pub mod traits;
 

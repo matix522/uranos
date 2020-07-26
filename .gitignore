@@ -5,3 +5,5 @@ kernel8*
 /.idea
 #All below our local ignores
 .gitignore
+/deploy
+.dockerignore

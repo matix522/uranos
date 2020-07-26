@@ -153,64 +153,6 @@ unsafe impl GlobalAlloc for SystemAllocator {
         }
     }
 }
-// unsafe fn alloc2(&self, layout: Layout) -> *mut u8 {
-//     let mut previous = self.block_list();
-//     let mut current = (*previous).next;
-//     crate::println!("{:?}", layout);
-
-//     let size = layout.size();
-//     while !current.is_null() {
-//         if is_the_space_big_enough(previous, layout, current as usize) {
-//             // FOUND PLACE
-//             let mut new_block =
-//                 (align_address(previous as usize + (*previous).size_of(), layout.align())
-//                     - size_of::<Block>()) as *mut Block;
-//             (*new_block).next = current;
-//             (*new_block).data_size = size;
-//             (*previous).next = new_block;
-//             let ptr = (new_block as usize + size_of::<Block>()) as *mut u8;
-
-//             return ptr;
-//         }
-//         previous = current;
-//         current = (*current).next;
-//     }
-
-//     if is_the_space_big_enough(previous , layout, self.heap_end()) {
-//         // FOUND PLACE
-//         let mut new_block =
-//             (align_address(previous as usize + (*previous).size_of(), layout.align())
-//                 - size_of::<Block>()) as *mut Block;
-//         crate::println!("{:#018x}", new_block as u64);
-
-//         (*new_block).next = null_mut();
-//         (*new_block).data_size = size;
-//         (*previous).next = new_block;
-//         let ptr = (new_block as usize + size_of::<Block>()) as *mut u8;
-
-//         return ptr;
-//     }
-//     null_mut()
-// }
-// unsafe fn dealloc(&self, ptr: *mut u8, _layout: Layout) {
-//     // Every pointer returned by alloc is allignred at least to aligment of Block
-//     #[allow(clippy::cast_ptr_alignment)]
-//     let block = ptr.offset(-(size_of::<Block>() as isize)) as *mut Block;
-//     #[deny(clippy::cast_ptr_alignment)]
-//     let mut previous = self.block_list();
-
-//     let mut current = (*previous).next;
-//     // TOTALY UNSAFE FOR NOW
-//     while current != block && !current.is_null() && (current as u64) < (block as u64) {
-//         previous = current;
-//         current = (*current).next;
-//     }
-
-//     if !current.is_null() {
-//         (*previous).next = (*current).next;
-//     }
-// }
-// }
 
 impl SystemAllocator {
     pub const fn new(heap_size: u64) -> Self {
