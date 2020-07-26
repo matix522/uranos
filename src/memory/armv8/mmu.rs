@@ -5,20 +5,16 @@ use super::translation_tables::*;
 struct MMU {
     // main_table: TopLevelTables<N>,
 }
-unsafe fn get() -> alloc::boxed::Box<MMU> {
-    let m = alloc::boxed::Box::new_zeroed();
-    m.assume_init()
-}
 
 #[repr(C, align(4096))]
-struct TestTable<const N: usize> {
+struct BaseMemoryTable<const N: usize> {
     table_1g: [TableRecord; 512],            // EACH 1GB
     tables_2m: [[TableRecord; 512]; N],      // EACH 2MB
     tables_2m_a: [[TableRecord; 512]; N],    // MOVED VALUE 2MB
     pages_4k: [[[PageRecord; 512]; 512]; N], // EACH 4KB
 }
 
-impl<const N: usize> TestTable<N> {
+impl<const N: usize> BaseMemoryTable<N> {
     fn fill(&mut self) {
         for (n, block_1g) in self.pages_4k.iter_mut().enumerate() {
             for (i, block_2m) in block_1g.iter_mut().enumerate() {
@@ -64,19 +60,28 @@ pub const MEMORY_SIZE: usize = 4;
 #[cfg(feature = "raspi3")]
 pub const MEMORY_SIZE: usize = 1;
 
-unsafe fn get_t() -> alloc::boxed::Box<TestTable<MEMORY_SIZE>> {
-    let m: alloc::boxed::Box<core::mem::MaybeUninit<TestTable<MEMORY_SIZE>>> =
-        alloc::boxed::Box::new_zeroed();
-    let mut m = m.assume_init();
-    m.fill();
-    m
+static mut MEMORY_TABLE : *mut BaseMemoryTable<MEMORY_SIZE> = core::ptr::null_mut();
+
+///
+/// # Safety 
+/// It is caller responsibility to ensure that only one reference to BaseMemoryTable lives. 
+unsafe fn get_base_memory_table() -> &'static mut BaseMemoryTable<MEMORY_SIZE> {
+    if MEMORY_TABLE == core::ptr::null_mut() {
+        use  alloc::boxed::Box;
+        let mut boxed_table : Box<BaseMemoryTable<MEMORY_SIZE>> = Box::new_zeroed().assume_init();
+        boxed_table.fill();
+        MEMORY_TABLE = Box::leak(boxed_table) as *mut _;
+    }
+    & mut *MEMORY_TABLE 
+    
+
 }
 ///
 /// # Safety
 /// Should be only called once before MMU is Initialized
 pub unsafe fn test() -> Result<(), &'static str> {
     use cortex_a::barrier;
-    let mut m = get();
+    let mut m = MMU::new();
 
     // Fail early if translation granule is not supported. Both RPis support it, though.
     if !ID_AA64MMFR0_EL1.matches_all(ID_AA64MMFR0_EL1::TGran4::Supported) {
@@ -89,11 +94,7 @@ pub unsafe fn test() -> Result<(), &'static str> {
     // Populate page tables.
     m.populate_tables();
 
-    use alloc::boxed::Box;
-
-    let translation = get_t();
-
-    let translation = Box::leak(translation);
+    let translation = get_base_memory_table();
 
     let addr = translation.table_1g.as_ptr() as u64;
 
@@ -103,7 +104,6 @@ pub unsafe fn test() -> Result<(), &'static str> {
     TTBR1_EL1.set_baddr(addr);
 
     m.configure_translation_control();
-    Box::leak::<'static>(m);
 
     crate::println!("Start MMU");
 
