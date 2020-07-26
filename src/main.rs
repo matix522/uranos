@@ -24,6 +24,7 @@ pub mod boot;
 pub mod interupts;
 pub mod io;
 pub mod memory;
+pub mod scheduler;
 
 pub mod sync;
 pub mod time;
@@ -121,6 +122,11 @@ fn echo() -> ! {
             moved_str
         );
     }
+
+
+    scheduler::yeet();
+    
+    println!("Echoing input.");
 
     let mut uart = drivers::UART.lock();
     uart.base_address |= KERNEL_OFFSET;
