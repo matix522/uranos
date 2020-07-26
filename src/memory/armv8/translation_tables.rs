@@ -55,7 +55,7 @@ register_bitfields! {u64,
         ],
 
         /// Physical address of the next page table (lvl2) or the page descriptor (lvl3).
-        OUTPUT_ADDR_4KiB OFFSET(12) NUMBITS(36) [], // [47:16]
+        OUTPUT_ADDR_4KiB OFFSET(12) NUMBITS(36) [], // [47:12]
 
         /// Access flag.
         AF       OFFSET(10) NUMBITS(1) [
@@ -82,7 +82,7 @@ register_bitfields! {u64,
 
         TYPE     OFFSET(1) NUMBITS(1) [
             Block = 0,
-            Table = 1
+            Page = 1
         ],
 
         VALID    OFFSET(0) NUMBITS(1) [
@@ -106,12 +106,12 @@ impl<T, const N: usize> BaseAddr<usize> for [T; N] {
 }
 
 impl PageRecord {
-    pub fn new(output_addr: usize, attribute_fields: AttributeFields) -> Self {
+    pub fn new(output_addr: usize, attribute_fields: AttributeFields, is_block : bool) -> Self {
         let shifted = output_addr >> FOUR_KIB_SHIFT;
         let val = (STAGE1_PAGE_DESCRIPTOR::VALID::True
             + STAGE1_PAGE_DESCRIPTOR::AF::True
             + attribute_fields.into()
-            + STAGE1_PAGE_DESCRIPTOR::TYPE::Block
+            + if is_block {STAGE1_PAGE_DESCRIPTOR::TYPE::Block } else {STAGE1_PAGE_DESCRIPTOR::TYPE::Page}
             + STAGE1_PAGE_DESCRIPTOR::OUTPUT_ADDR_4KiB.val(shifted as u64))
         .value;
 
@@ -121,7 +121,7 @@ impl PageRecord {
 impl core::fmt::Display for PageRecord {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         let val: ReadWrite<u64, STAGE1_PAGE_DESCRIPTOR::Register> =
-            unsafe { core::mem::uninitialized() };
+            unsafe { core::mem::MaybeUninit::zeroed().assume_init() };
         val.set(self.0);
         if val.matches_all(STAGE1_PAGE_DESCRIPTOR::PXN::False) {
             write!(f, "Executable ")?;
@@ -150,30 +150,6 @@ impl core::fmt::Display for PageRecord {
             "Of address {:#018x}",
             val.read(STAGE1_PAGE_DESCRIPTOR::OUTPUT_ADDR_4KiB) * 4096
         )?;
-
-        //     /// Physical address of the next page table (lvl2) or the page descriptor (lvl3).
-        //     OUTPUT_ADDR_4KiB OFFSET(12) NUMBITS(36) [], // [47:16]
-
-        //     /// Access Permissions.
-        //     AP       OFFSET(6) NUMBITS(2) [
-        //         RW_EL1 = 0b00,
-        //         RW_EL1_EL0 = 0b01,
-        //         RO_EL1 = 0b10,
-        //         RO_EL1_EL0 = 0b11
-        //     ],
-
-        //     /// Memory attributes index into the MAIR_EL1 register.
-        //     AttrIndx OFFSET(2) NUMBITS(3) [],
-
-        //     TYPE     OFFSET(1) NUMBITS(1) [
-        //         Block = 0,
-        //         Table = 1
-        //     ],
-
-        //     VALID    OFFSET(0) NUMBITS(1) [
-        //         False = 0,
-        //         True = 1
-        //     ]
 
         Ok(())
     }

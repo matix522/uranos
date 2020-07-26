@@ -42,7 +42,7 @@ const MMIO_BASE: usize = 0x3F00_0000;
 const MMIO_BASE: usize = 0xFE00_0000;
 
 const INTERRUPT_CONTROLLER_BASE: usize = MMIO_BASE + 0xB200;
-const kernel_offset : usize = 0xFFFF_0000_0000_0000usize | !((1 << 36) -1);
+const KERNEL_OFFSET : usize = !((1usize << 36) -1);
 
 use drivers::traits::console::*;
 use drivers::traits::Init;
@@ -94,22 +94,20 @@ fn kernel_entry() -> ! {
         let t_string: &'static str = "Hello String";
         let ptr = t_string.as_ptr();
         let size = t_string.bytes().len();
-        let ptr = ptr.add(0x1_0000_0000);
-        let moved_str = core::str::from_utf8_unchecked(core::slice::from_raw_parts(ptr, size));
 
-        let ptr = t_string.as_ptr();
-        let size = t_string.bytes().len();
 
-        crate::println!("{:#018x}", kernel_offset);
+        let kernel_ptr = (KERNEL_OFFSET | ptr as usize) as *const u8;
+        let kernel_str = core::str::from_utf8_unchecked(core::slice::from_raw_parts(kernel_ptr, size));
 
-        let ptr = (kernel_offset | ptr as usize) as *const u8;
-        let kernel_str = core::str::from_utf8_unchecked(core::slice::from_raw_parts(ptr, size));
+        let moved_ptr = (ptr as usize + (memory::armv8::mmu::MEMORY_SIZE * 0x4000_0000) ) as *const u8;
+        let moved_str = core::str::from_utf8_unchecked(core::slice::from_raw_parts(moved_ptr, size));
+    
 
         crate::println!("ORGINAL {:#018x}: {}", t_string.as_ptr() as usize, t_string);
-        crate::println!("MOVED   {:#018x}: {}", moved_str.as_ptr() as usize, moved_str);
         crate::println!("KERNEL  {:#018x}: {}", kernel_str.as_ptr() as usize, kernel_str);
-
+        crate::println!("MOVED   {:#018x}: {}", moved_str.as_ptr() as usize, moved_str);
     }
+
     jump_to_kernel_space(echo);
 
 }
@@ -121,7 +119,28 @@ extern "C" fn jump_to_kernel_space(f : fn () -> !) -> ! {
 fn echo () -> !{
     println!("Echoing input.");
 
-    let uart = drivers::UART.lock();
+
+    unsafe {
+        let t_string: &'static str = "Hello String";
+        let ptr = t_string.as_ptr();
+        let size = t_string.bytes().len();
+
+
+        let kernel_ptr = (KERNEL_OFFSET | ptr as usize) as *const u8;
+        let kernel_str = core::str::from_utf8_unchecked(core::slice::from_raw_parts(kernel_ptr, size));
+
+        let moved_ptr = (ptr as usize + (memory::armv8::mmu::MEMORY_SIZE * 0x4000_0000) ) as *const u8;
+        let moved_str = core::str::from_utf8_unchecked(core::slice::from_raw_parts(moved_ptr, size));
+    
+
+        crate::println!("ORGINAL {:#018x}: {}", t_string.as_ptr() as usize, t_string);
+        crate::println!("KERNEL  {:#018x}: {}", kernel_str.as_ptr() as usize, kernel_str);
+        crate::println!("MOVED   {:#018x}: {}", moved_str.as_ptr() as usize, moved_str);
+    }
+
+
+    let mut uart = drivers::UART.lock();
+    uart.base_address = KERNEL_OFFSET | uart.base_address;
     let echo_loop = || -> Result<!, &str> {
         loop {
             uart.putc(uart.getc()?);

@@ -32,10 +32,11 @@ unsafe extern "C" fn current_el0_serror(e: &mut ExceptionContext) {
 #[no_mangle]
 unsafe extern "C" fn current_elx_synchronous(e: &mut ExceptionContext) {
     use cortex_a::regs::*;
-    e.elr_el1 |= crate::kernel_offset as u64;
-    crate::println!("LR: {:x}", e.elr_el1);
-    crate::println!("x0: {:x}", e.gpr[0]);
-    e.elr_el1 = e.gpr[0] |  crate::kernel_offset as u64;
+    e.elr_el1 |= crate::KERNEL_OFFSET as u64;
+    // crate::println!("LR:  {:x}", e.elr_el1);
+    // crate::println!("FAR: {:x}", e.far_el1);
+    // crate::println!("x0:  {:x}", e.gpr[0]);
+    e.elr_el1 = e.gpr[0] |  crate::KERNEL_OFFSET as u64;
     // default_exception_handler(e, "current_elx_synchronous");
 }
 
@@ -56,8 +57,7 @@ unsafe extern "C" fn current_elx_serror(e: &mut ExceptionContext) {
 
 #[no_mangle]
 unsafe extern "C" fn lower_aarch64_synchronous(e: &mut ExceptionContext) {
-    use cortex_a::regs::*;
-    e.elr_el1 |= crate::kernel_offset as u64;
+    e.elr_el1 |= crate::KERNEL_OFFSET as u64;
     crate::println!("LR: {:x}", e.elr_el1);
     crate::println!("x0: {:x}", e.gpr[0]);
     default_exception_handler(e, "lower_aarch64_synchronous")
