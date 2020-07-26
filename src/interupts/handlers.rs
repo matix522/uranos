@@ -36,23 +36,17 @@ unsafe extern "C" fn current_el0_serror(e: &mut ExceptionContext) {
 //------------------------------------------------------------------------------
 
 #[no_mangle]
-unsafe extern "C" fn current_elx_synchronous(e: &mut ExceptionContext) {
+unsafe extern "C" fn current_elx_synchronous(e: &mut ExceptionContext) -> &mut ExceptionContext {
     let exception_type = (e.esr_el1 & (0b111111 << 26)) >> 26;
-   if exception_type == 0b111100{
-        e.elr_el1 |= crate::KERNEL_OFFSET as u64;
-        // crate::println!("LR:  {:x}", e.elr_el1);
-        // crate::println!("FAR: {:x}", e.far_el1);
-        // crate::println!("x0:  {:x}", e.gpr[0]);
+    if exception_type == 0b111100 {
         e.elr_el1 = e.gpr[0] | crate::KERNEL_OFFSET as u64;
-        // default_exception_handler(e, "current_elx_synchronous");
-   } else if exception_type == 0b010101 {
-        crate::println!("ELX SYNCHRONOUSSSS");
-        scheduler::test_schedule(e);
-   } else {
-    default_exception_handler(e, "current_elx_synchronous");
-   }
-   
+    } else if exception_type == 0b010101 {
+        return scheduler::sample_change_task(e);
+    } else {
+        default_exception_handler(e, "current_elx_synchronous");
+    }
 
+    e
 }
 
 #[no_mangle]

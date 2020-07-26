@@ -36,12 +36,13 @@
     mrs    x3,  ESR_EL1
     mrs    x4,  FAR_EL1
 
+    mov    x0,  sp
+
     stp    lr,  x1,  [sp, #16 * 15]
     stp    x2,  x3,  [sp, #16 * 16]
-    str    x4,       [sp, #16 * 17]
+    stp    x4,  x0,  [sp, #16 * 17]
 
     // x0 is the first argument for the function called through `\handler`.
-    mov    x0,  sp
 
     // Call `\handler`.
     bl     \handler
@@ -121,7 +122,9 @@ __exception_vector_start:
 .global __exception_restore_context
 __exception_restore_context:
 
-    ldr    x19,      [sp, #16 * 17]
+    mov    sp,  x0
+
+    ldp    x19, x0,  [sp, #16 * 17]
     ldp    x21, x20, [sp, #16 * 16]
     ldp    lr,  x22, [sp, #16 * 15]
 

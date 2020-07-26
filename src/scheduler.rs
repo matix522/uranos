@@ -1,63 +1,32 @@
 pub mod task_context;
 pub mod task_stack;
 
-use crate::sync::nulllock::NullLock;
-use alloc::vec::Vec;
 use crate::interupts::ExceptionContext;
 
-
-pub fn yeet(){
-    unsafe{
+pub fn yeet() {
+    unsafe {
         llvm_asm!("svc 0");
     }
 }
 
 #[no_mangle]
-pub extern "C" fn foo(){
+#[inline(never)]
+pub extern "C" fn foo() {
     crate::println!("BEHOLD! SECOND TASK");
+    loop {}
 }
 
-pub fn test_schedule(e: &mut ExceptionContext){
-    crate::println!("ENTETING TASK SCHEDULE");
-    let task: task_context::TaskContext = match task_context::TaskContext::new(foo, 0){
+pub fn sample_change_task(_e: &mut ExceptionContext) -> &mut ExceptionContext {
+    let task = match task_context::TaskContext::new(foo) {
         Ok(t) => t,
         Err(_) => {
-            crate::println!(">>>>>>>>ERROR");
-            return;
+            crate::println!(">>>>>> ERROR CREATING TASK CONTEXT");
+            loop {}
         }
     };
 
-    crate::println!("Created task_context");
-
-
-    // e.elr_el1 = task.exception_context.elr_el1;
-
-    crate::println!("DJSKLAJDLKSJKLD");
-
-}
-
-pub const MAX_TASK_COUNT: usize = 16;
-pub static SCHEDULER: NullLock<Scheduler> = NullLock::new(Scheduler::new());
-
-
-pub struct Scheduler{
-    tasks: Vec<task_context::TaskContext>,
-    current_running_task: usize, 
-}
-
-impl Scheduler{
-     // Creates Scheduler
-     const fn new() -> Self {
-        Self {
-            tasks: Vec::new(),
-            current_running_task: 0,
-        }
-    }
-
-    // pub fn schedule(&mut self) -> Result<usize, task_context::TaskError>{
-    //     let next_task_pid;
-    //     let tasks = &mut self.tasks;
-
-
-    // }
+    let boxed_task = alloc::boxed::Box::new(task);
+    let task_ref: &'static task_context::TaskContext = alloc::boxed::Box::leak(boxed_task);
+    // # Safety: this line can be reached only if exeption_context is allocated properly and it's memory is leaked, so it has static lifetime.
+    unsafe { &mut *task_ref.exception_context }
 }

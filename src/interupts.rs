@@ -15,12 +15,12 @@ pub struct ExceptionContext {
     pub(super) elr_el1: u64,
     /// Saved program status.
     pub(super) spsr_el1: u64,
-    
+
     pub(super) esr_el1: u64,
-    
+
     pub(super) far_el1: u64,
 
-
+    pub(super) sp: u64,
 }
 ///
 /// # Safety

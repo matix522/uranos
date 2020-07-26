@@ -1,9 +1,8 @@
-use crate::interupts::ExceptionContext;
 use super::task_stack;
+use crate::interupts::ExceptionContext;
 
 /// Stack size of task in bytes
 pub const TASK_STACK_SIZE: usize = 0x8000;
-
 
 /// Error regarding tasks
 #[derive(Debug)]
@@ -32,47 +31,55 @@ pub enum TaskStates {
     Dead = 3,
 }
 
-
 #[repr(C)]
-pub struct TaskContext{
-    pub(super) exception_context: ExceptionContext,
+pub struct TaskContext {
+    pub(super) exception_context: *mut ExceptionContext,
     pub(super) state: TaskStates,
-    pub(super) priority: u32,
-    pub(super) counter: u32,
     stack: Option<task_stack::TaskStack>,
 }
 
-impl TaskContext{
-    const fn empty() -> Self{
-        TaskContext{
-            exception_context: ExceptionContext{
-                gpr: [0; 30],
-                lr: 0,
-                elr_el1: 0,
-                spsr_el1: 0,
-                esr_el1: 0,
-                far_el1: 0,
-            },
+impl TaskContext {
+    const fn empty() -> Self {
+        TaskContext {
+            exception_context: core::ptr::null_mut(),
             state: TaskStates::NotStarted,
-            priority: 0,
-            counter: 0,
             stack: None,
         }
     }
 
-    pub fn new(
-        start_function: extern "C" fn(),
-        priority: u32,
-    ) -> Result<Self, TaskError>{
+    pub fn new(start_function: extern "C" fn()) -> Result<Self, TaskError> {
         let mut task: TaskContext = Self::empty();
+        let mut exception_context = ExceptionContext {
+            gpr: [0; 30],
+            lr: 0,
+            elr_el1: 0,
+            spsr_el1: 0,
+            esr_el1: 0,
+            far_el1: 0,
+            sp: 0,
+        };
 
-        let stack = task_stack::TaskStack::new(TASK_STACK_SIZE).ok_or(TaskError::StackAllocationFail)?;
-        
+        exception_context.elr_el1 = start_function as *const () as u64;
+        exception_context.spsr_el1 = 0b0011;
+
+        let stack =
+            task_stack::TaskStack::new(TASK_STACK_SIZE).ok_or(TaskError::StackAllocationFail)?;
+
+        let exception_context_ptr = (stack.stack_base() - core::mem::size_of::<ExceptionContext>())
+            as *mut ExceptionContext;
+
         task.stack = Some(stack);
-        task.priority = priority;
-        
-        
-        task.exception_context.elr_el1 = start_function as *const () as u64;
+        exception_context.sp = exception_context_ptr as u64;
+        task.exception_context = exception_context_ptr;
+
+        // # Safety: exception_context is stack variable and exception_context_ptr is valid empty space for this data.
+        unsafe {
+            core::ptr::copy_nonoverlapping(
+                &exception_context as *const _,
+                exception_context_ptr,
+                1,
+            );
+        }
 
         Ok(task)
     }
