@@ -16,10 +16,10 @@ impl TaskStack {
         }
         Some(TaskStack { ptr, size })
     }
-    pub fn stack_base(&self) -> usize {
+    pub fn base(&self) -> usize {
         self.ptr as usize + self.size - 16
     }
-    pub fn stack_top(&self) -> usize {
+    pub fn top(&self) -> usize {
         self.ptr as usize
     }
     pub fn size(&self) -> usize {

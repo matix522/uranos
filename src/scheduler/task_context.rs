@@ -65,7 +65,7 @@ impl TaskContext {
         let stack =
             task_stack::TaskStack::new(TASK_STACK_SIZE).ok_or(TaskError::StackAllocationFail)?;
 
-        let exception_context_ptr = (stack.stack_base() - core::mem::size_of::<ExceptionContext>())
+        let exception_context_ptr = (stack.base() - core::mem::size_of::<ExceptionContext>())
             as *mut ExceptionContext;
 
         task.stack = Some(stack);

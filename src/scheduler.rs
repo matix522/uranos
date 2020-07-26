@@ -19,8 +19,8 @@ pub extern "C" fn foo() {
 pub fn sample_change_task(_e: &mut ExceptionContext) -> &mut ExceptionContext {
     let task = match task_context::TaskContext::new(foo) {
         Ok(t) => t,
-        Err(_) => {
-            crate::println!(">>>>>> ERROR CREATING TASK CONTEXT");
+        Err(err) => {
+            crate::println!(">>>>>> ERROR CREATING TASK CONTEXT {:?}", err);
             loop {}
         }
     };
