@@ -5,12 +5,10 @@ pub trait InterruptController {
 
     fn enable_IRQ(&self, irq_number: Self::IRQNumberType) -> InterruptResult;
     fn disable_IRQ(&self, irq_number: Self::IRQNumberType) -> InterruptResult;
-    
+
     fn connect_irq(
         &self,
         irq_number: Self::IRQNumberType,
         irq_descriptor: IRQDescriptor,
     ) -> InterruptResult;
-
-    
 }

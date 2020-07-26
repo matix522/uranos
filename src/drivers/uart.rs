@@ -128,7 +128,7 @@ pub struct RegisterBlock {
 pub type UartResult = Result<(), &'static str>;
 
 pub struct PL011Uart {
-    base_address: usize,
+    pub base_address: usize,
 }
 
 impl ops::Deref for PL011Uart {

@@ -7,3 +7,4 @@ kernel8*
 .gitignore
 /deploy
 .dockerignore
+bin/

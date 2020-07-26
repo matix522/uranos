@@ -32,7 +32,6 @@ pub mod utils;
 
 use core::panic::PanicInfo;
 
-
 use aarch64::*;
 use utils::binary_info;
 
@@ -42,13 +41,14 @@ const MMIO_BASE: usize = 0x3F00_0000;
 const MMIO_BASE: usize = 0xFE00_0000;
 
 const INTERRUPT_CONTROLLER_BASE: usize = MMIO_BASE + 0xB200;
+const KERNEL_OFFSET: usize = !((1usize << 36) - 1);
 
 use drivers::traits::console::*;
 use drivers::traits::Init;
 
-use drivers::rpi3_interrupt_controller::Rpi3InterruptController;
 use crate::interupts::interrupt_controller::InterruptController;
 use drivers::rpi3_interrupt_controller::IRQType;
+use drivers::rpi3_interrupt_controller::Rpi3InterruptController;
 use utils::debug::printRegisterAddress;
 
 use crate::time::Timer;
@@ -71,9 +71,9 @@ fn kernel_entry() -> ! {
     }
 
     println!("Enabling ARM Timer");
-    
+
     let controller = Rpi3InterruptController::new(INTERRUPT_CONTROLLER_BASE);
-    
+
     #[cfg(feature = "debug")]
     printRegisterAddress(&controller.deref());
 
@@ -81,29 +81,51 @@ fn kernel_entry() -> ! {
 
     controller.disable_IRQ(IRQType::ArmTimer);
 
-    ArmTimer::interupt_after(ArmTimer::get_frequency());
+    ArmTimer::interupt_after(ArmTimer::get_frequency() * 5);
     ArmTimer::enable();
 
     println!("Kernel Initialization complete.");
+    println!("TEST mmu");
     unsafe {
-        println!("TEST mmu");
-
         let _ = memory::armv8::mmu::test();
+    }
 
+    jump_to_kernel_space(echo);
+}
+extern "C" fn jump_to_kernel_space(f: fn() -> !) -> ! {
+    let address = f as *const () as u64;
+    unsafe {
+        llvm_asm!("brk 0" : : "{x0}"(address) : : "volatile");
+    }
+    loop {}
+}
+fn echo() -> ! {
+    println!("Echoing input.");
+
+    unsafe {
         let t_string: &'static str = "Hello String";
         let ptr = t_string.as_ptr();
         let size = t_string.bytes().len();
-        let ptr = ptr.add(0x1_0000_0000);
-        let moved_str = core::str::from_utf8_unchecked(core::slice::from_raw_parts(ptr, size));
-        crate::println!("ORGINAL {}", t_string);
-        crate::println!("MOVED {}", moved_str);
 
-        // let address = 0x1_0000_0000 as *const u64;
-        // crate::println!("{}", *address);
+        let user_ptr = ((!KERNEL_OFFSET) & ptr as usize) as *const u8;
+        let user_str = core::str::from_utf8_unchecked(core::slice::from_raw_parts(user_ptr, size));
+
+        let moved_ptr =
+            (ptr as usize + (memory::armv8::mmu::MEMORY_SIZE * 0x4000_0000)) as *const u8;
+        let moved_str =
+            core::str::from_utf8_unchecked(core::slice::from_raw_parts(moved_ptr, size));
+
+        crate::println!("ORGINAL {:#018x}: {}", t_string.as_ptr() as usize, t_string);
+        crate::println!("USER    {:#018x}: {}", user_str.as_ptr() as usize, user_str);
+        crate::println!(
+            "MOVED   {:#018x}: {}",
+            moved_str.as_ptr() as usize,
+            moved_str
+        );
     }
-    println!("Echoing input.");
 
-    let uart = drivers::UART.lock();
+    let mut uart = drivers::UART.lock();
+    uart.base_address |= KERNEL_OFFSET;
     let echo_loop = || -> Result<!, &str> {
         loop {
             uart.putc(uart.getc()?);

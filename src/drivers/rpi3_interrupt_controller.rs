@@ -1,8 +1,7 @@
-
-use register::{mmio::*, register_bitfields};
-use core::ops;
 use crate::interupts::*;
 use crate::println;
+use core::ops;
+use register::{mmio::*, register_bitfields};
 
 register_bitfields! {
     u32,
@@ -35,31 +34,29 @@ register_bitfields! {
     ]
 }
 
-
 #[allow(non_snake_case)]
 #[repr(C)]
 pub struct RegisterBlock {
-    pub IRQ_BASIC_PENDING: ReadOnly<u32, IRQ_BASIC_PENDING::Register>,                                          
-    pub IRQ_PENDING_1: ReadOnly<u32>,                                         
-    pub IRQ_PENDING_2: ReadOnly<u32>,                                         
-    pub FIQ_CONTROL: ReadWrite<u32>,                                           
-    pub ENABLE_IRQS_1: WriteOnly<u32>,                                         
-    pub ENABLE_IRQS_2: WriteOnly<u32, ENABLE_IRQs_2::Register>,                                         
-    pub ENABLE_BASIC_IRQS: WriteOnly<u32, ENABLE_BASIC_IRQs::Register>,                                       
-    pub DISABLE_IRQS_1: WriteOnly<u32>,                                        
-    pub DISABLE_IRQS_2: WriteOnly<u32, DISABLE_IRQs_2::Register>,                                        
-    pub DISABLE_BASIC_IRQS: WriteOnly<u32, DISABLE_BASIC_IRQs::Register>,                                       
+    pub IRQ_BASIC_PENDING: ReadOnly<u32, IRQ_BASIC_PENDING::Register>,
+    pub IRQ_PENDING_1: ReadOnly<u32>,
+    pub IRQ_PENDING_2: ReadOnly<u32>,
+    pub FIQ_CONTROL: ReadWrite<u32>,
+    pub ENABLE_IRQS_1: WriteOnly<u32>,
+    pub ENABLE_IRQS_2: WriteOnly<u32, ENABLE_IRQs_2::Register>,
+    pub ENABLE_BASIC_IRQS: WriteOnly<u32, ENABLE_BASIC_IRQs::Register>,
+    pub DISABLE_IRQS_1: WriteOnly<u32>,
+    pub DISABLE_IRQS_2: WriteOnly<u32, DISABLE_IRQs_2::Register>,
+    pub DISABLE_BASIC_IRQS: WriteOnly<u32, DISABLE_BASIC_IRQs::Register>,
 }
 
-
-pub enum IRQType{
+pub enum IRQType {
     ArmTimer,
     ArmMailbox,
     ArmGpioHalted,
     Uart,
 }
 
-pub struct Rpi3InterruptController{
+pub struct Rpi3InterruptController {
     base_address: usize,
 }
 
@@ -81,9 +78,9 @@ impl ops::Deref for Rpi3InterruptController {
     }
 }
 
-impl Rpi3InterruptController{
-    pub const fn new(base_address: usize) -> Rpi3InterruptController{
-        Rpi3InterruptController {base_address}
+impl Rpi3InterruptController {
+    pub const fn new(base_address: usize) -> Rpi3InterruptController {
+        Rpi3InterruptController { base_address }
     }
     /// Returns a pointer to the register block
     fn ptr(&self) -> *const RegisterBlock {
@@ -91,29 +88,44 @@ impl Rpi3InterruptController{
     }
 }
 
-
-impl interrupt_controller::InterruptController for Rpi3InterruptController{
+impl interrupt_controller::InterruptController for Rpi3InterruptController {
     type IRQNumberType = IRQType;
 
-    fn enable_IRQ(&self, irq_number: Self::IRQNumberType) -> InterruptResult{
-        match irq_number{
-            IRQType::ArmGpioHalted => self.ENABLE_BASIC_IRQS.write(ENABLE_BASIC_IRQs::ARM_GPU0_HALTED_ENABLE::SET),
-            IRQType::ArmMailbox     => self.ENABLE_BASIC_IRQS.write(ENABLE_BASIC_IRQs::ARM_MAILBOX_IRQ_ENABLE::SET),
-            IRQType::ArmTimer       => self.ENABLE_BASIC_IRQS.write(ENABLE_BASIC_IRQs::ARM_TIMER_IRQ_ENABLE::SET),
-            IRQType::Uart            => self.ENABLE_IRQS_2.write(ENABLE_IRQs_2::UART_ENABLE::SET),
+    fn enable_IRQ(&self, irq_number: Self::IRQNumberType) -> InterruptResult {
+        match irq_number {
+            IRQType::ArmGpioHalted => self
+                .ENABLE_BASIC_IRQS
+                .write(ENABLE_BASIC_IRQs::ARM_GPU0_HALTED_ENABLE::SET),
+            IRQType::ArmMailbox => self
+                .ENABLE_BASIC_IRQS
+                .write(ENABLE_BASIC_IRQs::ARM_MAILBOX_IRQ_ENABLE::SET),
+            IRQType::ArmTimer => self
+                .ENABLE_BASIC_IRQS
+                .write(ENABLE_BASIC_IRQs::ARM_TIMER_IRQ_ENABLE::SET),
+            IRQType::Uart => self.ENABLE_IRQS_2.write(ENABLE_IRQs_2::UART_ENABLE::SET),
         }
         Ok(())
     }
-    fn disable_IRQ(&self, irq_number: Self::IRQNumberType) -> InterruptResult{
-        match irq_number{
-            IRQType::ArmGpioHalted => self.DISABLE_BASIC_IRQS.write(DISABLE_BASIC_IRQs::ARM_GPU0_HALTED_DISABLE::SET),
-            IRQType::ArmMailbox     => self.DISABLE_BASIC_IRQS.write(DISABLE_BASIC_IRQs::ARM_MAILBOX_IRQ_DISABLE::SET),
-            IRQType::ArmTimer       => self.DISABLE_BASIC_IRQS.write(DISABLE_BASIC_IRQs::ARM_TIMER_IRQ_DISABLE::SET),
-            IRQType::Uart            => self.DISABLE_IRQS_2.write(DISABLE_IRQs_2::UART_DISABLE::SET),
+    fn disable_IRQ(&self, irq_number: Self::IRQNumberType) -> InterruptResult {
+        match irq_number {
+            IRQType::ArmGpioHalted => self
+                .DISABLE_BASIC_IRQS
+                .write(DISABLE_BASIC_IRQs::ARM_GPU0_HALTED_DISABLE::SET),
+            IRQType::ArmMailbox => self
+                .DISABLE_BASIC_IRQS
+                .write(DISABLE_BASIC_IRQs::ARM_MAILBOX_IRQ_DISABLE::SET),
+            IRQType::ArmTimer => self
+                .DISABLE_BASIC_IRQS
+                .write(DISABLE_BASIC_IRQs::ARM_TIMER_IRQ_DISABLE::SET),
+            IRQType::Uart => self.DISABLE_IRQS_2.write(DISABLE_IRQs_2::UART_DISABLE::SET),
         }
         Ok(())
     }
-    fn connect_irq(&self, irq_number: Self::IRQNumberType, irq_descriptor: IRQDescriptor) -> InterruptResult{
+    fn connect_irq(
+        &self,
+        irq_number: Self::IRQNumberType,
+        irq_descriptor: IRQDescriptor,
+    ) -> InterruptResult {
         Ok(())
     }
 }
