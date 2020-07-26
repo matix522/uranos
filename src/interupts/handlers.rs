@@ -1,5 +1,4 @@
 use crate::interupts::ExceptionContext;
-use crate::print;
 use crate::println;
 
 fn default_exception_handler(_e: &mut ExceptionContext, source: &str) {

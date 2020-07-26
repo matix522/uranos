@@ -3,8 +3,8 @@ use crate::interupts::{IRQDescriptor, InterruptResult};
 pub trait InterruptController {
     type IRQNumberType;
 
-    fn enable_IRQ(&self, irq_number: Self::IRQNumberType) -> InterruptResult;
-    fn disable_IRQ(&self, irq_number: Self::IRQNumberType) -> InterruptResult;
+    fn enable_irq(&self, irq_number: Self::IRQNumberType) -> InterruptResult;
+    fn disable_irq(&self, irq_number: Self::IRQNumberType) -> InterruptResult;
 
     fn connect_irq(
         &self,
