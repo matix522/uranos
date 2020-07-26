@@ -5,11 +5,7 @@ use register::{mmio::*, register_bitfields};
 pub struct PageRecord(pub u64);
 #[repr(transparent)]
 #[derive(Clone, Copy)]
-pub struct Table2Record(pub u64);
-
-#[repr(transparent)]
-#[derive(Clone, Copy)]
-pub struct Table1Record(pub u64);
+pub struct TableRecord(pub u64);
 // A level 1 table descriptor, as per ARMv8-A Architecture Reference Manual Figure D4-15.
 register_bitfields! {u64,
     STAGE1_TABLE_1_DESCRIPTOR [
@@ -28,23 +24,6 @@ register_bitfields! {u64,
     ]
 }
 
-// A level 2 table descriptor, as per ARMv8-A Architecture Reference Manual Figure D4-15.
-register_bitfields! {u64,
-    STAGE1_TABLE_2_DESCRIPTOR [
-        /// Physical address of the next page table.
-        NEXT_LEVEL_TABLE_ADDR_4KiB OFFSET(12) NUMBITS(36) [], // [47:12]
-
-        TYPE  OFFSET(1) NUMBITS(1) [
-            Block = 0,
-            Table = 1
-        ],
-
-        VALID OFFSET(0) NUMBITS(1) [
-            False = 0,
-            True = 1
-        ]
-    ]
-}
 // A level 3 page descriptor, as per ARMv8-A Architecture Reference Manual Figure D4-17.
 register_bitfields! {u64,
     STAGE1_PAGE_DESCRIPTOR [
@@ -106,12 +85,16 @@ impl<T, const N: usize> BaseAddr<usize> for [T; N] {
 }
 
 impl PageRecord {
-    pub fn new(output_addr: usize, attribute_fields: AttributeFields, is_block : bool) -> Self {
+    pub fn new(output_addr: usize, attribute_fields: AttributeFields, is_block: bool) -> Self {
         let shifted = output_addr >> FOUR_KIB_SHIFT;
         let val = (STAGE1_PAGE_DESCRIPTOR::VALID::True
             + STAGE1_PAGE_DESCRIPTOR::AF::True
             + attribute_fields.into()
-            + if is_block {STAGE1_PAGE_DESCRIPTOR::TYPE::Block } else {STAGE1_PAGE_DESCRIPTOR::TYPE::Page}
+            + if is_block {
+                STAGE1_PAGE_DESCRIPTOR::TYPE::Block
+            } else {
+                STAGE1_PAGE_DESCRIPTOR::TYPE::Page
+            }
             + STAGE1_PAGE_DESCRIPTOR::OUTPUT_ADDR_4KiB.val(shifted as u64))
         .value;
 
@@ -155,27 +138,16 @@ impl core::fmt::Display for PageRecord {
     }
 }
 
-impl core::convert::From<usize> for Table1Record {
+impl core::convert::From<usize> for TableRecord {
     fn from(next_lvl_table_addr: usize) -> Self {
         let shifted = next_lvl_table_addr >> FOUR_KIB_SHIFT;
         let value = (STAGE1_TABLE_1_DESCRIPTOR::VALID::True
             + STAGE1_TABLE_1_DESCRIPTOR::TYPE::Table
             + STAGE1_TABLE_1_DESCRIPTOR::NEXT_LEVEL_TABLE_ADDR_4KiB.val(shifted as u64))
         .value;
-        Table1Record(value)
+        TableRecord(value)
     }
 }
-impl core::convert::From<usize> for Table2Record {
-    fn from(next_lvl_table_addr: usize) -> Self {
-        let shifted = next_lvl_table_addr >> FOUR_KIB_SHIFT;
-        let value = (STAGE1_TABLE_2_DESCRIPTOR::VALID::True
-            + STAGE1_TABLE_2_DESCRIPTOR::TYPE::Table
-            + STAGE1_TABLE_2_DESCRIPTOR::NEXT_LEVEL_TABLE_ADDR_4KiB.val(shifted as u64))
-        .value;
-        Table2Record(value)
-    }
-}
-
 use crate::memory::armv8::mmu;
 use crate::memory::memory_controler::*;
 /// Convert the kernel's generic memory range attributes to HW-specific attributes of the MMU.

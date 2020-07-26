@@ -16,9 +16,9 @@ pub struct ExceptionContext {
     /// Saved program status.
     spsr_el1: u64,
 
-    esr_el1 : u64,
+    esr_el1: u64,
 
-    far_el1 : u64,
+    far_el1: u64,
 }
 ///
 /// # Safety
