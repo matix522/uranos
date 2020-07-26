@@ -32,7 +32,6 @@ pub mod utils;
 
 use core::panic::PanicInfo;
 
-
 use aarch64::*;
 use utils::binary_info;
 
@@ -47,9 +46,9 @@ const KERNEL_OFFSET: usize = !((1usize << 36) - 1);
 use drivers::traits::console::*;
 use drivers::traits::Init;
 
-use drivers::rpi3_interrupt_controller::Rpi3InterruptController;
 use crate::interupts::interrupt_controller::InterruptController;
 use drivers::rpi3_interrupt_controller::IRQType;
+use drivers::rpi3_interrupt_controller::Rpi3InterruptController;
 use utils::debug::printRegisterAddress;
 
 use crate::time::Timer;
@@ -72,9 +71,9 @@ fn kernel_entry() -> ! {
     }
 
     println!("Enabling ARM Timer");
-    
+
     let controller = Rpi3InterruptController::new(INTERRUPT_CONTROLLER_BASE);
-    
+
     #[cfg(feature = "debug")]
     printRegisterAddress(&controller.deref());
 
@@ -82,39 +81,13 @@ fn kernel_entry() -> ! {
 
     controller.disable_IRQ(IRQType::ArmTimer);
 
-    ArmTimer::interupt_after(ArmTimer::get_frequency());
+    ArmTimer::interupt_after(ArmTimer::get_frequency() * 5);
     ArmTimer::enable();
 
     println!("Kernel Initialization complete.");
+    println!("TEST mmu");
     unsafe {
-        println!("TEST mmu");
-
         let _ = memory::armv8::mmu::test();
-
-        let t_string: &'static str = "Hello String";
-        let ptr = t_string.as_ptr();
-        let size = t_string.bytes().len();
-
-        let kernel_ptr = (KERNEL_OFFSET | ptr as usize) as *const u8;
-        let kernel_str =
-            core::str::from_utf8_unchecked(core::slice::from_raw_parts(kernel_ptr, size));
-
-        let moved_ptr =
-            (ptr as usize + (memory::armv8::mmu::MEMORY_SIZE * 0x4000_0000)) as *const u8;
-        let moved_str =
-            core::str::from_utf8_unchecked(core::slice::from_raw_parts(moved_ptr, size));
-
-        crate::println!("ORGINAL {:#018x}: {}", t_string.as_ptr() as usize, t_string);
-        crate::println!(
-            "KERNEL  {:#018x}: {}",
-            kernel_str.as_ptr() as usize,
-            kernel_str
-        );
-        crate::println!(
-            "MOVED   {:#018x}: {}",
-            moved_str.as_ptr() as usize,
-            moved_str
-        );
     }
 
     jump_to_kernel_space(echo);
@@ -134,9 +107,8 @@ fn echo() -> ! {
         let ptr = t_string.as_ptr();
         let size = t_string.bytes().len();
 
-        let kernel_ptr = (KERNEL_OFFSET | ptr as usize) as *const u8;
-        let kernel_str =
-            core::str::from_utf8_unchecked(core::slice::from_raw_parts(kernel_ptr, size));
+        let user_ptr = ((!KERNEL_OFFSET) & ptr as usize) as *const u8;
+        let user_str = core::str::from_utf8_unchecked(core::slice::from_raw_parts(user_ptr, size));
 
         let moved_ptr =
             (ptr as usize + (memory::armv8::mmu::MEMORY_SIZE * 0x4000_0000)) as *const u8;
@@ -144,11 +116,7 @@ fn echo() -> ! {
             core::str::from_utf8_unchecked(core::slice::from_raw_parts(moved_ptr, size));
 
         crate::println!("ORGINAL {:#018x}: {}", t_string.as_ptr() as usize, t_string);
-        crate::println!(
-            "KERNEL  {:#018x}: {}",
-            kernel_str.as_ptr() as usize,
-            kernel_str
-        );
+        crate::println!("USER    {:#018x}: {}", user_str.as_ptr() as usize, user_str);
         crate::println!(
             "MOVED   {:#018x}: {}",
             moved_str.as_ptr() as usize,

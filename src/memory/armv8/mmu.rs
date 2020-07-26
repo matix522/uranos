@@ -53,28 +53,24 @@ impl<const N: usize> BaseMemoryTable<N> {
     }
 }
 
-
-
 #[cfg(not(feature = "raspi3"))]
 pub const MEMORY_SIZE: usize = 4;
 #[cfg(feature = "raspi3")]
 pub const MEMORY_SIZE: usize = 1;
 
-static mut MEMORY_TABLE : *mut BaseMemoryTable<MEMORY_SIZE> = core::ptr::null_mut();
+static mut MEMORY_TABLE: *mut BaseMemoryTable<MEMORY_SIZE> = core::ptr::null_mut();
 
 ///
-/// # Safety 
-/// It is caller responsibility to ensure that only one reference to BaseMemoryTable lives. 
+/// # Safety
+/// It is caller responsibility to ensure that only one reference to BaseMemoryTable lives.
 unsafe fn get_base_memory_table() -> &'static mut BaseMemoryTable<MEMORY_SIZE> {
     if MEMORY_TABLE == core::ptr::null_mut() {
-        use  alloc::boxed::Box;
-        let mut boxed_table : Box<BaseMemoryTable<MEMORY_SIZE>> = Box::new_zeroed().assume_init();
+        use alloc::boxed::Box;
+        let mut boxed_table: Box<BaseMemoryTable<MEMORY_SIZE>> = Box::new_zeroed().assume_init();
         boxed_table.fill();
         MEMORY_TABLE = Box::leak(boxed_table) as *mut _;
     }
-    & mut *MEMORY_TABLE 
-    
-
+    &mut *MEMORY_TABLE
 }
 ///
 /// # Safety

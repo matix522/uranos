@@ -33,16 +33,15 @@ pub unsafe fn init_exceptions(exception_vector_addr: usize) {
 
 global_asm!(include_str!("interupts/interupt_context_saving.S"));
 
-
 #[derive(Debug)]
 pub enum InterruptError {
     IncorrectIrqNumber,
 }
 pub type InterruptResult = Result<(), InterruptError>;
 
-pub struct IRQDescriptor{
+pub struct IRQDescriptor {
     pub name: &'static str,
-    pub handler: Option<fn(context: ExceptionContext)>
+    pub handler: Option<fn(context: ExceptionContext)>,
 }
 
 #[inline(always)]
