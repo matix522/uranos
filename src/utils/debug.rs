@@ -1,7 +1,7 @@
 use crate::drivers::rpi3_interrupt_controller::RegisterBlock;
 use crate::println;
 
-pub fn printRegisterAddress(block: &RegisterBlock) {
+pub fn print_register_address(block: &RegisterBlock) {
     println!(
         "IRQ_BASIC_PEND {:x}",
         &block.IRQ_BASIC_PENDING as *const _ as u64

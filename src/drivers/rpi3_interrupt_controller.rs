@@ -1,5 +1,4 @@
 use crate::interupts::*;
-use crate::println;
 use core::ops;
 use register::{mmio::*, register_bitfields};
 
@@ -91,7 +90,7 @@ impl Rpi3InterruptController {
 impl interrupt_controller::InterruptController for Rpi3InterruptController {
     type IRQNumberType = IRQType;
 
-    fn enable_IRQ(&self, irq_number: Self::IRQNumberType) -> InterruptResult {
+    fn enable_irq(&self, irq_number: Self::IRQNumberType) -> InterruptResult {
         match irq_number {
             IRQType::ArmGpioHalted => self
                 .ENABLE_BASIC_IRQS
@@ -106,7 +105,7 @@ impl interrupt_controller::InterruptController for Rpi3InterruptController {
         }
         Ok(())
     }
-    fn disable_IRQ(&self, irq_number: Self::IRQNumberType) -> InterruptResult {
+    fn disable_irq(&self, irq_number: Self::IRQNumberType) -> InterruptResult {
         match irq_number {
             IRQType::ArmGpioHalted => self
                 .DISABLE_BASIC_IRQS
@@ -123,8 +122,8 @@ impl interrupt_controller::InterruptController for Rpi3InterruptController {
     }
     fn connect_irq(
         &self,
-        irq_number: Self::IRQNumberType,
-        irq_descriptor: IRQDescriptor,
+        _irq_number: Self::IRQNumberType,
+        _irq_descriptor: IRQDescriptor,
     ) -> InterruptResult {
         Ok(())
     }

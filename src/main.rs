@@ -49,12 +49,10 @@ use drivers::traits::Init;
 use crate::interupts::interrupt_controller::InterruptController;
 use drivers::rpi3_interrupt_controller::IRQType;
 use drivers::rpi3_interrupt_controller::Rpi3InterruptController;
-use utils::debug::printRegisterAddress;
 
 use crate::time::Timer;
 use time::arm::ArmTimer;
 
-use core::ops::Deref;
 
 fn kernel_entry() -> ! {
     let uart = drivers::UART.lock();
@@ -79,7 +77,7 @@ fn kernel_entry() -> ! {
 
     interupts::enable_irqs();
 
-    controller.disable_IRQ(IRQType::ArmTimer);
+    let _ = controller.disable_irq(IRQType::ArmTimer);
 
     ArmTimer::interupt_after(ArmTimer::get_frequency() * 5);
     ArmTimer::enable();
