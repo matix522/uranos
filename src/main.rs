@@ -24,6 +24,7 @@ pub mod boot;
 pub mod interupts;
 pub mod io;
 pub mod memory;
+pub mod scheduler;
 
 pub mod sync;
 pub mod time;
@@ -52,7 +53,6 @@ use drivers::rpi3_interrupt_controller::Rpi3InterruptController;
 
 use crate::time::Timer;
 use time::arm::ArmTimer;
-
 
 fn kernel_entry() -> ! {
     let uart = drivers::UART.lock();
@@ -83,6 +83,7 @@ fn kernel_entry() -> ! {
     ArmTimer::enable();
 
     println!("Kernel Initialization complete.");
+
     println!("TEST mmu");
     unsafe {
         let _ = memory::armv8::mmu::test();
@@ -121,6 +122,10 @@ fn echo() -> ! {
             moved_str
         );
     }
+
+    scheduler::yeet();
+
+    println!("Echoing input.");
 
     let mut uart = drivers::UART.lock();
     uart.base_address |= KERNEL_OFFSET;

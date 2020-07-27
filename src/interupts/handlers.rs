@@ -1,7 +1,14 @@
 use crate::interupts::ExceptionContext;
-use crate::println;
+use crate::scheduler;
 
-fn default_exception_handler(_e: &mut ExceptionContext, source: &str) {
+fn default_exception_handler(context: &mut ExceptionContext, source: &str) {
+    crate::println!(
+        "[Task Fault]\n\tReason: Unknown code '{:#018x}'\n\tProgram location:    '{:#018x}'\n\tAddress:             '{:#018x}'\n\tLinkRegister:               '{:#018x}\n",
+        context.esr_el1,
+        context.elr_el1,
+        context.far_el1,
+        context.lr
+    );
     panic!("Unknown {} Exception type recived.", source);
 }
 
@@ -29,18 +36,21 @@ unsafe extern "C" fn current_el0_serror(e: &mut ExceptionContext) {
 //------------------------------------------------------------------------------
 
 #[no_mangle]
-unsafe extern "C" fn current_elx_synchronous(e: &mut ExceptionContext) {
-    e.elr_el1 |= crate::KERNEL_OFFSET as u64;
-    // crate::println!("LR:  {:x}", e.elr_el1);
-    // crate::println!("FAR: {:x}", e.far_el1);
-    // crate::println!("x0:  {:x}", e.gpr[0]);
-    e.elr_el1 = e.gpr[0] | crate::KERNEL_OFFSET as u64;
-    // default_exception_handler(e, "current_elx_synchronous");
+unsafe extern "C" fn current_elx_synchronous(e: &mut ExceptionContext) -> &mut ExceptionContext {
+    let exception_type = (e.esr_el1 & (0b111111 << 26)) >> 26;
+    if exception_type == 0b111100 {
+        e.elr_el1 = e.gpr[0] | crate::KERNEL_OFFSET as u64;
+    } else if exception_type == 0b010101 {
+        return scheduler::sample_change_task(e);
+    } else {
+        default_exception_handler(e, "current_elx_synchronous");
+    }
+
+    e
 }
 
 #[no_mangle]
 unsafe extern "C" fn current_elx_irq(e: &mut ExceptionContext) {
-    println!("Received current_elx_irq interrupt");
     default_exception_handler(e, "current_elx_irq");
 }
 

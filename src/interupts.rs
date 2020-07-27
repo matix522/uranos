@@ -8,17 +8,19 @@ use cortex_a::regs::*;
 #[repr(C)]
 pub struct ExceptionContext {
     /// General Purpose Registers.
-    gpr: [u64; 30],
+    pub(super) gpr: [u64; 30],
     /// The link register, aka x30.
-    lr: u64,
+    pub(super) lr: u64,
     /// Exception link register. The program counter at the time the exception happened.
-    elr_el1: u64,
+    pub(super) elr_el1: u64,
     /// Saved program status.
-    spsr_el1: u64,
+    pub(super) spsr_el1: u64,
 
-    esr_el1: u64,
+    pub(super) esr_el1: u64,
 
-    far_el1: u64,
+    pub(super) far_el1: u64,
+
+    pub(super) sp: u64,
 }
 ///
 /// # Safety

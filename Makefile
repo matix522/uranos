@@ -63,7 +63,7 @@ bin/uranos-raspi3.img: $(CARGO_OUTPUT_RASPI3)
 	$(OBJCOPY) $(OBJCOPY_PARAMS) bin/uranos-raspi3 bin/uranos-raspi3.img 
 
 objdump-raspi3:
-	cargo objdump --target .cargo/$(TARGET_RASPI3).json -- -disassemble -print-imm-hex uranos-raspi3
+	cargo objdump --target .cargo/$(TARGET_RASPI3).json -- -disassemble -print-imm-hex bin/uranos-raspi3
 
 
 
