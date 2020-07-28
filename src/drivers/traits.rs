@@ -1,7 +1,20 @@
 pub trait Init {
     fn init(&self) -> Result<(), &'static str>;
 }
-
+pub mod time {
+    use core::time::Duration;
+    pub trait Timer {
+        fn get_time_raw(&self) -> u64;
+        fn get_time(&self) -> Duration;
+        fn interupt_after_raw(&self, ticks: u32);
+        fn interupt_after(&self, time: Duration);
+        fn enable(&self);
+        fn disable(&self);
+        fn get_frequency(&self) -> u32;
+        fn wait_raw(&self, time: u64);
+        fn wait(&self, time: Duration);
+    }
+}
 pub mod console {
     pub trait Read {
         /// read byte character
