@@ -8,16 +8,32 @@ pub fn yeet() {
         llvm_asm!("svc 0");
     }
 }
-
+#[no_mangle]
+#[inline(never)]
+fn drop_el0() {
+    unsafe {
+        llvm_asm!("brk 0");
+    };
+}
 #[no_mangle]
 #[inline(never)]
 pub extern "C" fn foo() {
-    crate::println!("BEHOLD! SECOND TASK");
+    crate::println!(
+        "BEHOLD! SECOND TASK ON {:?} LEVEL",
+        crate::boot::mode::ExceptionLevel::get_current()
+    );
+    drop_el0();
     loop {}
 }
 
-pub fn sample_change_task(_e: &mut ExceptionContext) -> &mut ExceptionContext {
-    let task = match task_context::TaskContext::new(foo) {
+#[no_mangle]
+#[inline(never)]
+pub extern "C" fn bar() {
+    crate::println!("BEHOLD! NEXT TASK ON USER LEVEL");
+    loop {}
+}
+pub fn sample_change_task(_e: &mut ExceptionContext, is_kernel: bool) -> &mut ExceptionContext {
+    let task = match task_context::TaskContext::new(if is_kernel { foo } else { bar }, is_kernel) {
         Ok(t) => t,
         Err(err) => {
             crate::println!(">>>>>> ERROR CREATING TASK CONTEXT {:?}", err);

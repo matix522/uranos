@@ -123,6 +123,7 @@ __exception_vector_start:
 __exception_restore_context:
 
     mov    sp,  x0
+    msr	   SP_EL0,   x0
 
     ldp    x19, x0,  [sp, #16 * 17]
     ldp    x21, x20, [sp, #16 * 16]
