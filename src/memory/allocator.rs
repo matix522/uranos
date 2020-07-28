@@ -39,7 +39,6 @@ impl core::fmt::Display for Block {
             "*End:    {:#018x}*",
             self as *const Self as usize + self.size_of()
         )?;
-      
 
         if self.next.is_null() {
             writeln!(f, "*Next:        NULL         *")?;
@@ -146,7 +145,8 @@ unsafe impl GlobalAlloc for SystemAllocator {
 
         let mut current = (*previous).next;
 
-        while current != block && !current.is_null() { //&& (current as u64) < (block as u64) {
+        while current != block && !current.is_null() {
+            //&& (current as u64) < (block as u64) {
             previous = current;
             current = (*current).next;
         }

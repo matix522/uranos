@@ -180,11 +180,9 @@ impl core::convert::From<AttributeFields>
 
         // Execute Never.
         desc += if attribute_fields.execute_never {
-            STAGE1_PAGE_DESCRIPTOR::PXN::True +
-            STAGE1_PAGE_DESCRIPTOR::XN::True
+            STAGE1_PAGE_DESCRIPTOR::PXN::True + STAGE1_PAGE_DESCRIPTOR::XN::True
         } else {
-            STAGE1_PAGE_DESCRIPTOR::PXN::False +
-            STAGE1_PAGE_DESCRIPTOR::XN::False
+            STAGE1_PAGE_DESCRIPTOR::PXN::False + STAGE1_PAGE_DESCRIPTOR::XN::False
         };
 
         desc

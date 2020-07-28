@@ -60,7 +60,7 @@ impl TaskContext {
         };
         let user_address = |address: usize| (address & !crate::KERNEL_OFFSET) as u64;
 
-        exception_context.spsr_el1 = if is_kernel { 0b0011 } else { 0b0000 };
+        exception_context.spsr_el1 = if is_kernel { 0b0101 } else { 0b0000 };
 
         let stack =
             task_stack::TaskStack::new(TASK_STACK_SIZE).ok_or(TaskError::StackAllocationFail)?;

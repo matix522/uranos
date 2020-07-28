@@ -30,8 +30,7 @@ impl<const N: usize> BaseMemoryTable<N> {
                             execute_never: false,
                         };
                         PageRecord::new(addr, a, false)
-                    }
-                    else if addr < crate::MMIO_BASE {
+                    } else if addr < crate::MMIO_BASE {
                         PageRecord::new(addr, Default::default(), false)
                     } else {
                         let a = AttributeFields {
