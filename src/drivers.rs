@@ -1,3 +1,4 @@
+pub mod arm_timer;
 pub mod charbuffer;
 pub mod framebuffer;
 pub mod gpio;

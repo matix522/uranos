@@ -27,7 +27,6 @@ pub mod memory;
 pub mod scheduler;
 
 pub mod sync;
-pub mod time;
 
 pub mod utils;
 
@@ -51,8 +50,8 @@ use crate::interupts::interrupt_controller::InterruptController;
 use drivers::rpi3_interrupt_controller::IRQType;
 use drivers::rpi3_interrupt_controller::Rpi3InterruptController;
 
-use crate::time::Timer;
-use time::arm::ArmTimer;
+use drivers::arm_timer::ArmTimer;
+use drivers::traits::time::Timer;
 
 fn kernel_entry() -> ! {
     let uart = drivers::UART.lock();
@@ -79,9 +78,13 @@ fn kernel_entry() -> ! {
 
     let _ = controller.disable_irq(IRQType::ArmTimer);
 
-    ArmTimer::interupt_after(ArmTimer::get_frequency() * 5);
-    ArmTimer::enable();
+    {
+        use core::time::Duration;
+        let timer = ArmTimer {};
 
+        timer.interupt_after(Duration::from_secs(5));
+        timer.enable();
+    }
     println!("Kernel Initialization complete.");
 
     println!("TEST mmu");

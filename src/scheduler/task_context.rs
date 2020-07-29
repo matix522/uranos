@@ -67,6 +67,7 @@ impl TaskContext {
 
         let exception_context_ptr =
             (stack.base() - core::mem::size_of::<ExceptionContext>()) as *mut ExceptionContext;
+
         task.stack = Some(stack);
         if is_kernel {
             exception_context.elr_el1 = start_function as *const () as u64;
