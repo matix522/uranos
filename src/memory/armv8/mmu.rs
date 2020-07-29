@@ -16,14 +16,23 @@ struct BaseMemoryTable<const N: usize> {
 
 impl<const N: usize> BaseMemoryTable<N> {
     fn fill(&mut self) {
+        let binary = crate::utils::binary_info::BinaryInfo::get();
         for (n, block_1g) in self.pages_4k.iter_mut().enumerate() {
             for (i, block_2m) in block_1g.iter_mut().enumerate() {
                 for (j, page_4k) in block_2m.iter_mut().enumerate() {
+                    use super::super::memory_controler::*;
+
                     let addr = (1 << 30) * n + (1 << 21) * i + (1 << 12) * j;
-                    *page_4k = if addr < crate::MMIO_BASE {
+                    *page_4k = if addr >= binary.read_only_start && addr < binary.read_only_end {
+                        let a = AttributeFields {
+                            acc_perms: AccessPermissions::ReadOnly,
+                            mem_attributes: MemAttributes::CacheableDRAM,
+                            execute_never: false,
+                        };
+                        PageRecord::new(addr, a, false)
+                    } else if addr < crate::MMIO_BASE {
                         PageRecord::new(addr, Default::default(), false)
                     } else {
-                        use super::super::memory_controler::*;
                         let a = AttributeFields {
                             acc_perms: AccessPermissions::ReadWrite,
                             mem_attributes: MemAttributes::Device,
@@ -135,7 +144,6 @@ impl MMU {
     unsafe fn populate_tables(&mut self) {}
     unsafe fn configure_translation_control(&mut self) {
         let ips = ID_AA64MMFR0_EL1.read(ID_AA64MMFR0_EL1::PARange);
-        crate::println!("{}", ips);
 
         TCR_EL1.write(
             TCR_EL1::TBI0::Ignored

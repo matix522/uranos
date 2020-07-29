@@ -28,16 +28,16 @@ impl core::fmt::Display for Block {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         writeln!(f, "****************************")?;
         writeln!(f, "*Start:  {:#018x}*", self as *const Self as u64)?;
+        writeln!(
+            f,
+            "*Ptr:    {:#018x}*",
+            self as *const Self as usize + size_of::<Self>()
+        )?;
         writeln!(f, "*D Size: {:#018x}*", self.data_size)?;
         writeln!(
             f,
             "*End:    {:#018x}*",
             self as *const Self as usize + self.size_of()
-        )?;
-        writeln!(
-            f,
-            "*Ptr:    {:#018x}*",
-            self as *const Self as usize + size_of::<Self>()
         )?;
 
         if self.next.is_null() {
@@ -126,6 +126,7 @@ unsafe impl GlobalAlloc for SystemAllocator {
             (*block_base).next = null_mut();
             (*block_base).data_size = layout.size();
             (*previous).next = block_base;
+          
             return potenital_address as *mut u8;
         }
         // crate::println!("{}", self);
@@ -139,8 +140,9 @@ unsafe impl GlobalAlloc for SystemAllocator {
         let mut previous = self.block_list();
 
         let mut current = (*previous).next;
-        // TOTALY UNSAFE FOR NOW
-        while current != block && !current.is_null() && (current as u64) < (block as u64) {
+
+        while current != block && !current.is_null() {
+            //&& (current as u64) < (block as u64) {
             previous = current;
             current = (*current).next;
         }
@@ -157,7 +159,7 @@ impl SystemAllocator {
             heap_size: heap_size as usize,
             first_block: UnsafeCell::new(Block {
                 next: null_mut(),
-                data_size: 0,
+                data_size: 10,
             }),
         }
     }

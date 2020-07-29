@@ -47,7 +47,7 @@ impl TaskContext {
         }
     }
 
-    pub fn new(start_function: extern "C" fn()) -> Result<Self, TaskError> {
+    pub fn new(start_function: extern "C" fn(), is_kernel: bool) -> Result<Self, TaskError> {
         let mut task: TaskContext = Self::empty();
         let mut exception_context = ExceptionContext {
             gpr: [0; 30],
@@ -58,9 +58,9 @@ impl TaskContext {
             far_el1: 0,
             sp: 0,
         };
+        let user_address = |address: usize| (address & !crate::KERNEL_OFFSET) as u64;
 
-        exception_context.elr_el1 = start_function as *const () as u64;
-        exception_context.spsr_el1 = 0b0011;
+        exception_context.spsr_el1 = if is_kernel { 0b0101 } else { 0b0000 };
 
         let stack =
             task_stack::TaskStack::new(TASK_STACK_SIZE).ok_or(TaskError::StackAllocationFail)?;
@@ -69,9 +69,15 @@ impl TaskContext {
             (stack.base() - core::mem::size_of::<ExceptionContext>()) as *mut ExceptionContext;
 
         task.stack = Some(stack);
-        exception_context.sp = exception_context_ptr as u64;
-        task.exception_context = exception_context_ptr;
-
+        if is_kernel {
+            exception_context.elr_el1 = start_function as *const () as u64;
+            exception_context.sp = exception_context_ptr as u64;
+            task.exception_context = exception_context_ptr;
+        } else {
+            exception_context.elr_el1 = user_address(start_function as *const () as usize);
+            exception_context.sp = user_address(exception_context_ptr as usize);
+            task.exception_context = user_address(exception_context_ptr as usize) as *mut _;
+        }
         // # Safety: exception_context is stack variable and exception_context_ptr is valid empty space for this data.
         unsafe {
             core::ptr::copy_nonoverlapping(
@@ -80,7 +86,6 @@ impl TaskContext {
                 1,
             );
         }
-
         Ok(task)
     }
 }

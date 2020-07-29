@@ -36,7 +36,7 @@ impl core::default::Default for AttributeFields {
         AttributeFields {
             mem_attributes: MemAttributes::CacheableDRAM,
             acc_perms: AccessPermissions::ReadWrite,
-            execute_never: false,
+            execute_never: true,
         }
     }
 }

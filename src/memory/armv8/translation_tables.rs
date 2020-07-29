@@ -27,6 +27,11 @@ register_bitfields! {u64,
 // A level 3 page descriptor, as per ARMv8-A Architecture Reference Manual Figure D4-17.
 register_bitfields! {u64,
     STAGE1_PAGE_DESCRIPTOR [
+        /// Execute-never.
+        XN       OFFSET(54) NUMBITS(1) [
+            False = 0,
+            True = 1
+        ],
         /// Privileged execute-never.
         PXN      OFFSET(53) NUMBITS(1) [
             False = 0,
@@ -169,15 +174,15 @@ impl core::convert::From<AttributeFields>
 
         // Access Permissions.
         desc += match attribute_fields.acc_perms {
-            AccessPermissions::ReadOnly => STAGE1_PAGE_DESCRIPTOR::AP::RO_EL1,
-            AccessPermissions::ReadWrite => STAGE1_PAGE_DESCRIPTOR::AP::RW_EL1,
+            AccessPermissions::ReadOnly => STAGE1_PAGE_DESCRIPTOR::AP::RO_EL1_EL0,
+            AccessPermissions::ReadWrite => STAGE1_PAGE_DESCRIPTOR::AP::RW_EL1_EL0,
         };
 
         // Execute Never.
         desc += if attribute_fields.execute_never {
-            STAGE1_PAGE_DESCRIPTOR::PXN::True
+            STAGE1_PAGE_DESCRIPTOR::PXN::True + STAGE1_PAGE_DESCRIPTOR::XN::True
         } else {
-            STAGE1_PAGE_DESCRIPTOR::PXN::False
+            STAGE1_PAGE_DESCRIPTOR::PXN::False + STAGE1_PAGE_DESCRIPTOR::XN::False
         };
 
         desc
