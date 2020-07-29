@@ -105,7 +105,7 @@ unsafe impl GlobalAlloc for SystemAllocator {
         let mut current = (*previous).next;
         // crate::println!("{}", self);
         while !current.is_null() {
-            let end_of_previous = previous as usize  + size_of::<Block>() + (*previous).data_size;
+            let end_of_previous = previous as usize + size_of::<Block>() + (*previous).data_size;
             let potenital_address =
                 align_address(end_of_previous + size_of::<Block>(), layout.align());
             if potenital_address + layout.size() < current as usize {
@@ -119,7 +119,7 @@ unsafe impl GlobalAlloc for SystemAllocator {
             previous = current;
             current = (*current).next;
         }
-        let end_of_previous = previous as usize + size_of::<Block>() + (*previous).data_size ;
+        let end_of_previous = previous as usize + size_of::<Block>() + (*previous).data_size;
         let potenital_address = align_address(end_of_previous + size_of::<Block>(), layout.align());
         if potenital_address + layout.size() < self.heap_end() as usize {
             let block_base = (potenital_address - size_of::<Block>()) as *mut Block;
