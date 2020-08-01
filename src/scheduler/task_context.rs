@@ -38,6 +38,10 @@ pub struct TaskContext {
     stack: Option<task_stack::TaskStack>,
 }
 
+// ONLY TEMPORARY SOLUTION
+unsafe impl Sync for TaskContext {}
+unsafe impl Send for TaskContext {}
+
 impl TaskContext {
     const fn empty() -> Self {
         TaskContext {

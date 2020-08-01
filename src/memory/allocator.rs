@@ -126,7 +126,7 @@ unsafe impl GlobalAlloc for SystemAllocator {
             (*block_base).next = null_mut();
             (*block_base).data_size = layout.size();
             (*previous).next = block_base;
-          
+
             return potenital_address as *mut u8;
         }
         // crate::println!("{}", self);

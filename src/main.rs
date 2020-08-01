@@ -126,7 +126,55 @@ fn echo() -> ! {
         );
     }
 
-    scheduler::yeet();
+    let mut task1 = match scheduler::task_context::TaskContext::new(scheduler::foo, true) {
+        Ok(task) => task,
+        Err(err) => {
+            crate::println!(">>>>>> ERROR CREATING TASK CONTEXT {:?}", err);
+            loop {}
+        }
+    };
+
+    let mut task2 = match scheduler::task_context::TaskContext::new(scheduler::bar, true) {
+        Ok(task) => task,
+        Err(err) => {
+            crate::println!(">>>>>> ERROR CREATING TASK CONTEXT {:?}", err);
+            loop {}
+        }
+    };
+
+    let mut task3 = match scheduler::task_context::TaskContext::new(scheduler::foobar, true) {
+        Ok(task) => task,
+        Err(err) => {
+            crate::println!(">>>>>> ERROR CREATING TASK CONTEXT {:?}", err);
+            loop {}
+        }
+    };
+
+    match scheduler::add_task(task1) {
+        Ok(_) => {}
+        Err(err) => {
+            crate::println!(">>>>>> ERROR ADDING TASK CONTEXT {:?}", err);
+            loop {}
+        }
+    }
+
+    match scheduler::add_task(task2) {
+        Ok(_) => {}
+        Err(err) => {
+            crate::println!(">>>>>> ERROR ADDING TASK CONTEXT {:?}", err);
+            loop {}
+        }
+    }
+
+    match scheduler::add_task(task3) {
+        Ok(_) => {}
+        Err(err) => {
+            crate::println!(">>>>>> ERROR ADDING TASK CONTEXT {:?}", err);
+            loop {}
+        }
+    }
+
+    scheduler::start_scheduling();
 
     println!("Echoing input.");
 
