@@ -126,53 +126,16 @@ fn echo() -> ! {
         );
     }
 
-    let mut task1 = match scheduler::task_context::TaskContext::new(scheduler::foo, true) {
-        Ok(task) => task,
-        Err(err) => {
-            crate::println!(">>>>>> ERROR CREATING TASK CONTEXT {:?}", err);
-            loop {}
-        }
-    };
+    let task1 = scheduler::task_context::TaskContext::new(scheduler::foo, true)
+        .expect("Error creating task context");
+    let task2 = scheduler::task_context::TaskContext::new(scheduler::bar, true)
+        .expect("Error creating task context");
+    let task3 = scheduler::task_context::TaskContext::new(scheduler::foobar, true)
+        .expect("Error creating task context");
 
-    let mut task2 = match scheduler::task_context::TaskContext::new(scheduler::bar, true) {
-        Ok(task) => task,
-        Err(err) => {
-            crate::println!(">>>>>> ERROR CREATING TASK CONTEXT {:?}", err);
-            loop {}
-        }
-    };
-
-    let mut task3 = match scheduler::task_context::TaskContext::new(scheduler::foobar, true) {
-        Ok(task) => task,
-        Err(err) => {
-            crate::println!(">>>>>> ERROR CREATING TASK CONTEXT {:?}", err);
-            loop {}
-        }
-    };
-
-    match scheduler::add_task(task1) {
-        Ok(_) => {}
-        Err(err) => {
-            crate::println!(">>>>>> ERROR ADDING TASK CONTEXT {:?}", err);
-            loop {}
-        }
-    }
-
-    match scheduler::add_task(task2) {
-        Ok(_) => {}
-        Err(err) => {
-            crate::println!(">>>>>> ERROR ADDING TASK CONTEXT {:?}", err);
-            loop {}
-        }
-    }
-
-    match scheduler::add_task(task3) {
-        Ok(_) => {}
-        Err(err) => {
-            crate::println!(">>>>>> ERROR ADDING TASK CONTEXT {:?}", err);
-            loop {}
-        }
-    }
+    scheduler::add_task(task1).expect("Error adding task");
+    scheduler::add_task(task2).expect("Error adding task");
+    scheduler::add_task(task3).expect("Error adding task");
 
     scheduler::start_scheduling();
 

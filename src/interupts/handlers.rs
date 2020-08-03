@@ -40,7 +40,7 @@ use core::sync::atomic::*;
 static COUNTER: AtomicI64 = AtomicI64::new(0);
 
 #[no_mangle]
-unsafe extern "C" fn current_elx_synchronous(e: &mut ExceptionContext) -> &ExceptionContext {
+unsafe extern "C" fn current_elx_synchronous(e: &mut ExceptionContext) -> &mut ExceptionContext {
     let exception_type = (e.esr_el1 & (0b111111 << 26)) >> 26;
     if exception_type == 0b111100 {
         if COUNTER.load(Ordering::SeqCst) == 0 {
@@ -52,7 +52,7 @@ unsafe extern "C" fn current_elx_synchronous(e: &mut ExceptionContext) -> &Excep
             return ec;
         }
     } else if exception_type == 0b010101 {
-        match (e.gpr[8]) {
+        match e.gpr[8] {
             0 => {
                 return scheduler::switch_task(e);
             }

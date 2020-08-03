@@ -2,13 +2,13 @@ pub mod task_context;
 pub mod task_stack;
 
 use crate::interupts::ExceptionContext;
-use crate::sync::nulllock::NullLock;
 use alloc::vec::Vec;
+use task_context::*;
 
 pub const MAX_TASK_COUNT: usize = 16;
 pub(super) static mut TASK_MANAGER: TaskManager = TaskManager::new();
 
-pub fn add_task(mut task: task_context::TaskContext) -> Result<(), task_context::TaskError> {
+pub fn add_task(task: TaskContext) -> Result<(), TaskError> {
     unsafe { TASK_MANAGER.add_task(task) }
 }
 
@@ -21,7 +21,7 @@ pub fn start() -> &'static mut ExceptionContext {
 }
 
 pub struct TaskManager {
-    tasks: Vec<task_context::TaskContext>,
+    tasks: Vec<TaskContext>,
     current_task: usize,
 }
 
@@ -33,15 +33,12 @@ impl TaskManager {
         }
     }
 
-    pub fn add_task(
-        &mut self,
-        mut task: task_context::TaskContext,
-    ) -> Result<(), task_context::TaskError> {
+    pub fn add_task(&mut self, mut task: TaskContext) -> Result<(), TaskError> {
         if self.tasks.len() >= MAX_TASK_COUNT {
-            return Err(task_context::TaskError::TaskLimitReached);
+            return Err(TaskError::TaskLimitReached);
         }
         for t in &mut self.tasks {
-            if let task_context::TaskStates::Dead = t.state {
+            if let TaskStates::Dead = t.state {
                 core::mem::swap(t, &mut task);
                 drop(task);
                 return Ok(());
@@ -51,14 +48,11 @@ impl TaskManager {
         Ok(())
     }
 
-    pub fn get_task(
-        &mut self,
-        pid: usize,
-    ) -> Result<&mut task_context::TaskContext, task_context::TaskError> {
+    pub fn get_task(&mut self, pid: usize) -> Result<&mut TaskContext, TaskError> {
         let task = self
             .tasks
             .get_mut(pid)
-            .ok_or(task_context::TaskError::InvalidTaskReference)?;
+            .ok_or(TaskError::InvalidTaskReference)?;
 
         Ok(task)
     }
@@ -66,15 +60,9 @@ impl TaskManager {
     fn get_two_tasks(
         &mut self,
         split_point: usize,
-    ) -> Result<
-        (
-            &mut task_context::TaskContext,
-            &mut task_context::TaskContext,
-        ),
-        task_context::TaskError,
-    > {
+    ) -> Result<(&mut TaskContext, &mut TaskContext), TaskError> {
         if self.tasks.len() < 2 {
-            return Err(task_context::TaskError::ChangeTaskError);
+            return Err(TaskError::ChangeTaskError);
         }
 
         if split_point + 1 >= self.tasks.len() {
@@ -92,30 +80,22 @@ impl TaskManager {
         } else {
             self.current_task + 1
         };
-        match self.get_two_tasks(split_point) {
-            Ok((current_task, next_task)) => {
-                unsafe {
-                    current_task.exception_context = current_context as *mut ExceptionContext;
-                };
+        let (current_task, next_task) = self
+            .get_two_tasks(split_point)
+            .expect("Error during task switch: {:?}");
 
-                // #Safety: lifetime of this reference is the same as lifetime of whole TaskManager; exception_context is always properly initialized if task is in tasks vector
-                unsafe { &mut *next_task.exception_context }
-            }
-            Err(err) => {
-                crate::println!("Error during task switch: {:?}", err);
-                loop {}
-            }
-        }
+        current_task.exception_context = current_context as *mut ExceptionContext;
+
+        // #Safety: lifetime of this reference is the same as lifetime of whole TaskManager; exception_context is always properly initialized if task is in tasks vector
+        unsafe { &mut *next_task.exception_context }
     }
 
     pub fn start(&mut self) -> &mut ExceptionContext {
-        match self.tasks.get_mut(0) {
-            Some(task) => unsafe { return &mut *task.exception_context },
-            None => {
-                crate::println!("Error during scheduler start: task 0 not found");
-                loop {}
-            }
-        }
+        let task = self
+            .tasks
+            .get_mut(0)
+            .expect("Error during scheduler start: task 0 not found");
+        unsafe { &mut *task.exception_context }
     }
 }
 
@@ -165,7 +145,7 @@ pub extern "C" fn foobar() {
 }
 
 pub fn sample_change_task(_e: &mut ExceptionContext, is_kernel: bool) -> &mut ExceptionContext {
-    let task = match task_context::TaskContext::new(if is_kernel { foo } else { bar }, is_kernel) {
+    let task = match TaskContext::new(if is_kernel { foo } else { bar }, is_kernel) {
         Ok(t) => t,
         Err(err) => {
             crate::println!(">>>>>> ERROR CREATING TASK CONTEXT {:?}", err);
@@ -174,7 +154,7 @@ pub fn sample_change_task(_e: &mut ExceptionContext, is_kernel: bool) -> &mut Ex
     };
 
     let boxed_task = alloc::boxed::Box::new(task);
-    let task_ref: &'static task_context::TaskContext = alloc::boxed::Box::leak(boxed_task);
+    let task_ref: &'static TaskContext = alloc::boxed::Box::leak(boxed_task);
     // # Safety: this line can be reached only if exeption_context is allocated properly and it's memory is leaked, so it has static lifetime.
     unsafe { &mut *task_ref.exception_context }
 }
