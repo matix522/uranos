@@ -48,11 +48,18 @@ unsafe extern "C" fn current_elx_synchronous(e: &mut ExceptionContext) -> &mut E
 
             e.elr_el1 = e.gpr[0] | crate::KERNEL_OFFSET as u64;
         } else {
-            let ec = scheduler::sample_change_task(e, false);
+            let ec = scheduler::switch_task(e);
             return ec;
         }
     } else if exception_type == 0b010101 {
-        return scheduler::sample_change_task(e, true);
+        match e.gpr[8] {
+            0 => {
+                return scheduler::switch_task(e);
+            }
+            _ => {
+                return scheduler::start();
+            }
+        }
     } else {
         default_exception_handler(e, "current_elx_synchronous");
     }
