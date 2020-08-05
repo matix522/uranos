@@ -46,8 +46,6 @@ const KERNEL_OFFSET: usize = !((1usize << 36) - 1);
 use drivers::traits::console::*;
 use drivers::traits::Init;
 
-use crate::interupts::interrupt_controller::InterruptController;
-use drivers::rpi3_interrupt_controller::IRQType;
 use drivers::rpi3_interrupt_controller::Rpi3InterruptController;
 
 use drivers::arm_timer::ArmTimer;
@@ -69,20 +67,17 @@ fn kernel_entry() -> ! {
 
     println!("Enabling ARM Timer");
 
-    let controller = Rpi3InterruptController::new(INTERRUPT_CONTROLLER_BASE);
+    let _controller = Rpi3InterruptController::new(INTERRUPT_CONTROLLER_BASE);
 
     #[cfg(feature = "debug")]
-    printRegisterAddress(&controller.deref());
+    printRegisterAddress(&_controller.deref());
 
     interupts::enable_irqs();
 
-    let _ = controller.disable_irq(IRQType::ArmTimer);
-
     {
-        use core::time::Duration;
         let timer = ArmTimer {};
 
-        timer.interupt_after(Duration::from_secs(5));
+        timer.interupt_after(scheduler::get_time_quant());
         timer.enable();
     }
     println!("Kernel Initialization complete.");

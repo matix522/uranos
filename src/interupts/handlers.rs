@@ -1,3 +1,6 @@
+use crate::drivers::arm_timer::ArmTimer;
+use crate::drivers::traits::time::Timer;
+use crate::interupts;
 use crate::interupts::ExceptionContext;
 use crate::scheduler;
 
@@ -68,8 +71,17 @@ unsafe extern "C" fn current_elx_synchronous(e: &mut ExceptionContext) -> &mut E
 }
 
 #[no_mangle]
-unsafe extern "C" fn current_elx_irq(e: &mut ExceptionContext) {
-    default_exception_handler(e, "current_elx_irq");
+unsafe extern "C" fn current_elx_irq(e: &mut ExceptionContext) -> &mut ExceptionContext {
+    interupts::disable_irqs();
+
+    let timer = ArmTimer {};
+    timer.interupt_after(scheduler::get_time_quant());
+    timer.enable();
+
+    let ec = scheduler::switch_task(e);
+
+    interupts::enable_irqs();
+    ec
 }
 
 #[no_mangle]
