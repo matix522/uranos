@@ -113,8 +113,19 @@ unsafe extern "C" fn lower_aarch64_synchronous(e: &mut ExceptionContext) -> &mut
 }
 
 #[no_mangle]
-unsafe extern "C" fn lower_aarch64_irq(e: &mut ExceptionContext) {
-    default_exception_handler(e, "lower_aarch64_irq");
+unsafe extern "C" fn lower_aarch64_irq(
+    e: &mut ExceptionContext,
+) -> &mut interupts::ExceptionContext {
+    interupts::disable_irqs();
+
+    let timer = ArmTimer {};
+    timer.interupt_after(scheduler::get_time_quant());
+    timer.enable();
+
+    let ec = scheduler::switch_task(e);
+
+    interupts::enable_irqs();
+    ec
 }
 
 #[no_mangle]

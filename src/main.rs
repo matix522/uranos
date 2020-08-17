@@ -17,6 +17,8 @@
 extern crate alloc;
 extern crate num_derive;
 extern crate static_assertions;
+
+#[macro_use]
 pub mod drivers;
 
 pub mod aarch64;

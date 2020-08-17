@@ -1,28 +1,36 @@
 pub mod task_context;
 pub mod task_stack;
 
+use crate::device_driver;
 use crate::interupts::ExceptionContext;
 use alloc::vec::Vec;
 use core::time::Duration;
 use task_context::*;
 
 pub const MAX_TASK_COUNT: usize = 16;
-pub(super) static mut TASK_MANAGER: TaskManager = TaskManager::new(Duration::from_millis(100));
+
+device_driver!(
+    unsynchronized TASK_MANAGER: TaskManager = TaskManager::new(Duration::from_millis(100))
+);
 
 pub fn add_task(task: TaskContext) -> Result<(), TaskError> {
-    unsafe { TASK_MANAGER.add_task(task) }
+    let mut scheduler = TASK_MANAGER.lock();
+    scheduler.add_task(task)
 }
 
 pub fn switch_task(e: &mut ExceptionContext) -> &mut ExceptionContext {
-    unsafe { TASK_MANAGER.switch_task(e) }
+    let mut scheduler = TASK_MANAGER.lock();
+    scheduler.switch_task(e)
 }
 
 pub fn start() -> &'static mut ExceptionContext {
-    unsafe { TASK_MANAGER.start() }
+    let mut scheduler = TASK_MANAGER.lock();
+    scheduler.start()
 }
 
 pub fn get_time_quant() -> Duration {
-    unsafe { TASK_MANAGER.time_quant }
+    let scheduler = TASK_MANAGER.lock();
+    scheduler.time_quant
 }
 
 pub struct TaskManager {
@@ -105,7 +113,7 @@ impl TaskManager {
         unsafe { &mut *next_task.exception_context }
     }
 
-    pub fn start(&mut self) -> &mut ExceptionContext {
+    pub fn start(&mut self) -> &'static mut ExceptionContext {
         self.started = true;
         let task = self
             .tasks
