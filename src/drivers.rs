@@ -9,6 +9,7 @@ pub mod uart;
 
 pub mod traits;
 
+#[macro_export]
 macro_rules! device_driver {
     (synchronized $device_name : ident : $device_type : path = $initializer : expr) => {
         static_assertions::const_assert!(true);
@@ -21,6 +22,7 @@ macro_rules! device_driver {
     };
 }
 
+#[macro_export]
 macro_rules! device_driver_impl {
     ($device_name : ident : $device_type : path = $initializer : expr) => {
         #[allow(non_snake_case)]
@@ -49,6 +51,7 @@ macro_rules! device_driver_impl {
         pub const $device_name: $device_name::Get = $device_name::Get {};
     };
 }
+
 device_driver!(
     unsynchronized MINIUART: miniuart::MiniUart = miniuart::MiniUart::new( crate::MMIO_BASE + 0x21_5000 )
 );

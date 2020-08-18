@@ -1,35 +1,52 @@
 pub mod task_context;
 pub mod task_stack;
 
+use crate::device_driver;
 use crate::interupts::ExceptionContext;
 use alloc::vec::Vec;
+use core::time::Duration;
 use task_context::*;
 
 pub const MAX_TASK_COUNT: usize = 16;
-pub(super) static mut TASK_MANAGER: TaskManager = TaskManager::new();
+
+device_driver!(
+    unsynchronized TASK_MANAGER: TaskManager = TaskManager::new(Duration::from_millis(100))
+);
 
 pub fn add_task(task: TaskContext) -> Result<(), TaskError> {
-    unsafe { TASK_MANAGER.add_task(task) }
+    let mut scheduler = TASK_MANAGER.lock();
+    scheduler.add_task(task)
 }
 
 pub fn switch_task(e: &mut ExceptionContext) -> &mut ExceptionContext {
-    unsafe { TASK_MANAGER.switch_task(e) }
+    let mut scheduler = TASK_MANAGER.lock();
+    scheduler.switch_task(e)
 }
 
 pub fn start() -> &'static mut ExceptionContext {
-    unsafe { TASK_MANAGER.start() }
+    let mut scheduler = TASK_MANAGER.lock();
+    scheduler.start()
+}
+
+pub fn get_time_quant() -> Duration {
+    let scheduler = TASK_MANAGER.lock();
+    scheduler.time_quant
 }
 
 pub struct TaskManager {
     tasks: Vec<TaskContext>,
     current_task: usize,
+    started: bool,
+    time_quant: Duration,
 }
 
 impl TaskManager {
-    pub const fn new() -> Self {
+    pub const fn new(time_quant: Duration) -> Self {
         Self {
             tasks: Vec::new(),
             current_task: 0,
+            started: false,
+            time_quant,
         }
     }
 
@@ -73,7 +90,13 @@ impl TaskManager {
         Ok((&mut left[split_point], &mut right[0]))
     }
 
-    pub fn switch_task(&mut self, current_context: &mut ExceptionContext) -> &mut ExceptionContext {
+    pub fn switch_task<'a>(
+        &mut self,
+        current_context: &'a mut ExceptionContext,
+    ) -> &'a mut ExceptionContext {
+        if !self.started {
+            return current_context;
+        }
         let split_point = self.current_task;
         self.current_task = if self.current_task + 1 >= self.tasks.len() {
             0
@@ -90,7 +113,8 @@ impl TaskManager {
         unsafe { &mut *next_task.exception_context }
     }
 
-    pub fn start(&mut self) -> &mut ExceptionContext {
+    pub fn start(&mut self) -> &'static mut ExceptionContext {
+        self.started = true;
         let task = self
             .tasks
             .get_mut(0)
@@ -122,7 +146,6 @@ fn drop_el0() {
 pub extern "C" fn foo() {
     loop {
         crate::println!("BEHOLD! FIRST TASK");
-        give_core();
     }
 }
 
@@ -131,7 +154,6 @@ pub extern "C" fn foo() {
 pub extern "C" fn bar() {
     loop {
         crate::println!("BEHOLD! SECOND TASK");
-        give_core();
     }
 }
 
@@ -140,7 +162,6 @@ pub extern "C" fn bar() {
 pub extern "C" fn foobar() {
     loop {
         crate::println!("BEHOLD! THIRD TASK");
-        give_core();
     }
 }
 
