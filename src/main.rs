@@ -15,6 +15,7 @@
 #![feature(new_uninit)]
 
 extern crate alloc;
+#[macro_use]
 extern crate num_derive;
 extern crate static_assertions;
 
@@ -27,6 +28,7 @@ pub mod interupts;
 pub mod io;
 pub mod memory;
 pub mod scheduler;
+pub mod syscall;
 
 pub mod sync;
 
@@ -123,7 +125,7 @@ fn echo() -> ! {
         );
     }
 
-    let task1 = scheduler::task_context::TaskContext::new(scheduler::foo, true)
+    let task1 = scheduler::task_context::TaskContext::new(scheduler::foo, false)
         .expect("Error creating task context");
     let task2 = scheduler::task_context::TaskContext::new(scheduler::bar, true)
         .expect("Error creating task context");
@@ -134,7 +136,7 @@ fn echo() -> ! {
     scheduler::add_task(task2).expect("Error adding task");
     scheduler::add_task(task3).expect("Error adding task");
 
-    scheduler::start_scheduling();
+    syscall::start_scheduling();
 
     println!("Echoing input.");
 
