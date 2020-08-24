@@ -14,6 +14,7 @@
 #![allow(incomplete_features)]
 #![feature(new_uninit)]
 
+#[macro_use]
 extern crate alloc;
 #[macro_use]
 extern crate num_derive;

@@ -58,9 +58,7 @@ unsafe extern "C" fn current_elx_synchronous(e: &mut ExceptionContext) -> &mut E
             return ec;
         }
     } else if exception_type == 0b010101 {
-        let syscall_type = Syscalls::from_u64(e.gpr[8]).unwrap_or_else( || {
-            panic!("Unknown syscall type {}", e.gpr[8]);
-        });
+        let syscall_type = Syscalls::from_u64(e.gpr[8]).expect(&format!("Unknown syscall type {}", e.gpr[8]));
         match syscall_type {
             Syscalls::Yield => return scheduler::switch_task(e),
             Syscalls::StartScheduling => return scheduler::start(),
@@ -102,9 +100,7 @@ unsafe extern "C" fn lower_aarch64_synchronous(e: &mut ExceptionContext) -> &mut
     if exception_type == 0b111100 {
         e.elr_el1 = e.gpr[0] | crate::KERNEL_OFFSET as u64;
     } else if exception_type == 0b010101 {
-        let syscall_type = Syscalls::from_u64(e.gpr[8]).unwrap_or_else( || {
-            panic!("Unknown syscall type {}", e.gpr[8]);
-        });
+        let syscall_type = Syscalls::from_u64(e.gpr[8]).expect(&format!("Unknown syscall type {}", e.gpr[8]));
         match syscall_type {
             Syscalls::Yield => return scheduler::switch_task(e),
             Syscalls::StartScheduling => return scheduler::start(),
