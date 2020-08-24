@@ -3,6 +3,9 @@ use crate::drivers::traits::time::Timer;
 use crate::interupts;
 use crate::interupts::ExceptionContext;
 use crate::scheduler;
+use crate::syscall;
+use crate::syscall::Syscalls;
+pub use num_traits::FromPrimitive;
 
 fn default_exception_handler(context: &mut ExceptionContext, source: &str) {
     crate::println!(
@@ -55,13 +58,11 @@ unsafe extern "C" fn current_elx_synchronous(e: &mut ExceptionContext) -> &mut E
             return ec;
         }
     } else if exception_type == 0b010101 {
-        match e.gpr[8] {
-            0 => {
-                return scheduler::switch_task(e);
-            }
-            _ => {
-                return scheduler::start();
-            }
+        let syscall_type = Syscalls::from_u64(e.gpr[8]).expect(&format!("Unknown syscall type {}", e.gpr[8]));
+        match syscall_type {
+            Syscalls::Yield => return scheduler::switch_task(e),
+            Syscalls::StartScheduling => return scheduler::start(),
+            Syscalls::Print => return syscall::print::handle_print_syscall(e),
         }
     } else {
         default_exception_handler(e, "current_elx_synchronous");
@@ -99,11 +100,11 @@ unsafe extern "C" fn lower_aarch64_synchronous(e: &mut ExceptionContext) -> &mut
     if exception_type == 0b111100 {
         e.elr_el1 = e.gpr[0] | crate::KERNEL_OFFSET as u64;
     } else if exception_type == 0b010101 {
-        if COUNTER.load(Ordering::SeqCst) == 0 {
-            COUNTER.fetch_add(1, Ordering::SeqCst);
-            return scheduler::sample_change_task(e, true);
-        } else {
-            return scheduler::sample_change_task(e, false);
+        let syscall_type = Syscalls::from_u64(e.gpr[8]).expect(&format!("Unknown syscall type {}", e.gpr[8]));
+        match syscall_type {
+            Syscalls::Yield => return scheduler::switch_task(e),
+            Syscalls::StartScheduling => return scheduler::start(),
+            Syscalls::Print => return syscall::print::handle_print_syscall(e),
         }
     } else {
         default_exception_handler(e, "lower_aarch64_synchronous");

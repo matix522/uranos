@@ -123,17 +123,6 @@ impl TaskManager {
     }
 }
 
-pub fn start_scheduling() {
-    unsafe {
-        llvm_asm!("svc 0" :: "{x8}"(1) : "x8" : "volatile");
-    }
-}
-
-pub fn give_core() {
-    unsafe {
-        llvm_asm!("svc 0" :: "{x8}"(0) : "x8": "volatile");
-    }
-}
 #[no_mangle]
 #[inline(never)]
 fn drop_el0() {
@@ -145,7 +134,9 @@ fn drop_el0() {
 #[inline(never)]
 pub extern "C" fn foo() {
     loop {
-        crate::println!("BEHOLD! FIRST TASK");
+        // crate::println!("BEHOLD! FIRST TASK");
+        crate::syscall::print::print("BEHOLD! FIRST TASK FROM USERSPACE!!!!\n");
+        crate::syscall::yield_cpu();
     }
 }
 
