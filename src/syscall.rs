@@ -8,6 +8,7 @@ pub enum Syscalls {
     StartScheduling,
     Print,
     Yield,
+    FinishTask,
 }
 
 #[inline(never)]
@@ -96,3 +97,10 @@ pub fn yield_cpu() {
         syscall0(Syscalls::Yield as usize);
     }
 }
+
+pub fn finish_task(){
+    unsafe {
+        syscall0(Syscalls::FinishTask as usize);
+    }
+}
+

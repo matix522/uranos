@@ -63,6 +63,7 @@ unsafe extern "C" fn current_elx_synchronous(e: &mut ExceptionContext) -> &mut E
             Syscalls::Yield => return scheduler::switch_task(e),
             Syscalls::StartScheduling => return scheduler::start(),
             Syscalls::Print => return syscall::print::handle_print_syscall(e),
+            Syscalls::FinishTask => return scheduler::finish_current_task(e),
         }
     } else {
         default_exception_handler(e, "current_elx_synchronous");
@@ -105,6 +106,7 @@ unsafe extern "C" fn lower_aarch64_synchronous(e: &mut ExceptionContext) -> &mut
             Syscalls::Yield => return scheduler::switch_task(e),
             Syscalls::StartScheduling => return scheduler::start(),
             Syscalls::Print => return syscall::print::handle_print_syscall(e),
+            Syscalls::FinishTask => return scheduler::finish_current_task(e),
         }
     } else {
         default_exception_handler(e, "lower_aarch64_synchronous");
