@@ -111,7 +111,7 @@ impl TaskManager {
         let mut next_task_pid = self.current_task+1;
         
         loop{
-            // crate::println!("WE ARE AT {}", next_task_pid);
+            crate::println!("WE ARE AT {} ", next_task_pid);
             if next_task_pid >= self.tasks.len() {
                 next_task_pid = 0;
             }
@@ -119,6 +119,10 @@ impl TaskManager {
                 break;
             }
             next_task_pid = next_task_pid + 1;
+        }
+
+        if self.current_task == next_task_pid {
+            return current_context;
         }
 
         self.current_task = next_task_pid;
@@ -130,6 +134,16 @@ impl TaskManager {
 
         current_task.exception_context = current_context as *mut ExceptionContext;
 
+        let mut i = 0;
+        unsafe {
+            for elem in &(*next_task.exception_context).gpr {
+                crate::println!("GPR[{}]: {:#018x}", i, elem);
+                i = i+1;
+            }
+        
+            crate::println!("LR: {:#018x}", (*next_task.exception_context).lr);
+            crate::println!("ELR_EL1: {:#018x}", (*next_task.exception_context).elr_el1);
+        }
         // #Safety: lifetime of this reference is the same as lifetime of whole TaskManager; exception_context is always properly initialized if task is in tasks vector
         unsafe { &mut *next_task.exception_context }
     }
@@ -159,6 +173,7 @@ fn drop_el0() {
 #[no_mangle]
 #[inline(never)]
 pub extern "C" fn foo() {
+    crate::syscall::create_task(foobar);
     loop {
         // crate::println!("BEHOLD! FIRST TASK");
         crate::syscall::print::print("BEHOLD! FIRST TASK FROM USERSPACE!!!!\n");
@@ -196,4 +211,19 @@ pub fn sample_change_task(_e: &mut ExceptionContext, is_kernel: bool) -> &mut Ex
     let task_ref: &'static TaskContext = alloc::boxed::Box::leak(boxed_task);
     // # Safety: this line can be reached only if exeption_context is allocated properly and it's memory is leaked, so it has static lifetime.
     unsafe { &mut *task_ref.exception_context }
+}
+
+
+
+pub fn handle_new_task_syscall(function_address: usize){
+    crate::println!("NEW TASK FUNCTION ADDRESS {:#018x}", function_address);
+    let function = unsafe {&*(function_address as *const usize as *const extern "C" fn())};
+
+    let task = TaskContext::new(*function, false).expect("Failed to create new task");
+
+    match add_task(task) {
+        Ok(()) =>{},
+        Err(error) => panic!(&format!("Error when creating new task: {:?}", error)),
+    }
+
 }

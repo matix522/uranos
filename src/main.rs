@@ -130,12 +130,12 @@ fn echo() -> ! {
         .expect("Error creating task context");
     let task2 = scheduler::task_context::TaskContext::new(scheduler::bar, true)
         .expect("Error creating task context");
-    let task3 = scheduler::task_context::TaskContext::new(scheduler::foobar, true)
-        .expect("Error creating task context");
+    // let task3 = scheduler::task_context::TaskContext::new(scheduler::foobar, true)
+        // .expect("Error creating task context");
 
     scheduler::add_task(task1).expect("Error adding task");
     scheduler::add_task(task2).expect("Error adding task");
-    scheduler::add_task(task3).expect("Error adding task");
+    // scheduler::add_task(task3).expect("Error adding task");
 
     syscall::start_scheduling();
 

@@ -9,6 +9,7 @@ pub enum Syscalls {
     Print,
     Yield,
     FinishTask,
+    CreateTask,
 }
 
 #[inline(never)]
@@ -103,4 +104,13 @@ pub fn finish_task(){
         syscall0(Syscalls::FinishTask as usize);
     }
 }
+
+
+pub fn create_task(function: extern "C" fn()){
+    unsafe {
+        crate::println!("FUNCTION ADDRESS: {:#018x}", function as *const () as usize);
+        syscall1(function as *const () as usize, Syscalls::CreateTask as usize);
+    }
+}
+
 

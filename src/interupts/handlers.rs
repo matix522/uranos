@@ -3,6 +3,7 @@ use crate::drivers::traits::time::Timer;
 use crate::interupts;
 use crate::interupts::ExceptionContext;
 use crate::scheduler;
+use crate::scheduler::task_context::*;
 use crate::syscall;
 use crate::syscall::Syscalls;
 pub use num_traits::FromPrimitive;
@@ -64,6 +65,7 @@ unsafe extern "C" fn current_elx_synchronous(e: &mut ExceptionContext) -> &mut E
             Syscalls::StartScheduling => return scheduler::start(),
             Syscalls::Print => return syscall::print::handle_print_syscall(e),
             Syscalls::FinishTask => return scheduler::finish_current_task(e),
+            Syscalls::CreateTask => scheduler::handle_new_task_syscall(e.gpr[0] as usize),
         }
     } else {
         default_exception_handler(e, "current_elx_synchronous");
@@ -107,6 +109,7 @@ unsafe extern "C" fn lower_aarch64_synchronous(e: &mut ExceptionContext) -> &mut
             Syscalls::StartScheduling => return scheduler::start(),
             Syscalls::Print => return syscall::print::handle_print_syscall(e),
             Syscalls::FinishTask => return scheduler::finish_current_task(e),
+            Syscalls::CreateTask => scheduler::handle_new_task_syscall(e.gpr[0] as usize),
         }
     } else {
         default_exception_handler(e, "lower_aarch64_synchronous");
