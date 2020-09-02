@@ -28,7 +28,7 @@ impl TaskStack {
 }
 impl Drop for TaskStack {
     fn drop(&mut self) {
-        let layout = Layout::from_size_align(self.size, 16).unwrap();
+        let layout = Layout::from_size_align(self.size, 16).expect("2");
         unsafe { dealloc(self.ptr, layout) };
     }
 }

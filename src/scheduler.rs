@@ -7,10 +7,10 @@ use alloc::vec::Vec;
 use core::time::Duration;
 use task_context::*;
 
-pub const MAX_TASK_COUNT: usize = 16;
+pub const MAX_TASK_COUNT: usize = 2048;
 
 device_driver!(
-    unsynchronized TASK_MANAGER: TaskManager = TaskManager::new(Duration::from_millis(100))
+    unsynchronized TASK_MANAGER: TaskManager = TaskManager::new(Duration::from_millis(1000))
 );
 
 pub fn add_task(task: TaskContext) -> Result<(), TaskError> {
@@ -104,6 +104,9 @@ impl TaskManager {
         &mut self,
         current_context: &'a mut ExceptionContext,
     ) -> &'a mut ExceptionContext {
+
+        crate::println!("LR: {}", current_context.lr);
+        
         if !self.started {
             return current_context;
         }
@@ -118,7 +121,7 @@ impl TaskManager {
             if let TaskStates::Running = self.tasks[next_task_pid].state {
                 break;
             }
-            next_task_pid = next_task_pid + 1;
+            next_task_pid += 1;
         }
 
         if self.current_task == next_task_pid {
@@ -131,7 +134,9 @@ impl TaskManager {
             .get_two_tasks(previous_task_pid, next_task_pid)
             .expect("Error during task switch: {:?}");
 
-
+        unsafe{
+            crate::println!("NEX_TASK_ELR: {:#018x}", (*(next_task.exception_context)).elr_el1);
+        }
         current_task.exception_context = current_context as *mut ExceptionContext;
 
 
@@ -163,58 +168,42 @@ fn drop_el0() {
 }
 #[no_mangle]
 #[inline(never)]
-pub extern "C" fn foo() {
-    crate::syscall::create_task(foobar);
+pub extern "C" fn first_task() {
+    let mut i = 0;
     loop {
-        // crate::println!("BEHOLD! FIRST TASK");
-        crate::syscall::print::print("BEHOLD! FIRST TASK FROM USERSPACE!!!!\n");
-        // crate::syscall::yield_cpu();
-    }
-}
-
-#[no_mangle]
-#[inline(never)]
-pub extern "C" fn bar() {
-    loop {
-        crate::println!("BEHOLD! SECOND TASK");
-        crate::syscall::finish_task();
-    }
-}
-
-#[no_mangle]
-#[inline(never)]
-pub extern "C" fn foobar() {
-    loop {
-        crate::syscall::print::print("BEHOLD! THIRD TASK");
-    }
-}
-
-pub fn sample_change_task(_e: &mut ExceptionContext, is_kernel: bool) -> &mut ExceptionContext {
-    let task = match TaskContext::new(if is_kernel { foo } else { bar }, is_kernel) {
-        Ok(t) => t,
-        Err(err) => {
-            crate::println!(">>>>>> ERROR CREATING TASK CONTEXT {:?}", err);
-            loop {}
+        if i > 10 {
+            crate::syscall::finish_task();
         }
-    };
-
-    let boxed_task = alloc::boxed::Box::new(task);
-    let task_ref: &'static TaskContext = alloc::boxed::Box::leak(boxed_task);
-    // # Safety: this line can be reached only if exeption_context is allocated properly and it's memory is leaked, so it has static lifetime.
-    unsafe { &mut *task_ref.exception_context }
+        crate::syscall::create_task(worker);
+        crate::syscall::print::print("Creating worker\n");
+        i = i+1;
+    }
 }
 
-
+#[no_mangle]
+#[inline(never)]
+pub extern "C" fn worker() {
+    let mut i = 0;
+    loop {
+        if i > 10 {
+            crate::syscall::create_task(worker);
+            crate::syscall::finish_task();
+        }
+        crate::println!("WURKER {}", i);
+        i = i+1;
+        crate::syscall::yield_cpu();
+    }
+    
+}
 
 pub fn handle_new_task_syscall(function_address: usize){
-    crate::println!("NEW TASK FUNCTION ADDRESS {:#018x}", function_address);
-    let function = unsafe {&*(function_address as *const usize as *const extern "C" fn())};
-
-    let task = TaskContext::new(*function, false).expect("Failed to create new task");
+    // crate::println!("NEW TASK FUNCTION ADDRESS {:#018x}", function_address);
+    let function = unsafe {core::mem::transmute::<usize, extern "C" fn ()>(function_address)};
+    let task = TaskContext::new(function, false).expect("Failed to create new task");
 
     match add_task(task) {
         Ok(()) =>{},
-        Err(error) => panic!(&format!("Error when creating new task: {:?}", error)),
+        Err(error) => crate::println!("Error when creating new task: {:?}", error),
     }
 
 }

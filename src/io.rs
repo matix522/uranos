@@ -32,7 +32,7 @@ macro_rules! eprintln {
 
 pub fn _print(args: fmt::Arguments) {
     use core::fmt::Write;
-    UART.lock().write_fmt(args).unwrap();
+    UART.lock().write_fmt(args).expect("UART_WRITE_FMT")
 }
 
 #[macro_export]
@@ -44,7 +44,7 @@ macro_rules! scanln {
         let stdio = kernel::get_kernel_ref().get_stdio();
         res = stdio.get_line();
 
-        let string = core::str::from_utf8( &res.1).unwrap();
+        let string = core::str::from_utf8( &res.1).expect("SCANLN");
         let mut iter = string.split_ascii_whitespace();
         ($(iter.next().and_then(|word| word.parse::<$x>().ok()),)*)
     }}
