@@ -82,8 +82,8 @@ impl TaskManager {
 
     fn get_two_tasks(&mut self, first_task_pid: usize, second_task_pid: usize)-> Result<(&mut TaskContext, &mut TaskContext), TaskError>{
         if self.tasks.len() < 2 
-        || self.tasks.len() < first_task_pid 
-        || self.tasks.len() < second_task_pid 
+        || self.tasks.len() <= first_task_pid 
+        || self.tasks.len() <= second_task_pid 
         || first_task_pid == second_task_pid {
             return Err(TaskError::ChangeTaskError);
         }
@@ -111,10 +111,10 @@ impl TaskManager {
         let mut next_task_pid = self.current_task+1;
         
         loop{
-            crate::println!("WE ARE AT {} ", next_task_pid);
             if next_task_pid >= self.tasks.len() {
                 next_task_pid = 0;
             }
+            crate::println!("WE ARE AT {} ", next_task_pid);
             if let TaskStates::Running = self.tasks[next_task_pid].state {
                 break;
             }
@@ -134,16 +134,7 @@ impl TaskManager {
 
         current_task.exception_context = current_context as *mut ExceptionContext;
 
-        let mut i = 0;
-        unsafe {
-            for elem in &(*next_task.exception_context).gpr {
-                crate::println!("GPR[{}]: {:#018x}", i, elem);
-                i = i+1;
-            }
-        
-            crate::println!("LR: {:#018x}", (*next_task.exception_context).lr);
-            crate::println!("ELR_EL1: {:#018x}", (*next_task.exception_context).elr_el1);
-        }
+
         // #Safety: lifetime of this reference is the same as lifetime of whole TaskManager; exception_context is always properly initialized if task is in tasks vector
         unsafe { &mut *next_task.exception_context }
     }
@@ -177,7 +168,7 @@ pub extern "C" fn foo() {
     loop {
         // crate::println!("BEHOLD! FIRST TASK");
         crate::syscall::print::print("BEHOLD! FIRST TASK FROM USERSPACE!!!!\n");
-        crate::syscall::yield_cpu();
+        // crate::syscall::yield_cpu();
     }
 }
 
@@ -194,7 +185,7 @@ pub extern "C" fn bar() {
 #[inline(never)]
 pub extern "C" fn foobar() {
     loop {
-        crate::println!("BEHOLD! THIRD TASK");
+        crate::syscall::print::print("BEHOLD! THIRD TASK");
     }
 }
 

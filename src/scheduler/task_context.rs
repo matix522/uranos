@@ -82,6 +82,17 @@ impl TaskContext {
             exception_context.sp = user_address(exception_context_ptr as usize);
             task.exception_context = user_address(exception_context_ptr as usize) as *mut _;
         }
+
+        let mut i = 0;
+        unsafe {
+            for elem in &(exception_context).gpr {
+                crate::println!("GPR[{}]: {:#018x}", i, elem);
+                i = i+1;
+            }
+        
+            crate::println!("LR: {:#018x}", (exception_context).lr);
+            crate::println!("ELR_EL1: {:#018x}", (exception_context).elr_el1);
+        }
         // # Safety: exception_context is stack variable and exception_context_ptr is valid empty space for this data.
         unsafe {
             core::ptr::copy_nonoverlapping(
