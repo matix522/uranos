@@ -121,9 +121,11 @@ __exception_vector_start:
 .section .text
 .global __exception_restore_context
 __exception_restore_context:
-    mov    sp,       x0
-   
+    mov    x0,       sp
+
+    add    x0, x0, #16 * 18
     msr	   SP_EL0,   x0
+
     ldp    x19, x0,  [sp, #16 * 17]
     ldp    x21, x20, [sp, #16 * 16]
     ldp    lr,  x22, [sp, #16 * 15]
@@ -147,4 +149,5 @@ __exception_restore_context:
     ldp    x26, x27, [sp, #16 * 13]
     ldp    x28, x29, [sp, #16 * 14]
     add    sp,  sp,  #16 * 18
+    
     eret

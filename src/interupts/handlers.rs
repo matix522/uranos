@@ -55,7 +55,7 @@ use core::sync::atomic::*;
 static COUNTER: AtomicI64 = AtomicI64::new(0);
 
 #[no_mangle]
-unsafe extern "C" fn current_elx_synchronous(mut e: &'static mut ExceptionContext) -> &'static mut ExceptionContext {
+unsafe extern "C" fn current_elx_synchronous(e: &mut ExceptionContext) {
     interupts::disable_irqs();
 
     let exception_type = (e.esr_el1 & (0b111111 << 26)) >> 26;
@@ -64,57 +64,70 @@ unsafe extern "C" fn current_elx_synchronous(mut e: &'static mut ExceptionContex
             COUNTER.fetch_add(1, Ordering::SeqCst);
             e.elr_el1 = e.gpr[0] | crate::KERNEL_OFFSET as u64;
         } else {
-            e = scheduler::switch_task(e);
+            scheduler::switch_task();
         }
     } else if exception_type == 0b010101 {
         let syscall_type = Syscalls::from_u64(e.gpr[8]).unwrap_or_else(|| panic!("Unknown syscall type {}", e.gpr[8]));
-        e = match syscall_type {
-            Syscalls::Yield => scheduler::switch_task(e),
+        match syscall_type {
+            Syscalls::Yield => scheduler::switch_task(),
             Syscalls::StartScheduling => scheduler::start(),
             Syscalls::Print => syscall::print::handle_print_syscall(e),
-            Syscalls::FinishTask => scheduler::finish_current_task(e),
-            Syscalls::CreateTask => {scheduler::handle_new_task_syscall(e.gpr[0] as usize); e },
+            Syscalls::FinishTask => scheduler::finish_current_task(),
+            Syscalls::CreateTask => scheduler::handle_new_task_syscall(e.gpr[0] as usize),
         }
     } else {
         default_exception_handler(e, "current_elx_synchronous");
     }
     
-    crate::println!(
-        "=========================SYNCHRONOUS\nesr_el1 '{:#018x}'\n\tProgram location:    '{:#018x}'\n\tAddress:             '{:#018x}'\n\tLinkRegister:        '{:#018x}\n\tStackPointer:        '{:#018x}\n\t SPSR: {:#064b}\n",
-        e.esr_el1,
-        e.elr_el1,
-        e.far_el1,
-        e.lr,
-        e.sp,
-        e.spsr_el1
-    );
-    let mut i = 0;
-    unsafe {
-        for elem in &e.gpr {
-            crate::println!("GPR[{}]: {:#018x}", i, elem);
-            i = i+1;
-        }
-        crate::println!("LR: {:#018x}", e.lr);
-        crate::println!("ELR_EL1: {:#018x}", e.elr_el1);
-    }
+    // crate::println!(
+    //     "=========================SYNCHRONOUS\nesr_el1 '{:#018x}'\n\tProgram location:    '{:#018x}'\n\tAddress:             '{:#018x}'\n\tLinkRegister:        '{:#018x}\n\tStackPointer:        '{:#018x}\n\t SPSR: {:#064b}\n",
+    //     e.esr_el1,
+    //     e.elr_el1,
+    //     e.far_el1,
+    //     e.lr,
+    //     e.sp,
+    //     e.spsr_el1
+    // );
+    // let mut i = 0;
+    // unsafe {
+    //     for elem in &e.gpr {
+    //         crate::println!("GPR[{}]: {:#018x}", i, elem);
+    //         i = i+1;
+    //     }
+    //     crate::println!("LR: {:#018x}", e.lr);
+    //     crate::println!("ELR_EL1: {:#018x}", e.elr_el1);
+    // }
     interupts::enable_irqs();
-
-    e
 }
 
+
+static is_scheduling: AtomicBool = AtomicBool::new(false);
+
 #[no_mangle]
-unsafe extern "C" fn current_elx_irq(e: &mut ExceptionContext) -> &mut ExceptionContext {
+pub extern "C" fn end_scheduling() {
+    unsafe {
+        is_scheduling.store(false, core::sync::atomic::Ordering::Relaxed);
+    }
+    interupts::enable_irqs();
+}
+
+
+#[no_mangle]
+unsafe extern "C" fn current_elx_irq(e: &mut ExceptionContext) {
     interupts::disable_irqs();
 
     let timer = ArmTimer {};
     timer.interupt_after(scheduler::get_time_quant());
     timer.enable();
 
-    let ec = scheduler::switch_task(e);
-    crate::println!("{:#018x}'\n\tProgram location:    '{:#018x}'", ec as *mut _ as usize, ec.elr_el1);
 
-    interupts::enable_irqs();
-    ec
+    if is_scheduling.load(core::sync::atomic::Ordering::Relaxed) {
+        return;
+    }
+    is_scheduling.store(true, core::sync::atomic::Ordering::Relaxed);
+    scheduler::switch_task();
+    is_scheduling.store(false, core::sync::atomic::Ordering::Relaxed);
+
 }
 
 #[no_mangle]
@@ -127,7 +140,7 @@ unsafe extern "C" fn current_elx_serror(e: &mut ExceptionContext) {
 //------------------------------------------------------------------------------
 
 #[no_mangle]
-unsafe extern "C" fn lower_aarch64_synchronous(mut e: &'static mut ExceptionContext) -> &'static mut ExceptionContext {
+unsafe extern "C" fn lower_aarch64_synchronous(e: &mut ExceptionContext) {
     interupts::disable_irqs();
 
     let exception_type = (e.esr_el1 & (0b111111 << 26)) >> 26;
@@ -136,16 +149,16 @@ unsafe extern "C" fn lower_aarch64_synchronous(mut e: &'static mut ExceptionCont
             COUNTER.fetch_add(1, Ordering::SeqCst);
             e.elr_el1 = e.gpr[0] | crate::KERNEL_OFFSET as u64;
         } else {
-            e = scheduler::switch_task(e);
+            scheduler::switch_task();
         }
     } else if exception_type == 0b010101 {
         let syscall_type = Syscalls::from_u64(e.gpr[8]).unwrap_or_else(|| panic!("Unknown syscall type {}", e.gpr[8]));
-        e = match syscall_type {
-            Syscalls::Yield => scheduler::switch_task(e),
+        match syscall_type {
+            Syscalls::Yield => scheduler::switch_task(),
             Syscalls::StartScheduling => scheduler::start(),
             Syscalls::Print => syscall::print::handle_print_syscall(e),
-            Syscalls::FinishTask => scheduler::finish_current_task(e),
-            Syscalls::CreateTask => {scheduler::handle_new_task_syscall(e.gpr[0] as usize); e },
+            Syscalls::FinishTask => scheduler::finish_current_task(),
+            Syscalls::CreateTask => scheduler::handle_new_task_syscall(e.gpr[0] as usize),
         }
     } else {
         default_exception_handler(e, "current_elx_synchronous");
@@ -154,46 +167,45 @@ unsafe extern "C" fn lower_aarch64_synchronous(mut e: &'static mut ExceptionCont
 
 
 
-    crate::println!(
-        "=========================SYNCHRONOUS\nesr_el1 '{:#018x}'\n\tProgram location:    '{:#018x}'\n\tAddress:             '{:#018x}'\n\tLinkRegister:        '{:#018x}\n\tStackPointer:        '{:#018x}\n\t SPSR: {:#064b}\n",
-        e.esr_el1,
-        e.elr_el1,
-        e.far_el1,
-        e.lr,
-        e.sp,
-        e.spsr_el1
-    );
-    let mut i = 0;
-    unsafe {
-        for elem in &e.gpr {
-            crate::println!("GPR[{}]: {:#018x}", i, elem);
-            i = i+1;
-        }
-        crate::println!("LR: {:#018x}", e.lr);
-        crate::println!("ELR_EL1: {:#018x}", e.elr_el1);
-    }
+    // crate::println!(
+    //     "=========================SYNCHRONOUS\nesr_el1 '{:#018x}'\n\tProgram location:    '{:#018x}'\n\tAddress:             '{:#018x}'\n\tLinkRegister:        '{:#018x}\n\tStackPointer:        '{:#018x}\n\t SPSR: {:#064b}\n",
+    //     e.esr_el1,
+    //     e.elr_el1,
+    //     e.far_el1,
+    //     e.lr,
+    //     e.sp,
+    //     e.spsr_el1
+    // );
+    // let mut i = 0;
+    // unsafe {
+    //     for elem in &e.gpr {
+    //         crate::println!("GPR[{}]: {:#018x}", i, elem);
+    //         i = i+1;
+    //     }
+    //     crate::println!("LR: {:#018x}", e.lr);
+    //     crate::println!("ELR_EL1: {:#018x}", e.elr_el1);
+    // }
     interupts::enable_irqs();
 
 
-    e
 }
 
 #[no_mangle]
-unsafe extern "C" fn lower_aarch64_irq(
-    e: &mut ExceptionContext,
-) -> &mut interupts::ExceptionContext {
+unsafe extern "C" fn lower_aarch64_irq(e: &mut ExceptionContext) {
     interupts::disable_irqs();
 
     let timer = ArmTimer {};
     timer.interupt_after(scheduler::get_time_quant());
     timer.enable();
 
-    let ec = scheduler::switch_task(e);
-    crate::println!("{:#018x}'\n\tProgram location:    '{:#018x}'", ec as *mut _ as usize, ec.elr_el1);
 
+    if is_scheduling.load(core::sync::atomic::Ordering::Relaxed) {
+        return;
+    }
+    is_scheduling.store(true, core::sync::atomic::Ordering::Relaxed);
+    scheduler::switch_task();
+    is_scheduling.store(false, core::sync::atomic::Ordering::Relaxed);
 
-    interupts::enable_irqs();
-    ec
 }
 
 #[no_mangle]

@@ -16,7 +16,7 @@ pub fn print(msg: &str) {
     }
 }
 
-pub fn handle_print_syscall(context: &mut ExceptionContext) -> &mut ExceptionContext {
+pub fn handle_print_syscall(context: &ExceptionContext)  {
     let ptr = context.gpr[0] as *const u8;
     let len = context.gpr[1] as usize;
 
@@ -30,11 +30,9 @@ pub fn handle_print_syscall(context: &mut ExceptionContext) -> &mut ExceptionCon
             \n\t -- Caused by: '{}'",
             string.err().expect("3")
         );
-        return context;
+        return;
     }
     let string = string.expect("4");
 
     crate::print!("{}", string);
-
-    context
 }

@@ -4,6 +4,12 @@ use crate::interupts::ExceptionContext;
 /// Stack size of task in bytes
 pub const TASK_STACK_SIZE: usize = 0x8000;
 
+extern "C" {
+    /// Signal end of scheduling, zero x0 - x18 and jump to x19
+    fn new_task_func() -> ();
+
+}
+
 /// Error regarding tasks
 #[derive(Debug)]
 pub enum TaskError {
@@ -32,8 +38,31 @@ pub enum TaskStates {
 }
 
 #[repr(C)]
+pub struct Gpr{
+    pub x19: u64,
+    pub x20: u64,
+    pub x21: u64,
+    pub x22: u64,
+    pub x23: u64,
+    pub x24: u64,
+    pub x25: u64,
+    pub x26: u64,
+    pub x27: u64,
+    pub x28: u64,
+    pub x29: u64,
+    pub sp:  u64,
+    pub lr:  u64,
+}
+
+impl Default for Gpr {
+    fn default() -> Self {
+        unsafe {core::mem::zeroed() }
+    }
+}
+
+#[repr(C)]
 pub struct TaskContext {
-    pub(super) exception_context: *mut ExceptionContext,
+    pub(super) gpr: Gpr,
     pub(super) state: TaskStates,
     stack: Option<task_stack::TaskStack>,
 }
@@ -43,9 +72,9 @@ unsafe impl Sync for TaskContext {}
 unsafe impl Send for TaskContext {}
 
 impl TaskContext {
-    const fn empty() -> Self {
+    fn empty() -> Self {
         TaskContext {
-            exception_context: core::ptr::null_mut(),
+            gpr: Default::default(),
             state: TaskStates::NotStarted,
             stack: None,
         }
@@ -53,44 +82,25 @@ impl TaskContext {
 
     pub fn new(start_function: extern "C" fn(), is_kernel: bool) -> Result<Self, TaskError> {
         let mut task: TaskContext = Self::empty();
-        let mut exception_context = ExceptionContext {
-            gpr: [0; 30],
-            lr: 0,
-            elr_el1: 0,
-            spsr_el1: 0,
-            esr_el1: 0,
-            far_el1: 0,
-            sp: 0,
-        };
+        
         let user_address = |address: usize| (address & !crate::KERNEL_OFFSET) as u64;
 
-        exception_context.spsr_el1 = if is_kernel { 0b0101 } else { 0b0000 };
+        // exception_context.spsr_el1 = if is_kernel { 0b0101 } else { 0b0000 };
 
         let stack =
             task_stack::TaskStack::new(TASK_STACK_SIZE).ok_or(TaskError::StackAllocationFail)?;
 
-        let exception_context_ptr =
-            (stack.base() - core::mem::size_of::<ExceptionContext>()) as *mut ExceptionContext;
-
-        task.stack = Some(stack);
+        
+        task.gpr.lr = new_task_func as *const () as u64;
+        task.gpr.sp = stack.base() as u64;
         if is_kernel {
-            exception_context.elr_el1 = start_function as *const () as u64;
-            exception_context.sp = exception_context_ptr as u64;
-            task.exception_context = exception_context_ptr;
+            task.gpr.x19 = start_function as *const () as u64; 
         } else {
-            exception_context.elr_el1 = user_address(start_function as *const () as usize);
-            exception_context.sp = user_address(exception_context_ptr as usize);
-            task.exception_context = user_address(exception_context_ptr as usize) as *mut _;
+            task.gpr.x19 = crate::scheduler::drop_el0 as *const () as u64;
+            task.gpr.x20 = user_address(start_function as *const () as usize);
         }
-
-        // # Safety: exception_context is stack variable and exception_context_ptr is valid empty space for this data.
-        unsafe {
-            core::ptr::copy_nonoverlapping(
-                &exception_context as *const _,
-                exception_context_ptr,
-                1,
-            );
-        }
+        task.stack = Some(stack);
+        
         Ok(task)
     }
 }

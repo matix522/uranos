@@ -12,6 +12,7 @@
 #![feature(concat_idents)]
 #![allow(incomplete_features)]
 #![feature(new_uninit)]
+#![feature(const_fn)]
 
 #[macro_use]
 extern crate alloc;
@@ -127,7 +128,7 @@ fn echo() -> ! {
 
     let task1 = scheduler::task_context::TaskContext::new(scheduler::first_task, false)
         .expect("Error creating task context");
-    // let task2 = scheduler::task_context::TaskContext::new(scheduler::bar, true)
+    // let task2 = scheduler::task_context::TaskContext::new(scheduler::hello2, true)
         // .expect("Error creating task context");
     // let task3 = scheduler::task_context::TaskContext::new(scheduler::foobar, true)
         // .expect("Error creating task context");

@@ -22,7 +22,6 @@ pub unsafe fn syscall0(syscall_type: usize) -> usize {
           : "{x8}"(syscall_type)
           : "x8"
           : "volatile");
-    crate::println!("DUPAAAAAAAAAAAAAAAAAAA");
     ret
 }
 
@@ -124,5 +123,4 @@ pub fn create_task(function: extern "C" fn()){
         syscall1(function as *const () as usize, Syscalls::CreateTask as usize);
     }
 }
-
 
