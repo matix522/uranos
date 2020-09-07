@@ -14,7 +14,7 @@ pub enum Syscalls {
 
 #[inline(never)]
 /// # Safety
-/// Caller needs to assusre that syscall_type is valid number for syscall with no arguments 
+/// Caller needs to assusre that syscall_type is valid number for syscall with no arguments
 pub unsafe fn syscall0(syscall_type: usize) -> usize {
     let ret: usize;
     llvm_asm!("svc   0"
@@ -87,7 +87,14 @@ pub unsafe fn syscall4(p1: usize, p2: usize, p3: usize, p4: usize, syscall_type:
 /// # Safety
 /// Caller needs to assusre that syscall_type is valid number for syscall with 5 arguments
 /// Arguments needs to be in approperaite values for given syscall type
-pub unsafe fn syscall5(p1: usize, p2: usize, p3: usize, p4: usize, p5: usize, syscall_type: usize) -> usize {
+pub unsafe fn syscall5(
+    p1: usize,
+    p2: usize,
+    p3: usize,
+    p4: usize,
+    p5: usize,
+    syscall_type: usize,
+) -> usize {
     let ret: usize;
     llvm_asm!("svc   0"
           : "={x0}"(ret)
@@ -110,17 +117,18 @@ pub fn yield_cpu() {
     }
 }
 
-pub fn finish_task(){
+pub fn finish_task() {
     unsafe {
         syscall0(Syscalls::FinishTask as usize);
     }
 }
 
-
-pub fn create_task(function: extern "C" fn()){
+pub fn create_task(function: extern "C" fn()) {
     unsafe {
         // crate::println!("FUNCTION ADDRESS: {:#018x}", function as *const () as usize);
-        syscall1(function as *const () as usize, Syscalls::CreateTask as usize);
+        syscall1(
+            function as *const () as usize,
+            Syscalls::CreateTask as usize,
+        );
     }
 }
-

@@ -16,7 +16,7 @@ pub fn print(msg: &str) {
     }
 }
 
-pub fn handle_print_syscall(context: &ExceptionContext)  {
+pub fn handle_print_syscall(context: &ExceptionContext) {
     let ptr = context.gpr[0] as *const u8;
     let len = context.gpr[1] as usize;
 

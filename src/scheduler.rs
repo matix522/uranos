@@ -2,7 +2,6 @@ pub mod task_context;
 pub mod task_stack;
 
 use crate::device_driver;
-use crate::interupts::ExceptionContext;
 use alloc::vec::Vec;
 use core::time::Duration;
 use task_context::*;
@@ -11,12 +10,11 @@ pub const MAX_TASK_COUNT: usize = 2048;
 
 extern "C" {
     /// Change CPU context from prev task to next task
-    fn cpu_switch_to(prev_task_addr: u64, next_task_addr: u64) -> ();
+    fn cpu_switch_to(prev_task_addr: u64, next_task_addr: u64);
     /// Change CPU context to init task (dummy lands in unused x0 for sake of simplicity)
     fn cpu_switch_to_first(init_task_addr: u64) -> !;
 
 }
-
 
 device_driver!(
     unsynchronized TASK_MANAGER: TaskManager = TaskManager::new(Duration::from_millis(1000))
@@ -47,8 +45,8 @@ pub fn finish_current_task() {
     scheduler.finish_current_task();
 }
 
-pub fn get_current_task_pid() -> usize{
-    let mut scheduler = TASK_MANAGER.lock();
+pub fn get_current_task_pid() -> usize {
+    let scheduler = TASK_MANAGER.lock();
     scheduler.get_current_task_pid()
 }
 
@@ -94,38 +92,51 @@ impl TaskManager {
         Ok(task)
     }
 
-    fn get_two_tasks(&mut self, first_task_pid: usize, second_task_pid: usize)-> Result<(&mut TaskContext, &mut TaskContext), TaskError>{
-        if self.tasks.len() < 2 
-        || self.tasks.len() <= first_task_pid 
-        || self.tasks.len() <= second_task_pid 
-        || first_task_pid == second_task_pid {
+    fn get_two_tasks(
+        &mut self,
+        first_task_pid: usize,
+        second_task_pid: usize,
+    ) -> Result<(&mut TaskContext, &mut TaskContext), TaskError> {
+        if self.tasks.len() < 2
+            || self.tasks.len() <= first_task_pid
+            || self.tasks.len() <= second_task_pid
+            || first_task_pid == second_task_pid
+        {
             return Err(TaskError::ChangeTaskError);
         }
 
-        let min_pid = if first_task_pid < second_task_pid {first_task_pid} else {second_task_pid};
+        let min_pid = if first_task_pid < second_task_pid {
+            first_task_pid
+        } else {
+            second_task_pid
+        };
 
         let (left, right) = self.tasks.split_at_mut(min_pid + 1);
 
         if first_task_pid < second_task_pid {
-            Ok((&mut left[first_task_pid], &mut right[second_task_pid - first_task_pid - 1]))
+            Ok((
+                &mut left[first_task_pid],
+                &mut right[second_task_pid - first_task_pid - 1],
+            ))
         } else {
-            Ok((&mut right[first_task_pid - second_task_pid - 1], &mut left[second_task_pid]))
+            Ok((
+                &mut right[first_task_pid - second_task_pid - 1],
+                &mut left[second_task_pid],
+            ))
         }
-
     }
 
-    pub fn switch_task<'a> (&mut self) {
-
+    pub fn switch_task(&mut self) {
         // crate::println!("LR: {}", current_context.lr);
-        
+
         if !self.started {
             // crate::println!("ESSA");
             return;
         }
         let previous_task_pid = self.current_task;
-        let mut next_task_pid = self.current_task+1;
-        
-        loop{
+        let mut next_task_pid = self.current_task + 1;
+
+        loop {
             if next_task_pid >= self.tasks.len() {
                 next_task_pid = 0;
             }
@@ -141,15 +152,17 @@ impl TaskManager {
         }
 
         self.current_task = next_task_pid;
-        
+
         let (current_task, next_task) = self
             .get_two_tasks(previous_task_pid, next_task_pid)
             .expect("Error during task switch: {:?}");
 
-
         // #Safety: lifetime of this reference is the same as lifetime of whole TaskManager; exception_context is always properly initialized if task is in tasks vector
         unsafe {
-            cpu_switch_to(current_task as *const _ as u64, next_task as *const _ as u64);
+            cpu_switch_to(
+                current_task as *const _ as u64,
+                next_task as *const _ as u64,
+            );
         }
     }
 
@@ -159,18 +172,18 @@ impl TaskManager {
             .tasks
             .get_mut(0)
             .expect("Error during scheduler start: task 0 not found");
-        
-        unsafe{
+
+        unsafe {
             cpu_switch_to_first(task as *const _ as u64);
         }
     }
 
-    pub fn finish_current_task<'a>(&mut self) {
+    pub fn finish_current_task(&mut self) {
         self.tasks[self.current_task].state = TaskStates::Dead;
         self.switch_task()
     }
 
-    pub fn get_current_task_pid(&self) -> usize{
+    pub fn get_current_task_pid(&self) -> usize {
         self.current_task
     }
 }
@@ -192,7 +205,7 @@ pub extern "C" fn first_task() {
         }
         crate::syscall::create_task(worker);
         crate::syscall::print::print("Creating worker\n");
-        i = i+1;
+        i += 1;
     }
 }
 
@@ -206,16 +219,15 @@ pub extern "C" fn worker() {
             crate::syscall::finish_task();
         }
         crate::println!("WURKER {}; PID: {} ", i, get_current_task_pid());
-        i = i+1;
+        i += 1;
         crate::syscall::yield_cpu();
     }
-    
 }
 
 #[no_mangle]
 #[inline(never)]
 pub extern "C" fn hello() {
-    loop{
+    loop {
         crate::println!("HELLO!");
         crate::syscall::yield_cpu();
     }
@@ -224,19 +236,19 @@ pub extern "C" fn hello() {
 #[no_mangle]
 #[inline(never)]
 pub extern "C" fn hello2() {
-    loop{
+    loop {
         crate::println!("HELLO!2");
         crate::syscall::yield_cpu();
     }
 }
 
-pub fn handle_new_task_syscall(function_address: usize){
+pub fn handle_new_task_syscall(function_address: usize) {
     // crate::println!("NEW TASK FUNCTION ADDRESS {:#018x}", function_address);
-    let function = unsafe {core::mem::transmute::<usize, extern "C" fn ()>(function_address)};
+    let function = unsafe { core::mem::transmute::<usize, extern "C" fn()>(function_address) };
     let task = TaskContext::new(function, false).expect("Failed to create new task");
 
     match add_task(task) {
-        Ok(()) =>{},
+        Ok(()) => {}
         Err(error) => crate::println!("Error when creating new task: {:?}", error),
     }
 }

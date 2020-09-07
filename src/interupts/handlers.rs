@@ -18,15 +18,12 @@ fn default_exception_handler(context: &mut ExceptionContext, source: &str) {
         context.spsr_el1
     );
 
-    let mut i = 0;
-    unsafe {
-        for elem in &context.gpr {
-            crate::println!("GPR[{}]: {:#018x}", i, elem);
-            i = i+1;
-        }
-        crate::println!("LR: {:#018x}", context.lr);
-        crate::println!("ELR_EL1: {:#018x}", context.elr_el1);
+    for (i, elem) in context.gpr.iter().enumerate() {
+        crate::println!("GPR[{}]: {:#018x}", i, elem);
     }
+    crate::println!("LR: {:#018x}", context.lr);
+    crate::println!("ELR_EL1: {:#018x}", context.elr_el1);
+
     panic!("Unknown {} Exception type recived.", source);
 }
 
@@ -52,7 +49,6 @@ unsafe extern "C" fn current_el0_serror(e: &mut ExceptionContext) {
 // Current, ELx
 //------------------------------------------------------------------------------
 use core::sync::atomic::*;
-static COUNTER: AtomicI64 = AtomicI64::new(0);
 
 #[no_mangle]
 unsafe extern "C" fn current_elx_synchronous(e: &mut ExceptionContext) {
@@ -60,14 +56,10 @@ unsafe extern "C" fn current_elx_synchronous(e: &mut ExceptionContext) {
 
     let exception_type = (e.esr_el1 & (0b111111 << 26)) >> 26;
     if exception_type == 0b111100 {
-        if COUNTER.load(Ordering::SeqCst) == 0 {
-            COUNTER.fetch_add(1, Ordering::SeqCst);
-            e.elr_el1 = e.gpr[0] | crate::KERNEL_OFFSET as u64;
-        } else {
-            scheduler::switch_task();
-        }
+        e.elr_el1 = e.gpr[0] | crate::KERNEL_OFFSET as u64;
     } else if exception_type == 0b010101 {
-        let syscall_type = Syscalls::from_u64(e.gpr[8]).unwrap_or_else(|| panic!("Unknown syscall type {}", e.gpr[8]));
+        let syscall_type = Syscalls::from_u64(e.gpr[8])
+            .unwrap_or_else(|| panic!("Unknown syscall type {}", e.gpr[8]));
         match syscall_type {
             Syscalls::Yield => scheduler::switch_task(),
             Syscalls::StartScheduling => scheduler::start(),
@@ -78,56 +70,32 @@ unsafe extern "C" fn current_elx_synchronous(e: &mut ExceptionContext) {
     } else {
         default_exception_handler(e, "current_elx_synchronous");
     }
-    
-    // crate::println!(
-    //     "=========================SYNCHRONOUS\nesr_el1 '{:#018x}'\n\tProgram location:    '{:#018x}'\n\tAddress:             '{:#018x}'\n\tLinkRegister:        '{:#018x}\n\tStackPointer:        '{:#018x}\n\t SPSR: {:#064b}\n",
-    //     e.esr_el1,
-    //     e.elr_el1,
-    //     e.far_el1,
-    //     e.lr,
-    //     e.sp,
-    //     e.spsr_el1
-    // );
-    // let mut i = 0;
-    // unsafe {
-    //     for elem in &e.gpr {
-    //         crate::println!("GPR[{}]: {:#018x}", i, elem);
-    //         i = i+1;
-    //     }
-    //     crate::println!("LR: {:#018x}", e.lr);
-    //     crate::println!("ELR_EL1: {:#018x}", e.elr_el1);
-    // }
+
     interupts::enable_irqs();
 }
 
-
-static is_scheduling: AtomicBool = AtomicBool::new(false);
+static IS_SCHEDULING: AtomicBool = AtomicBool::new(false);
 
 #[no_mangle]
 pub extern "C" fn end_scheduling() {
-    unsafe {
-        is_scheduling.store(false, core::sync::atomic::Ordering::Relaxed);
-    }
+    IS_SCHEDULING.store(false, core::sync::atomic::Ordering::Relaxed);
     interupts::enable_irqs();
 }
 
-
 #[no_mangle]
-unsafe extern "C" fn current_elx_irq(e: &mut ExceptionContext) {
+unsafe extern "C" fn current_elx_irq(_e: &mut ExceptionContext) {
     interupts::disable_irqs();
 
     let timer = ArmTimer {};
     timer.interupt_after(scheduler::get_time_quant());
     timer.enable();
 
-
-    if is_scheduling.load(core::sync::atomic::Ordering::Relaxed) {
+    if IS_SCHEDULING.load(core::sync::atomic::Ordering::Relaxed) {
         return;
     }
-    is_scheduling.store(true, core::sync::atomic::Ordering::Relaxed);
+    IS_SCHEDULING.store(true, core::sync::atomic::Ordering::Relaxed);
     scheduler::switch_task();
-    is_scheduling.store(false, core::sync::atomic::Ordering::Relaxed);
-
+    IS_SCHEDULING.store(false, core::sync::atomic::Ordering::Relaxed);
 }
 
 #[no_mangle]
@@ -145,14 +113,10 @@ unsafe extern "C" fn lower_aarch64_synchronous(e: &mut ExceptionContext) {
 
     let exception_type = (e.esr_el1 & (0b111111 << 26)) >> 26;
     if exception_type == 0b111100 {
-        if COUNTER.load(Ordering::SeqCst) == 0 {
-            COUNTER.fetch_add(1, Ordering::SeqCst);
-            e.elr_el1 = e.gpr[0] | crate::KERNEL_OFFSET as u64;
-        } else {
-            scheduler::switch_task();
-        }
+        e.elr_el1 = e.gpr[0] | crate::KERNEL_OFFSET as u64;
     } else if exception_type == 0b010101 {
-        let syscall_type = Syscalls::from_u64(e.gpr[8]).unwrap_or_else(|| panic!("Unknown syscall type {}", e.gpr[8]));
+        let syscall_type = Syscalls::from_u64(e.gpr[8])
+            .unwrap_or_else(|| panic!("Unknown syscall type {}", e.gpr[8]));
         match syscall_type {
             Syscalls::Yield => scheduler::switch_task(),
             Syscalls::StartScheduling => scheduler::start(),
@@ -163,49 +127,24 @@ unsafe extern "C" fn lower_aarch64_synchronous(e: &mut ExceptionContext) {
     } else {
         default_exception_handler(e, "current_elx_synchronous");
     }
-    // crate::println!("{:#018x}'\n\tProgram location:    '{:#018x}'", e as *mut _ as usize, e.elr_el1);
 
-
-
-    // crate::println!(
-    //     "=========================SYNCHRONOUS\nesr_el1 '{:#018x}'\n\tProgram location:    '{:#018x}'\n\tAddress:             '{:#018x}'\n\tLinkRegister:        '{:#018x}\n\tStackPointer:        '{:#018x}\n\t SPSR: {:#064b}\n",
-    //     e.esr_el1,
-    //     e.elr_el1,
-    //     e.far_el1,
-    //     e.lr,
-    //     e.sp,
-    //     e.spsr_el1
-    // );
-    // let mut i = 0;
-    // unsafe {
-    //     for elem in &e.gpr {
-    //         crate::println!("GPR[{}]: {:#018x}", i, elem);
-    //         i = i+1;
-    //     }
-    //     crate::println!("LR: {:#018x}", e.lr);
-    //     crate::println!("ELR_EL1: {:#018x}", e.elr_el1);
-    // }
     interupts::enable_irqs();
-
-
 }
 
 #[no_mangle]
-unsafe extern "C" fn lower_aarch64_irq(e: &mut ExceptionContext) {
+unsafe extern "C" fn lower_aarch64_irq(_e: &mut ExceptionContext) {
     interupts::disable_irqs();
 
     let timer = ArmTimer {};
     timer.interupt_after(scheduler::get_time_quant());
     timer.enable();
 
-
-    if is_scheduling.load(core::sync::atomic::Ordering::Relaxed) {
+    if IS_SCHEDULING.load(core::sync::atomic::Ordering::Relaxed) {
         return;
     }
-    is_scheduling.store(true, core::sync::atomic::Ordering::Relaxed);
+    IS_SCHEDULING.store(true, core::sync::atomic::Ordering::Relaxed);
     scheduler::switch_task();
-    is_scheduling.store(false, core::sync::atomic::Ordering::Relaxed);
-
+    IS_SCHEDULING.store(false, core::sync::atomic::Ordering::Relaxed);
 }
 
 #[no_mangle]
@@ -231,30 +170,3 @@ unsafe extern "C" fn lower_aarch32_irq(e: &mut ExceptionContext) {
 unsafe extern "C" fn lower_aarch32_serror(e: &mut ExceptionContext) {
     default_exception_handler(e, "lower_aarch32_serror");
 }
-
-
-
-#[no_mangle]
-unsafe extern "C" fn label_jakis(e: &mut ExceptionContext) {
-    crate::println!(
-        "esr_el1 '{:#018x}'\n\tProgram location:    '{:#018x}'\n\tAddress:             '{:#018x}'\n\tLinkRegister:        '{:#018x}\n\tStackPointer:        '{:#018x}\n\t SPSR: {:#064b}\n",
-        e.esr_el1,
-        e.elr_el1,
-        e.far_el1,
-        e.lr,
-        e.sp,
-        e.spsr_el1
-    );
-    let mut i = 0;
-    unsafe {
-        for elem in &e.gpr {
-            crate::println!("GPR[{}]: {:#018x}", i, elem);
-            i = i+1;
-        }
-        crate::println!("LR: {:#018x}", e.lr);
-        crate::println!("ELR_EL1: {:#018x}", e.elr_el1);
-    }
-}
-
-
-
