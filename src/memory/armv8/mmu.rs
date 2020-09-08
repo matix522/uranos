@@ -1,3 +1,4 @@
+use core::ops::RangeBounds;
 use cortex_a::regs::*;
 
 use super::translation_tables::*;
@@ -5,59 +6,48 @@ use super::translation_tables::*;
 struct MMU {
     // main_table: TopLevelTables<N>,
 }
+const MEMORY_SIZE_BITS : usize = 36;
+const MEMORY_REGION_OFFSET : usize = 64 - MEMORY_SIZE_BITS;
+const MEMORY_SIZE_GIB : usize = 1 << (MEMORY_SIZE_BITS - 30); // 64 GIB
 
 #[repr(C, align(4096))]
-struct BaseMemoryTable<const N: usize> {
-    table_1g: [TableRecord; 512],            // EACH 1GB
-    tables_2m: [[TableRecord; 512]; N],      // EACH 2MB
-    tables_2m_a: [[TableRecord; 512]; N],    // MOVED VALUE 2MB
-    pages_4k: [[[PageRecord; 512]; 512]; N], // EACH 4KB
+struct BaseMemoryTable {
+    table_1g: [TableRecord; MEMORY_SIZE_GIB],            // EACH 1GB
+    reserved: [u64; 512 - MEMORY_SIZE_GIB],
+    tables_2m: [[TableRecord; 512]; MEMORY_SIZE_GIB],      // EACH 2MB
+    pages_4k: [[[PageRecord; 512]; 512]; MEMORY_SIZE_GIB], // EACH 4KB
 }
 
-impl<const N: usize> BaseMemoryTable<N> {
-    fn fill(&mut self) {
-        let binary = crate::utils::binary_info::BinaryInfo::get();
-        for (n, block_1g) in self.pages_4k.iter_mut().enumerate() {
+impl BaseMemoryTable {
+    fn fill(&mut self) {        
+        'outer: for (n, block_1g) in self.pages_4k.iter_mut().enumerate() {
+            crate::print!("{} GIB ", n);
             for (i, block_2m) in block_1g.iter_mut().enumerate() {
                 for (j, page_4k) in block_2m.iter_mut().enumerate() {
-                    use super::super::memory_controler::*;
-
+                    use super::super::memory_controler::*;                    
+                    
                     let addr = (1 << 30) * n + (1 << 21) * i + (1 << 12) * j;
-                    *page_4k = if addr >= binary.read_only_start && addr < binary.read_only_end {
-                        let a = AttributeFields {
-                            acc_perms: AccessPermissions::ReadOnly,
-                            mem_attributes: MemAttributes::CacheableDRAM,
-                            execute_never: false,
-                        };
-                        PageRecord::new(addr, a, false)
-                    } else if addr < crate::MMIO_BASE {
-                        PageRecord::new(addr, Default::default(), false)
-                    } else {
-                        let a = AttributeFields {
-                            acc_perms: AccessPermissions::ReadWrite,
-                            mem_attributes: MemAttributes::Device,
-                            execute_never: true,
-                        };
-                        PageRecord::new(addr, a, false)
+                    if let Some(range) = MEMORY_LAYOUT.iter().filter(|range| (range.virtual_range)().contains(&addr)).next() {
+                        *page_4k =  PageRecord::new(addr, range.attribute_fields, false)
                     }
-                }
+                } // 0xfffffff00008b010
             }
+            crate::println!("Done");
+
         }
+        crate::println!("value");
         for (n, table_1g) in self.tables_2m.iter_mut().enumerate() {
             for (i, table_2m) in table_1g.iter_mut().enumerate() {
                 *table_2m = self.pages_4k[n][i].as_addr().into();
             }
         }
-        for (n, table_1g) in self.tables_2m_a.iter_mut().enumerate() {
-            for (i, table_2m) in table_1g.iter_mut().enumerate() {
-                *table_2m = self.pages_4k[n][i].as_addr().into();
-            }
-        }
-        for n in 0..N {
+        // for (n, table_1g) in self.tables_2m_a.iter_mut().enumerate() {
+        //     for (i, table_2m) in table_1g.iter_mut().enumerate() {
+        //         *table_2m = self.pages_4k[n][i].as_addr().into();
+        //     }
+        // }
+        for n in 0..MEMORY_SIZE_GIB {
             self.table_1g[n] = self.tables_2m[n].as_addr().into();
-        }
-        for n in 0..N {
-            self.table_1g[n + N] = self.tables_2m_a[n].as_addr().into();
         }
     }
 }
@@ -67,15 +57,15 @@ pub const MEMORY_SIZE: usize = 4;
 #[cfg(feature = "raspi3")]
 pub const MEMORY_SIZE: usize = 1;
 
-static mut MEMORY_TABLE: *mut BaseMemoryTable<MEMORY_SIZE> = core::ptr::null_mut();
+static mut MEMORY_TABLE: *mut BaseMemoryTable = core::ptr::null_mut();
 
 ///
 /// # Safety
 /// It is caller responsibility to ensure that only one reference to BaseMemoryTable lives.
-unsafe fn get_base_memory_table() -> &'static mut BaseMemoryTable<MEMORY_SIZE> {
+unsafe fn get_base_memory_table() -> &'static mut BaseMemoryTable {
     if MEMORY_TABLE.is_null() {
         use alloc::boxed::Box;
-        let mut boxed_table: Box<BaseMemoryTable<MEMORY_SIZE>> = Box::new_zeroed().assume_init();
+        let mut boxed_table: Box<BaseMemoryTable> = Box::new_zeroed().assume_init();
         boxed_table.fill();
         MEMORY_TABLE = Box::leak(boxed_table) as *mut _;
     }
@@ -154,14 +144,14 @@ impl MMU {
                 + TCR_EL1::ORGN0::WriteBack_ReadAlloc_WriteAlloc_Cacheable
                 + TCR_EL1::IRGN0::WriteBack_ReadAlloc_WriteAlloc_Cacheable
                 + TCR_EL1::EPD0::EnableTTBR0Walks
-                + TCR_EL1::T0SZ.val(28) // TTBR0 spans 64 GiB total.
+                + TCR_EL1::T0SZ.val(MEMORY_REGION_OFFSET as u64) // TTBR0 spans 64 GiB total.
 
                 + TCR_EL1::TG1.val(0b10)//::KiB_4
                 + TCR_EL1::SH1::Inner
                 + TCR_EL1::ORGN1::WriteBack_ReadAlloc_WriteAlloc_Cacheable
                 + TCR_EL1::IRGN1::WriteBack_ReadAlloc_WriteAlloc_Cacheable
                 + TCR_EL1::EPD1::EnableTTBR1Walks
-                + TCR_EL1::T1SZ.val(28), // TTBR1 spans 64 GiB total.
+                + TCR_EL1::T1SZ.val(MEMORY_REGION_OFFSET as u64), // TTBR1 spans 64 GiB total.
         );
     }
 }

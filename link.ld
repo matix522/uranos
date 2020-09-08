@@ -47,6 +47,7 @@ SECTIONS
 
     .data ALIGN(4096):
     {
+        __read_write_start = .;
         *(.data .data.*)
         *(.devices)
     }
@@ -60,6 +61,7 @@ SECTIONS
     .end ALIGN(8):
     {
         __binary_end = .;
+        __read_write_end = .;
     }
 
     .heap ALIGN(4096):

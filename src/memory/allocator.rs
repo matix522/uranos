@@ -80,7 +80,7 @@ impl SystemAllocator {
 }
 #[global_allocator]
 #[link_section = ".heap"]
-pub static A: SystemAllocator = SystemAllocator::new(0x400_0000);
+pub static A: SystemAllocator = SystemAllocator::new(0x1000_0000);
 
 pub fn heap_start() -> usize {
     A.heap_start()

@@ -111,18 +111,8 @@ fn echo() -> ! {
         let user_ptr = ((!KERNEL_OFFSET) & ptr as usize) as *const u8;
         let user_str = core::str::from_utf8_unchecked(core::slice::from_raw_parts(user_ptr, size));
 
-        let moved_ptr =
-            (ptr as usize + (memory::armv8::mmu::MEMORY_SIZE * 0x4000_0000)) as *const u8;
-        let moved_str =
-            core::str::from_utf8_unchecked(core::slice::from_raw_parts(moved_ptr, size));
-
         crate::println!("ORGINAL {:#018x}: {}", t_string.as_ptr() as usize, t_string);
         crate::println!("USER    {:#018x}: {}", user_str.as_ptr() as usize, user_str);
-        crate::println!(
-            "MOVED   {:#018x}: {}",
-            moved_str.as_ptr() as usize,
-            moved_str
-        );
     }
 
     let task1 = scheduler::task_context::TaskContext::new(scheduler::first_task, false)
@@ -130,9 +120,21 @@ fn echo() -> ! {
 
     scheduler::add_task(task1).expect("Error adding task");
 
-    syscall::start_scheduling();
+    // syscall::start_scheduling();
 
     println!("Echoing input.");
+
+    use cortex_a::regs::*;
+
+    unsafe {
+        interupts::init_exceptions( utils::binary_info::BinaryInfo::get().exception_vector | KERNEL_OFFSET);
+    }
+    let ips = ID_AA64MMFR0_EL1.read(ID_AA64MMFR0_EL1::PARange);
+    let mut uart = drivers::UART.lock();
+    uart.move_uart();
+    uart.puts("string\n\n\n");
+    println!("{:x}", uart.get_base_address());
+
 
     let mut uart = drivers::UART.lock();
     uart.base_address |= KERNEL_OFFSET;
@@ -147,14 +149,19 @@ fn echo() -> ! {
     }
 }
 
+fn mmu_testing() {
+    // let moved_str = core::str::from_utf8_unchecked(core::slice::from_raw_parts(moved_ptr, size));
+}
+
+
 entry!(kernel_entry);
 
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
     if let Some(args) = info.message() {
-        println!("\nKernel panic: {}", args);
+        eprintln!("\nKernel panic: {}", args);
     } else {
-        println!("\nKernel panic!");
+        eprintln!("\nKernel panic!");
     }
 
     halt();

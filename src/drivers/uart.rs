@@ -148,6 +148,13 @@ impl PL011Uart {
     fn ptr(&self) -> *const RegisterBlock {
         self.base_address as *const _
     }
+
+    pub fn move_uart(&mut self) {
+        self.base_address |= crate::KERNEL_OFFSET + 0x1000;
+    }
+    pub fn get_base_address(&self) -> usize {
+        self.base_address
+    }
 }
 use crate::drivers::traits;
 impl traits::Init for PL011Uart {
