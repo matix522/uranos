@@ -1,54 +1,84 @@
-use core::ops::RangeBounds;
+use core::ops::{RangeBounds, Range};
+// use alloc::vec::Vec;
 use cortex_a::regs::*;
 
 use super::translation_tables::*;
 
 struct MMU {
-    // main_table: TopLevelTables<N>,
 }
 const MEMORY_SIZE_BITS : usize = 36;
 const MEMORY_REGION_OFFSET : usize = 64 - MEMORY_SIZE_BITS;
 const MEMORY_SIZE_GIB : usize = 1 << (MEMORY_SIZE_BITS - 30); // 64 GIB
 
 #[repr(C, align(4096))]
-struct BaseMemoryTable {
-    table_1g: [TableRecord; MEMORY_SIZE_GIB],            // EACH 1GB
-    reserved: [u64; 512 - MEMORY_SIZE_GIB],
-    tables_2m: [[TableRecord; 512]; MEMORY_SIZE_GIB],      // EACH 2MB
-    pages_4k: [[[PageRecord; 512]; 512]; MEMORY_SIZE_GIB], // EACH 4KB
+struct Level1MemoryTable {
+    table_1g: [TableRecord; MEMORY_SIZE_GIB],              // EACH 1GB
+//     reserved: [u64; 512 - MEMORY_SIZE_GIB],
+//     tables_2m: [[TableRecord; 512]; MEMORY_SIZE_GIB],      // EACH 2MB
+//     pages_4k: [[[PageRecord; 512]; 512]; MEMORY_SIZE_GIB], // EACH 4KB
 }
 
-impl BaseMemoryTable {
-    fn fill(&mut self) {        
-        'outer: for (n, block_1g) in self.pages_4k.iter_mut().enumerate() {
-            crate::print!("{} GIB ", n);
-            for (i, block_2m) in block_1g.iter_mut().enumerate() {
-                for (j, page_4k) in block_2m.iter_mut().enumerate() {
-                    use super::super::memory_controler::*;                    
-                    
-                    let addr = (1 << 30) * n + (1 << 21) * i + (1 << 12) * j;
-                    if let Some(range) = MEMORY_LAYOUT.iter().filter(|range| (range.virtual_range)().contains(&addr)).next() {
-                        *page_4k =  PageRecord::new(addr, range.attribute_fields, false)
-                    }
-                } // 0xfffffff00008b010
-            }
-            crate::println!("Done");
+impl Level1MemoryTable {
+    fn fill(&mut self) {
+        use crate::memory::memory_controler::*;
 
-        }
-        crate::println!("value");
-        for (n, table_1g) in self.tables_2m.iter_mut().enumerate() {
-            for (i, table_2m) in table_1g.iter_mut().enumerate() {
-                *table_2m = self.pages_4k[n][i].as_addr().into();
+        let table_layout = alloc::alloc::Layout::from_size_align(4096,4096).expect("Couldnt crate layout");
+
+        for memory_range in &MEMORY_LAYOUT {
+            let step = match &memory_range.granule {
+                Granule::Page4KiB => 1 << 12,
+                Granule::Block2MiB => 1 << 21,
+                Granule::Block1GiB => 1 << 30
+            };
+            for address in (memory_range.virtual_range)().step_by(step) {
+                let level_1 = address >> 30;
+                if !self.table_1g[level_1].is_valid() {
+                    self.table_1g[level_1] = (unsafe { alloc::alloc::alloc_zeroed(table_layout) } as usize).into();
+                }
+                let level_2 = (address - (level_1 << 30)) >> 21;
+                let table_2m = unsafe {&mut *self.table_1g[level_1].next_table()};
+
+                if !table_2m[level_2].is_valid() {
+                    table_2m[level_2] = (unsafe { alloc::alloc::alloc_zeroed(table_layout) } as usize).into();
+                }
+                let level_3 = (address - (level_1 << 30) - (level_2 << 21) ) >> 12;
+                let table_3m = unsafe {&mut *table_2m[level_2].next_page()};
+                
+                table_3m[level_3] = PageRecord::new(address, memory_range.attribute_fields, false);
             }
+            
         }
-        // for (n, table_1g) in self.tables_2m_a.iter_mut().enumerate() {
+    }
+    fn fill_old(&mut self) {        
+        // 'outer: for (n, block_1g) in self.pages_4k.iter_mut().enumerate() {
+        //     crate::print!("{} GIB ", n);
+        //     for (i, block_2m) in block_1g.iter_mut().enumerate() {
+        //         for (j, page_4k) in block_2m.iter_mut().enumerate() {
+                                   
+        //             use crate::memory::memory_controler::*;     
+        //             let addr = (1 << 30) * n + (1 << 21) * i + (1 << 12) * j;
+        //             if let Some(range) = MEMORY_LAYOUT.iter().filter(|range| (range.virtual_range)().contains(&addr)).next() {
+        //                 *page_4k =  PageRecord::new(addr, range.attribute_fields, false)
+        //             }
+        //         } //
+        //     }
+        //     crate::println!("Done");
+
+        // }
+        // crate::println!("value");
+        // for (n, table_1g) in self.tables_2m.iter_mut().enumerate() {
         //     for (i, table_2m) in table_1g.iter_mut().enumerate() {
         //         *table_2m = self.pages_4k[n][i].as_addr().into();
         //     }
         // }
-        for n in 0..MEMORY_SIZE_GIB {
-            self.table_1g[n] = self.tables_2m[n].as_addr().into();
-        }
+        // // for (n, table_1g) in self.tables_2m_a.iter_mut().enumerate() {
+        // //     for (i, table_2m) in table_1g.iter_mut().enumerate() {
+        // //         *table_2m = self.pages_4k[n][i].as_addr().into();
+        // //     }
+        // // }
+        // for n in 0..MEMORY_SIZE_GIB {
+        //     self.table_1g[n] = self.tables_2m[n].as_addr().into();
+        // }
     }
 }
 
@@ -57,15 +87,15 @@ pub const MEMORY_SIZE: usize = 4;
 #[cfg(feature = "raspi3")]
 pub const MEMORY_SIZE: usize = 1;
 
-static mut MEMORY_TABLE: *mut BaseMemoryTable = core::ptr::null_mut();
+static mut MEMORY_TABLE: *mut Level1MemoryTable = core::ptr::null_mut();
 
 ///
 /// # Safety
-/// It is caller responsibility to ensure that only one reference to BaseMemoryTable lives.
-unsafe fn get_base_memory_table() -> &'static mut BaseMemoryTable {
+/// It is caller responsibility to ensure that only one reference to Level1MemoryTable lives.
+unsafe fn get_base_memory_table() -> &'static mut Level1MemoryTable {
     if MEMORY_TABLE.is_null() {
         use alloc::boxed::Box;
-        let mut boxed_table: Box<BaseMemoryTable> = Box::new_zeroed().assume_init();
+        let mut boxed_table: Box<Level1MemoryTable> = Box::new_zeroed().assume_init();
         boxed_table.fill();
         MEMORY_TABLE = Box::leak(boxed_table) as *mut _;
     }

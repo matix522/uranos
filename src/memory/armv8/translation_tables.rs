@@ -190,3 +190,16 @@ impl core::convert::From<AttributeFields>
         desc
     }
 }
+
+
+impl TableRecord {
+    pub fn is_valid(&self) -> bool {
+        (self.0 & 0b1) == 1
+    }
+    pub unsafe fn next_table(&self) -> *mut [TableRecord; 512] {
+        (self.0 & (((1 << 36) -1) << 12)) as *mut [TableRecord; 512]
+    }
+    pub unsafe fn next_page(&self) -> *mut [PageRecord; 512] {
+        (self.0 & (((1 << 36) -1) << 12)) as *mut [PageRecord; 512]
+    }
+} 

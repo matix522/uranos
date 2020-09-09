@@ -23,7 +23,11 @@ pub enum AccessPermissions {
     UserReadOnly,
     UserReadWrite,
 }
-
+pub enum Granule {
+    Page4KiB,
+    Block2MiB,
+    Block1GiB,
+}
 /// Collection of memory attributes.
 #[allow(missing_docs)]
 #[derive(Copy, Clone)]
@@ -50,10 +54,11 @@ pub struct RangeDescriptor {
     pub virtual_range: fn() -> Range<usize>,
     pub translation: Translation,
     pub attribute_fields: AttributeFields,
+    pub granule : Granule,
 }
 impl RangeDescriptor {
-    const fn new(name: &'static str, virtual_range: fn() -> Range<usize>, translation: Translation, attribute_fields: AttributeFields) -> Self {
-        RangeDescriptor {name, virtual_range, translation, attribute_fields}
+    const fn new(name: &'static str, virtual_range: fn() -> Range<usize>, translation: Translation, attribute_fields: AttributeFields, granule : Granule) -> Self {
+        RangeDescriptor {name, virtual_range, translation, attribute_fields, granule}
     }
 }
 
@@ -73,6 +78,7 @@ pub const MEMORY_LAYOUT : [RangeDescriptor; 5] = [
         },
         Translation::Identity,
         KERNEL_RW_,
+        Granule::Page4KiB
     ),
     RangeDescriptor::new(
         "Static Kernel Data and Code",
@@ -82,6 +88,7 @@ pub const MEMORY_LAYOUT : [RangeDescriptor; 5] = [
         },
         Translation::Identity,
         KERNEL_R_X,
+        Granule::Page4KiB
     ),
     RangeDescriptor::new(
         "Mutable Kernel Data",
@@ -91,6 +98,7 @@ pub const MEMORY_LAYOUT : [RangeDescriptor; 5] = [
         },
         Translation::Identity,
         KERNEL_RW_,
+        Granule::Page4KiB
     ),
     RangeDescriptor::new(
         "Initial Kernel Heap",
@@ -100,14 +108,16 @@ pub const MEMORY_LAYOUT : [RangeDescriptor; 5] = [
         },
         Translation::Identity,
         KERNEL_RW_,
+        Granule::Page4KiB
     ),
     RangeDescriptor::new(
-        "Initial Kernel Heap",
+        "MMIO devices",
         || {
             let binary_info = BinaryInfo::get();
             binary_info.mmio
         },
         Translation::Identity,
         DEVICE,
+        Granule::Page4KiB
     )
 ];

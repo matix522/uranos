@@ -71,6 +71,9 @@ impl SystemAllocator {
     fn heap_start(&self) -> usize {
         self.first_block.get() as usize
     }
+    fn heap_base(&self) -> usize {
+        &self.heap_size as *const _ as usize
+    }
     fn heap_end(&self) -> usize {
         self.heap_start() + self.heap_size
     }
@@ -80,7 +83,7 @@ impl SystemAllocator {
 }
 #[global_allocator]
 #[link_section = ".heap"]
-pub static A: SystemAllocator = SystemAllocator::new(0x1000_0000);
+pub static A: SystemAllocator = SystemAllocator::new(0x40_0000);
 
 pub fn heap_start() -> usize {
     A.heap_start()
@@ -88,7 +91,9 @@ pub fn heap_start() -> usize {
 pub fn heap_end() -> usize {
     A.heap_end()
 }
-
+pub fn heap_base() -> usize {
+    A.heap_base()
+}
 ///
 /// # Safety
 /// aligment must be non 0
@@ -156,7 +161,7 @@ unsafe impl GlobalAlloc for SystemAllocator {
 impl SystemAllocator {
     pub const fn new(heap_size: u64) -> Self {
         SystemAllocator {
-            heap_size: heap_size as usize,
+            heap_size: heap_size as usize - size_of::<usize>(),
             first_block: UnsafeCell::new(Block {
                 next: null_mut(),
                 data_size: 10,
