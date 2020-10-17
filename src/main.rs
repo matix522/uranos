@@ -113,6 +113,21 @@ fn echo() -> ! {
 
         crate::println!("ORGINAL {:#018x}: {}", t_string.as_ptr() as usize, t_string);
         crate::println!("USER    {:#018x}: {}", user_str.as_ptr() as usize, user_str);
+
+        crate::memory::armv8::mmu::add_translation(
+            user_ptr as usize,
+            user_ptr as usize | 0x1_0000_0000,
+        );
+
+        let moved_ptr = (user_ptr as u64 | 0x1_0000_0000) as *const u8;
+        let moved_str =
+            core::str::from_utf8_unchecked(core::slice::from_raw_parts(moved_ptr, size));
+
+        crate::println!(
+            "MOVED   {:#018x}: {}",
+            moved_str.as_ptr() as usize,
+            moved_str
+        );
     }
 
     let task1 = scheduler::task_context::TaskContext::new(scheduler::first_task, false)
@@ -127,14 +142,15 @@ fn echo() -> ! {
     use cortex_a::regs::*;
 
     unsafe {
-        interupts::init_exceptions( utils::binary_info::BinaryInfo::get().exception_vector | KERNEL_OFFSET);
+        interupts::init_exceptions(
+            utils::binary_info::BinaryInfo::get().exception_vector | KERNEL_OFFSET,
+        );
     }
     let ips = ID_AA64MMFR0_EL1.read(ID_AA64MMFR0_EL1::PARange);
     let mut uart = drivers::UART.lock();
     uart.move_uart();
     uart.puts("string\n\n\n");
     println!("{:x}", uart.get_base_address());
-
 
     let mut uart = drivers::UART.lock();
     uart.base_address |= KERNEL_OFFSET;
@@ -152,7 +168,6 @@ fn echo() -> ! {
 fn mmu_testing() {
     // let moved_str = core::str::from_utf8_unchecked(core::slice::from_raw_parts(moved_ptr, size));
 }
-
 
 entry!(kernel_entry);
 

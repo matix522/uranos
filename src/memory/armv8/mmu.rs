@@ -1,84 +1,84 @@
-use core::ops::{RangeBounds, Range};
+use core::ops::{Range, RangeBounds};
 // use alloc::vec::Vec;
 use cortex_a::regs::*;
 
 use super::translation_tables::*;
-
-struct MMU {
-}
-const MEMORY_SIZE_BITS : usize = 36;
-const MEMORY_REGION_OFFSET : usize = 64 - MEMORY_SIZE_BITS;
-const MEMORY_SIZE_GIB : usize = 1 << (MEMORY_SIZE_BITS - 30); // 64 GIB
+use crate::memory::memory_controler::KERNEL_RW_;
+use crate::memory::memory_controler::{AttributeFields, Granule, Translation, MEMORY_LAYOUT};
+struct MMU {}
+const MEMORY_SIZE_BITS: usize = 36;
+const MEMORY_REGION_OFFSET: usize = 64 - MEMORY_SIZE_BITS;
+const MEMORY_SIZE_GIB: usize = 1 << (MEMORY_SIZE_BITS + 1 - 30); // 128 GIB
 
 #[repr(C, align(4096))]
 struct Level1MemoryTable {
-    table_1g: [TableRecord; MEMORY_SIZE_GIB],              // EACH 1GB
-//     reserved: [u64; 512 - MEMORY_SIZE_GIB],
-//     tables_2m: [[TableRecord; 512]; MEMORY_SIZE_GIB],      // EACH 2MB
-//     pages_4k: [[[PageRecord; 512]; 512]; MEMORY_SIZE_GIB], // EACH 4KB
+    table_1g: [TableRecord; MEMORY_SIZE_GIB], // EACH 1GB
+                                              //     reserved: [u64; 512 - MEMORY_SIZE_GIB],
+                                              //     tables_2m: [[TableRecord; 512]; MEMORY_SIZE_GIB],      // EACH 2MB
+                                              //     pages_4k: [[[PageRecord; 512]; 512]; MEMORY_SIZE_GIB], // EACH 4KB
 }
 
 impl Level1MemoryTable {
     fn fill(&mut self) {
-        use crate::memory::memory_controler::*;
-
-        let table_layout = alloc::alloc::Layout::from_size_align(4096,4096).expect("Couldnt crate layout");
+        crate::println!("{}", MEMORY_SIZE_GIB);
 
         for memory_range in &MEMORY_LAYOUT {
             let step = match &memory_range.granule {
                 Granule::Page4KiB => 1 << 12,
                 Granule::Block2MiB => 1 << 21,
-                Granule::Block1GiB => 1 << 30
+                Granule::Block1GiB => 1 << 30,
+            };
+            let offset = if let Translation::Offset(value) = memory_range.translation {
+                value - (memory_range.virtual_range)().start
+            } else {
+                0
             };
             for address in (memory_range.virtual_range)().step_by(step) {
-                let level_1 = address >> 30;
-                if !self.table_1g[level_1].is_valid() {
-                    self.table_1g[level_1] = (unsafe { alloc::alloc::alloc_zeroed(table_layout) } as usize).into();
-                }
-                let level_2 = (address - (level_1 << 30)) >> 21;
-                let table_2m = unsafe {&mut *self.table_1g[level_1].next_table()};
-
-                if !table_2m[level_2].is_valid() {
-                    table_2m[level_2] = (unsafe { alloc::alloc::alloc_zeroed(table_layout) } as usize).into();
-                }
-                let level_3 = (address - (level_1 << 30) - (level_2 << 21) ) >> 12;
-                let table_3m = unsafe {&mut *table_2m[level_2].next_page()};
-                
-                table_3m[level_3] = PageRecord::new(address, memory_range.attribute_fields, false);
+                self.map_memory(
+                    address,
+                    offset,
+                    &memory_range.attribute_fields,
+                    memory_range.granule,
+                );
             }
-            
         }
     }
-    fn fill_old(&mut self) {        
-        // 'outer: for (n, block_1g) in self.pages_4k.iter_mut().enumerate() {
-        //     crate::print!("{} GIB ", n);
-        //     for (i, block_2m) in block_1g.iter_mut().enumerate() {
-        //         for (j, page_4k) in block_2m.iter_mut().enumerate() {
-                                   
-        //             use crate::memory::memory_controler::*;     
-        //             let addr = (1 << 30) * n + (1 << 21) * i + (1 << 12) * j;
-        //             if let Some(range) = MEMORY_LAYOUT.iter().filter(|range| (range.virtual_range)().contains(&addr)).next() {
-        //                 *page_4k =  PageRecord::new(addr, range.attribute_fields, false)
-        //             }
-        //         } //
-        //     }
-        //     crate::println!("Done");
+    fn map_memory(
+        &mut self,
+        address: usize,
+        offset: usize,
+        memory_attributes: &AttributeFields,
+        granule: Granule,
+    ) {
+        let table_layout =
+            alloc::alloc::Layout::from_size_align(4096, 4096).expect("Couldnt crate layout");
 
-        // }
-        // crate::println!("value");
-        // for (n, table_1g) in self.tables_2m.iter_mut().enumerate() {
-        //     for (i, table_2m) in table_1g.iter_mut().enumerate() {
-        //         *table_2m = self.pages_4k[n][i].as_addr().into();
-        //     }
-        // }
-        // // for (n, table_1g) in self.tables_2m_a.iter_mut().enumerate() {
-        // //     for (i, table_2m) in table_1g.iter_mut().enumerate() {
-        // //         *table_2m = self.pages_4k[n][i].as_addr().into();
-        // //     }
-        // // }
-        // for n in 0..MEMORY_SIZE_GIB {
-        //     self.table_1g[n] = self.tables_2m[n].as_addr().into();
-        // }
+        let level_1 = address >> 30;
+        if let Granule::Block1GiB = granule {
+            self.table_1g[level_1] =
+                PageRecord::new(address + offset, *memory_attributes, true).into();
+            return;
+        }
+        if !self.table_1g[level_1].is_valid() {
+            self.table_1g[level_1] =
+                (unsafe { alloc::alloc::alloc_zeroed(table_layout) } as usize).into();
+        }
+        let level_2 = (address - (level_1 << 30)) >> 21;
+        let table_2m = unsafe { &mut *self.table_1g[level_1].next_table() };
+
+        if let Granule::Block2MiB = granule {
+            table_2m[level_2] = PageRecord::new(address + offset, *memory_attributes, true).into();
+            return;
+        }
+
+        if !table_2m[level_2].is_valid() {
+            table_2m[level_2] =
+                (unsafe { alloc::alloc::alloc_zeroed(table_layout) } as usize).into();
+        }
+        let level_3 = (address - (level_1 << 30) - (level_2 << 21)) >> 12;
+        let table_3k = unsafe { &mut *table_2m[level_2].next_page() };
+
+        table_3k[level_3] = PageRecord::new(address + offset, *memory_attributes, false);
     }
 }
 
@@ -104,6 +104,18 @@ unsafe fn get_base_memory_table() -> &'static mut Level1MemoryTable {
 ///
 /// # Safety
 /// Should be only called once before MMU is Initialized
+
+pub unsafe fn add_translation(p_address: usize, v_address: usize) {
+    unsafe {
+        (&mut *MEMORY_TABLE).map_memory(
+            v_address,
+            p_address - v_address,
+            &KERNEL_RW_,
+            Granule::Page4KiB,
+        )
+    }
+}
+
 pub unsafe fn test() -> Result<(), &'static str> {
     use cortex_a::barrier;
     let mut m = MMU::new();

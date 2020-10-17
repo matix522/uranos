@@ -6,6 +6,13 @@ pub struct PageRecord(pub u64);
 #[repr(transparent)]
 #[derive(Clone, Copy)]
 pub struct TableRecord(pub u64);
+
+impl From<PageRecord> for TableRecord {
+    fn from(val: PageRecord) -> Self {
+        TableRecord(val.0)
+    }
+}
+
 // A level 1 table descriptor, as per ARMv8-A Architecture Reference Manual Figure D4-15.
 register_bitfields! {u64,
     STAGE1_TABLE_1_DESCRIPTOR [
@@ -191,15 +198,14 @@ impl core::convert::From<AttributeFields>
     }
 }
 
-
 impl TableRecord {
     pub fn is_valid(&self) -> bool {
         (self.0 & 0b1) == 1
     }
     pub unsafe fn next_table(&self) -> *mut [TableRecord; 512] {
-        (self.0 & (((1 << 36) -1) << 12)) as *mut [TableRecord; 512]
+        (self.0 & (((1 << 36) - 1) << 12)) as *mut [TableRecord; 512]
     }
     pub unsafe fn next_page(&self) -> *mut [PageRecord; 512] {
-        (self.0 & (((1 << 36) -1) << 12)) as *mut [PageRecord; 512]
+        (self.0 & (((1 << 36) - 1) << 12)) as *mut [PageRecord; 512]
     }
-} 
+}

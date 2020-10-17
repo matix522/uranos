@@ -23,6 +23,7 @@ pub enum AccessPermissions {
     UserReadOnly,
     UserReadWrite,
 }
+#[derive(Copy, Clone, Debug)]
 pub enum Granule {
     Page4KiB,
     Block2MiB,
@@ -37,13 +38,25 @@ pub struct AttributeFields {
     pub executable: bool,
 }
 impl AttributeFields {
-    const fn new(mem_attributes: MemAttributes, acc_perms: AccessPermissions, executable: bool) -> Self {
-        AttributeFields{mem_attributes,acc_perms, executable}
+    const fn new(
+        mem_attributes: MemAttributes,
+        acc_perms: AccessPermissions,
+        executable: bool,
+    ) -> Self {
+        AttributeFields {
+            mem_attributes,
+            acc_perms,
+            executable,
+        }
     }
 }
 impl core::default::Default for AttributeFields {
     fn default() -> Self {
-        AttributeFields::new(MemAttributes::CacheableDRAM, AccessPermissions::KernelReadWrite, false)
+        AttributeFields::new(
+            MemAttributes::CacheableDRAM,
+            AccessPermissions::KernelReadWrite,
+            false,
+        )
     }
 }
 
@@ -54,22 +67,54 @@ pub struct RangeDescriptor {
     pub virtual_range: fn() -> Range<usize>,
     pub translation: Translation,
     pub attribute_fields: AttributeFields,
-    pub granule : Granule,
+    pub granule: Granule,
 }
 impl RangeDescriptor {
-    const fn new(name: &'static str, virtual_range: fn() -> Range<usize>, translation: Translation, attribute_fields: AttributeFields, granule : Granule) -> Self {
-        RangeDescriptor {name, virtual_range, translation, attribute_fields, granule}
+    const fn new(
+        name: &'static str,
+        virtual_range: fn() -> Range<usize>,
+        translation: Translation,
+        attribute_fields: AttributeFields,
+        granule: Granule,
+    ) -> Self {
+        RangeDescriptor {
+            name,
+            virtual_range,
+            translation,
+            attribute_fields,
+            granule,
+        }
     }
 }
 
-const KERNEL_RW_ : AttributeFields = AttributeFields::new(MemAttributes::CacheableDRAM, AccessPermissions::KernelReadWrite, false);
-const KERNEL_R_X : AttributeFields = AttributeFields::new(MemAttributes::CacheableDRAM, AccessPermissions::KernelReadOnly, true);
-const USER_RW_: AttributeFields = AttributeFields::new(MemAttributes::CacheableDRAM, AccessPermissions::UserReadWrite, false);
-const USER_R_X : AttributeFields = AttributeFields::new(MemAttributes::CacheableDRAM, AccessPermissions::UserReadOnly, true);
-const DEVICE : AttributeFields = AttributeFields::new(MemAttributes::Device,AccessPermissions::UserReadWrite, false);
+pub const KERNEL_RW_: AttributeFields = AttributeFields::new(
+    MemAttributes::CacheableDRAM,
+    AccessPermissions::KernelReadWrite,
+    false,
+);
+const KERNEL_R_X: AttributeFields = AttributeFields::new(
+    MemAttributes::CacheableDRAM,
+    AccessPermissions::KernelReadOnly,
+    true,
+);
+const USER_RW_: AttributeFields = AttributeFields::new(
+    MemAttributes::CacheableDRAM,
+    AccessPermissions::UserReadWrite,
+    false,
+);
+const USER_R_X: AttributeFields = AttributeFields::new(
+    MemAttributes::CacheableDRAM,
+    AccessPermissions::UserReadOnly,
+    true,
+);
+const DEVICE: AttributeFields = AttributeFields::new(
+    MemAttributes::Device,
+    AccessPermissions::UserReadWrite,
+    false,
+);
 
 use crate::utils::binary_info::BinaryInfo;
-pub const MEMORY_LAYOUT : [RangeDescriptor; 5] = [
+pub const MEMORY_LAYOUT: [RangeDescriptor; 5] = [
     RangeDescriptor::new(
         "Init Stack",
         || {
@@ -78,7 +123,7 @@ pub const MEMORY_LAYOUT : [RangeDescriptor; 5] = [
         },
         Translation::Identity,
         KERNEL_RW_,
-        Granule::Page4KiB
+        Granule::Page4KiB,
     ),
     RangeDescriptor::new(
         "Static Kernel Data and Code",
@@ -88,7 +133,7 @@ pub const MEMORY_LAYOUT : [RangeDescriptor; 5] = [
         },
         Translation::Identity,
         KERNEL_R_X,
-        Granule::Page4KiB
+        Granule::Page4KiB,
     ),
     RangeDescriptor::new(
         "Mutable Kernel Data",
@@ -98,7 +143,7 @@ pub const MEMORY_LAYOUT : [RangeDescriptor; 5] = [
         },
         Translation::Identity,
         KERNEL_RW_,
-        Granule::Page4KiB
+        Granule::Page4KiB,
     ),
     RangeDescriptor::new(
         "Initial Kernel Heap",
@@ -108,7 +153,7 @@ pub const MEMORY_LAYOUT : [RangeDescriptor; 5] = [
         },
         Translation::Identity,
         KERNEL_RW_,
-        Granule::Page4KiB
+        Granule::Page4KiB,
     ),
     RangeDescriptor::new(
         "MMIO devices",
@@ -118,6 +163,6 @@ pub const MEMORY_LAYOUT : [RangeDescriptor; 5] = [
         },
         Translation::Identity,
         DEVICE,
-        Granule::Page4KiB
-    )
+        Granule::Block2MiB,
+    ),
 ];
