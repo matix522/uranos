@@ -1,4 +1,5 @@
 use crate::drivers::rpi3_interrupt_controller::RegisterBlock;
+use crate::interupts::ExceptionContext;
 use crate::println;
 
 pub fn print_register_address(block: &RegisterBlock) {
@@ -39,4 +40,22 @@ pub fn print_register_address(block: &RegisterBlock) {
         "DISABLE_BASIC_ {:x}",
         &block.DISABLE_BASIC_IRQS as *const _ as u64
     );
+}
+
+#[no_mangle]
+pub extern "C" fn debug_exception_context(e: &mut ExceptionContext) {
+    crate::println!(
+        "esr_el1 '{:#018x}'\n\tProgram location:    '{:#018x}'\n\tAddress:             '{:#018x}'\n\tLinkRegister:        '{:#018x}\n\tStackPointer:        '{:#018x}\n\t SPSR: {:#064b}\n",
+        e.esr_el1,
+        e.elr_el1,
+        e.far_el1,
+        e.lr,
+        e.sp,
+        e.spsr_el1
+    );
+    for (i, elem) in e.gpr.iter().enumerate() {
+        crate::println!("GPR[{}]: {:#018x}", i, elem);
+    }
+    crate::println!("LR: {:#018x}", e.lr);
+    crate::println!("ELR_EL1: {:#018x}", e.elr_el1);
 }

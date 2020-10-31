@@ -5,7 +5,6 @@
 #![feature(global_asm)]
 #![feature(alloc_error_handler)]
 #![feature(never_type)]
-#![feature(inner_deref)]
 #![feature(const_generics)]
 #![feature(const_in_array_repeat_expressions)]
 #![feature(crate_visibility_modifier)]
@@ -13,8 +12,8 @@
 #![feature(concat_idents)]
 #![allow(incomplete_features)]
 #![feature(new_uninit)]
+#![feature(const_fn)]
 
-#[macro_use]
 extern crate alloc;
 #[macro_use]
 extern crate num_derive;
@@ -94,7 +93,7 @@ fn kernel_entry() -> ! {
 
     jump_to_kernel_space(echo);
 }
-extern "C" fn jump_to_kernel_space(f: fn() -> !) -> ! {
+fn jump_to_kernel_space(f: fn() -> !) -> ! {
     let address = f as *const () as u64;
     unsafe {
         llvm_asm!("brk 0" : : "{x0}"(address) : : "volatile");
@@ -126,16 +125,10 @@ fn echo() -> ! {
         );
     }
 
-    let task1 = scheduler::task_context::TaskContext::new(scheduler::foo, false)
-        .expect("Error creating task context");
-    let task2 = scheduler::task_context::TaskContext::new(scheduler::bar, true)
-        .expect("Error creating task context");
-    let task3 = scheduler::task_context::TaskContext::new(scheduler::foobar, true)
+    let task1 = scheduler::task_context::TaskContext::new(scheduler::first_task, false)
         .expect("Error creating task context");
 
     scheduler::add_task(task1).expect("Error adding task");
-    scheduler::add_task(task2).expect("Error adding task");
-    scheduler::add_task(task3).expect("Error adding task");
 
     syscall::start_scheduling();
 

@@ -39,10 +39,10 @@ macro_rules! device_driver_impl {
                 fn deref(&self) -> &Self::Target {
                     unsafe {
                         if ($device_name.is_some()) {
-                            $device_name.as_ref().unwrap()
+                            $device_name.as_ref().expect("DEVICE DRIVER DEREF")
                         } else {
                             $device_name = Some(NullLock::new($initializer));
-                            $device_name.as_ref().unwrap()
+                            $device_name.as_ref().expect("DEVICE DRIVER DEREF")
                         }
                     }
                 }
