@@ -28,11 +28,11 @@ pub fn handle_print_syscall(context: &ExceptionContext) {
         crate::println!(
             "[Syscall Fault (Write)] String provided doesen't apper to be correct UTF-8 string.
             \n\t -- Caused by: '{}'",
-            string.err().expect("3")
+            string.err().unwrap()
         );
         return;
     }
-    let string = string.expect("4");
+    let string = string.unwrap();
 
     crate::print!("{}", string);
 }

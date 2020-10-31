@@ -125,7 +125,7 @@ unsafe extern "C" fn lower_aarch64_synchronous(e: &mut ExceptionContext) {
             Syscalls::CreateTask => scheduler::handle_new_task_syscall(e.gpr[0] as usize),
         }
     } else {
-        default_exception_handler(e, "current_elx_synchronous");
+        default_exception_handler(e, "lower_aarch64_synchronous");
     }
 
     interupts::enable_irqs();

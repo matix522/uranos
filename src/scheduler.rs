@@ -127,10 +127,7 @@ impl TaskManager {
     }
 
     pub fn switch_task(&mut self) {
-        // crate::println!("LR: {}", current_context.lr);
-
         if !self.started {
-            // crate::println!("ESSA");
             return;
         }
         let previous_task_pid = self.current_task;
@@ -140,7 +137,6 @@ impl TaskManager {
             if next_task_pid >= self.tasks.len() {
                 next_task_pid = 0;
             }
-            // crate::println!("WE ARE AT {} ", next_task_pid);
             if let TaskStates::Running = self.tasks[next_task_pid].state {
                 break;
             }

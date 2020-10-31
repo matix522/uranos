@@ -39,7 +39,7 @@ pub mod console {
                 }
             }
             match core::str::from_utf8(&buf[..width]) {
-                Ok(s) => Ok(s.chars().next().expect("1")),
+                Ok(s) => Ok(s.chars().next().unwrap()),
                 Err(_) => Err("NotUtf8"),
             }
         }

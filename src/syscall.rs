@@ -125,7 +125,6 @@ pub fn finish_task() {
 
 pub fn create_task(function: extern "C" fn()) {
     unsafe {
-        // crate::println!("FUNCTION ADDRESS: {:#018x}", function as *const () as usize);
         syscall1(
             function as *const () as usize,
             Syscalls::CreateTask as usize,
