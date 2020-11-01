@@ -5,6 +5,10 @@ use crate::device_driver;
 use alloc::vec::Vec;
 use core::time::Duration;
 use task_context::*;
+use crate::syscall::async_syscall::AsyncSyscall;
+use crate::syscall::Syscalls;
+use crate::utils::circullar_buffer::*;
+use crate::syscall::async_syscall::*;
 
 pub const MAX_TASK_COUNT: usize = 2048;
 
@@ -33,6 +37,11 @@ pub fn switch_task() {
 pub fn start() {
     let mut scheduler = TASK_MANAGER.lock();
     scheduler.start();
+}
+
+pub fn get_current_task_context() ->  *mut TaskContext {
+    let mut scheduler = TASK_MANAGER.lock();
+    scheduler.get_current_task() as *mut TaskContext
 }
 
 pub fn get_time_quant() -> Duration {
@@ -65,6 +74,10 @@ impl TaskManager {
             started: false,
             time_quant,
         }
+    }
+
+    pub fn get_current_task(&mut self) -> &mut TaskContext {
+        &mut self.tasks[self.current_task]
     }
 
     pub fn add_task(&mut self, mut task: TaskContext) -> Result<(), TaskError> {
@@ -153,6 +166,22 @@ impl TaskManager {
             .get_two_tasks(previous_task_pid, next_task_pid)
             .expect("Error during task switch: {:?}");
 
+        current_task.exception_context = current_context as *mut ExceptionContext;
+
+        // let mut write_buffer = current_task.write_buffer.as_mut().unwrap();
+
+        // while !write_buffer.isEmpty() {
+        //     let syscall_ret_opt = crate::syscall::async_syscall::read_async_syscall(write_buffer);
+        //     match syscall_ret_opt {
+        //         Some(syscall_ret) => {
+        //             // match syscall_ret.syscall_type {
+        //                 // AsyncSyscalls::Print => handle_async_print(syscall_ret.data.memory as *const _ as *const u8, syscall_ret.data.get_size()),
+        //             // }
+        //         },
+        //         None => (),
+        //     }
+        // }
+
         // #Safety: lifetime of this reference is the same as lifetime of whole TaskManager; exception_context is always properly initialized if task is in tasks vector
         unsafe {
             cpu_switch_to(
@@ -196,26 +225,14 @@ pub fn drop_el0() {
 pub extern "C" fn first_task() {
     let mut i = 0;
     loop {
-        if i > 1000 {
-            crate::syscall::finish_task();
-        }
-        crate::syscall::create_task(worker);
-        crate::syscall::print::print("Creating worker\n");
-        i += 1;
-    }
-}
+        // crate::println!("BEHOLD! FIRST TASK");
+        
+        // for i in 1..3 {
+            crate::syscall::async_syscall::async_print("Hello from Async\n");
+        // }
 
-#[no_mangle]
-#[inline(never)]
-pub extern "C" fn worker() {
-    let mut i = 0;
-    loop {
-        if i > 10 {
-            crate::syscall::create_task(worker);
-            crate::syscall::finish_task();
-        }
-        crate::println!("WURKER {}; PID: {} ", i, get_current_task_pid());
-        i += 1;
+        crate::syscall::print::print("BEHOLD! FIRST TASK FROM USERSPACE!!!!\n");
+        
         crate::syscall::yield_cpu();
     }
 }

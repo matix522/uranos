@@ -1,4 +1,12 @@
 use super::task_stack;
+use crate::interupts::ExceptionContext;
+use crate::utils::circullar_buffer::*;
+use crate::syscall::async_syscall::*;
+use crate::syscall::Syscalls;
+
+use alloc::boxed::Box;
+
+use num_traits::FromPrimitive;
 
 /// Stack size of task in bytes
 pub const TASK_STACK_SIZE: usize = 0x8000;
@@ -64,6 +72,8 @@ pub struct TaskContext {
     pub(super) gpr: Gpr,
     pub(super) state: TaskStates,
     stack: Option<task_stack::TaskStack>,
+    pub write_buffer: Option<Box<CircullarBuffer>>,
+    pub read_buffer: Option<Box<CircullarBuffer>>,
 }
 
 // ONLY TEMPORARY SOLUTION
@@ -76,6 +86,8 @@ impl TaskContext {
             gpr: Default::default(),
             state: TaskStates::NotStarted,
             stack: None,
+            write_buffer: None,
+            read_buffer: None,
         }
     }
 
@@ -101,4 +113,6 @@ impl TaskContext {
 
         Ok(task)
     }
+
+  
 }

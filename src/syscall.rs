@@ -2,6 +2,13 @@ pub use num_traits::FromPrimitive;
 
 pub mod print;
 
+pub mod async_syscall;
+
+pub mod handle_get_write_buffer;
+
+
+use crate::utils::circullar_buffer::*;
+
 #[repr(usize)]
 #[derive(FromPrimitive, ToPrimitive, Debug)]
 pub enum Syscalls {
@@ -10,6 +17,7 @@ pub enum Syscalls {
     Yield,
     FinishTask,
     CreateTask,
+    GetAsyncWriteBuffer
 }
 
 #[inline(never)]
@@ -129,5 +137,10 @@ pub fn create_task(function: extern "C" fn()) {
             function as *const () as usize,
             Syscalls::CreateTask as usize,
         );
+    }
+}
+pub fn get_async_write_buffer() -> &'static mut CircullarBuffer{
+    unsafe{
+        &mut *(syscall0(Syscalls::GetAsyncWriteBuffer as usize) as *mut CircullarBuffer) 
     }
 }

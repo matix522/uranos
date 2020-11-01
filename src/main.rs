@@ -13,6 +13,7 @@
 #![allow(incomplete_features)]
 #![feature(new_uninit)]
 #![feature(const_fn)]
+#![feature(slice_ptr_len)]
 
 extern crate alloc;
 #[macro_use]
