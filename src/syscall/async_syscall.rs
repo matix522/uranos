@@ -47,7 +47,6 @@ pub fn read_async_syscall(buffer: &mut CircullarBuffer) -> Option<AsyncSyscallRe
 
 pub fn async_print(msg: &str){
     let bytes = msg.as_bytes();
-    // let data = [44;2];
 
     let mut writeBuffer = crate::syscall::get_async_write_buffer();
 

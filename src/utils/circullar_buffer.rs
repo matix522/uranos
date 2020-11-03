@@ -7,7 +7,7 @@ use crate::print;
 use alloc::boxed::Box;
 
 
-const BUFFER_SIZE: usize = 4096;
+const BUFFER_SIZE: usize = 40960;
 const ONLY_MSB_OF_USIZE: usize = 1 << (core::mem::size_of::<usize>() * 8 - 1);
 
 #[derive(Debug)]

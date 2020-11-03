@@ -21,7 +21,7 @@ extern "C" {
 }
 
 device_driver!(
-    unsynchronized TASK_MANAGER: TaskManager = TaskManager::new(Duration::from_millis(1000))
+    unsynchronized TASK_MANAGER: TaskManager = TaskManager::new(Duration::from_millis(100))
 );
 
 pub fn add_task(task: TaskContext) -> Result<(), TaskError> {
@@ -166,21 +166,18 @@ impl TaskManager {
             .get_two_tasks(previous_task_pid, next_task_pid)
             .expect("Error during task switch: {:?}");
 
-        current_task.exception_context = current_context as *mut ExceptionContext;
 
-        // let mut write_buffer = current_task.write_buffer.as_mut().unwrap();
-
-        // while !write_buffer.isEmpty() {
-        //     let syscall_ret_opt = crate::syscall::async_syscall::read_async_syscall(write_buffer);
-        //     match syscall_ret_opt {
-        //         Some(syscall_ret) => {
-        //             // match syscall_ret.syscall_type {
-        //                 // AsyncSyscalls::Print => handle_async_print(syscall_ret.data.memory as *const _ as *const u8, syscall_ret.data.get_size()),
-        //             // }
-        //         },
-        //         None => (),
-        //     }
-        // }
+        while !current_task.write_buffer.isEmpty() {
+            let syscall_ret_opt = crate::syscall::async_syscall::read_async_syscall(&mut current_task.write_buffer);
+            match syscall_ret_opt {
+                Some(syscall_ret) => {
+                    match syscall_ret.syscall_type {
+                        AsyncSyscalls::Print => handle_async_print(syscall_ret.data.memory as *const _ as *const u8, syscall_ret.data.get_size()),
+                    }
+                },
+                None => (),
+            }
+        }
 
         // #Safety: lifetime of this reference is the same as lifetime of whole TaskManager; exception_context is always properly initialized if task is in tasks vector
         unsafe {
@@ -228,10 +225,11 @@ pub extern "C" fn first_task() {
         // crate::println!("BEHOLD! FIRST TASK");
         
         // for i in 1..3 {
-            crate::syscall::async_syscall::async_print("Hello from Async\n");
-        // }
-
-        crate::syscall::print::print("BEHOLD! FIRST TASK FROM USERSPACE!!!!\n");
+            crate::syscall::async_syscall::async_print("Hello from Async1\n");
+            // }
+            
+            crate::syscall::print::print("BEHOLD! FIRST TASK FROM USERSPACE!!!!\n");
+            crate::syscall::async_syscall::async_print("Hello from Async2\n");
         
         crate::syscall::yield_cpu();
     }
@@ -241,7 +239,7 @@ pub extern "C" fn first_task() {
 #[inline(never)]
 pub extern "C" fn hello() {
     loop {
-        crate::println!("HELLO!");
+        crate::syscall::print::print("SECOND task USERSPACE!!!!\n");
         crate::syscall::yield_cpu();
     }
 }
