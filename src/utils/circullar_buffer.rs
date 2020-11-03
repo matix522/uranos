@@ -4,6 +4,8 @@ use core::sync::atomic::{AtomicPtr, Ordering};
 use crate::println;
 use crate::print;
 
+use alloc::boxed::Box;
+
 
 const BUFFER_SIZE: usize = 4096;
 const ONLY_MSB_OF_USIZE: usize = 1 << (core::mem::size_of::<usize>() * 8 - 1);
@@ -88,8 +90,8 @@ impl<'a> Drop for ReturnedValue<'a> {
 
 #[repr(C)]
 pub struct CircullarBuffer {
-    data: [u8; BUFFER_SIZE],
-    additional_data: [u8; BUFFER_SIZE],
+    data: Box<[u8; 2*BUFFER_SIZE]>,
+    // additional_data: [u8; BUFFER_SIZE],
     read_pointer: AtomicPtr<u8>,
     write_pointer: AtomicPtr<u8>,
     release_pointer: AtomicPtr<u8>,
@@ -99,15 +101,15 @@ pub struct CircullarBuffer {
 impl CircullarBuffer {
     pub fn new() -> Self {
         let mut buff = CircullarBuffer {
-            data: [0; BUFFER_SIZE],
-            additional_data: [0; BUFFER_SIZE],
+            data: Box::new([0; 2*BUFFER_SIZE]),
+            // additional_data: [0; BUFFER_SIZE],
             reservation_pointer: AtomicPtr::new(&mut 0),
             write_pointer: AtomicPtr::new(&mut 0),
             read_pointer: AtomicPtr::new(&mut 0),
             release_pointer: AtomicPtr::new(&mut 0),
         };
 
-        let address = &mut buff as *mut _ as *mut u8;
+        let address = buff.data.as_mut_ptr() as *mut _ as *mut u8;
 
         unsafe {
             let start_address = align_ptr_to_usize(address);
@@ -117,20 +119,21 @@ impl CircullarBuffer {
             buff.read_pointer.store(start_address, Ordering::Relaxed);
             buff.release_pointer.store(start_address, Ordering::Relaxed);
         }
-        println!("Buffer_address: {:#018x}", address as u64);
+        // //println!("Buffer_address: {:#018x}", address as u64);
         buff.print_status();
         buff
     }
 
+
     pub fn print_status(&self) {
-        println!(
-            "\tres: {:#018x},\twrite: {:#018x},\tread: {:#018x},\trel: {:#018x}",
-            self.reservation_pointer.load(Ordering::Acquire) as usize,
-            self.write_pointer.load(Ordering::Acquire) as usize,
-            self.read_pointer.load(Ordering::Acquire) as usize,
-            self.release_pointer.load(Ordering::Acquire) as usize
-        );
-        println!("addr: {:#018x} / {:#018x} half: {:#018x}", self as *const _ as usize, &self.data as *const _ as usize, &self.additional_data as *const _ as usize);
+        // println!(
+        //     "\tres: {:#018x},\twrite: {:#018x},\tread: {:#018x},\trel: {:#018x}",
+        //     self.reservation_pointer.load(Ordering::Acquire) as usize,
+        //     self.write_pointer.load(Ordering::Acquire) as usize,
+        //     self.read_pointer.load(Ordering::Acquire) as usize,
+        //     self.release_pointer.load(Ordering::Acquire) as usize
+        // );
+        // println!("addr: {:#018x} / {:#018x} half: {:#018x}, end: {:#018x}", self as *const _ as usize, self.data.as_ptr() as usize, self.data.as_ptr() as usize + BUFFER_SIZE, self.data.as_ptr() as usize + 2*BUFFER_SIZE);
     }
 
 
@@ -139,7 +142,7 @@ impl CircullarBuffer {
     }
 
     pub fn reserve(&self, size: usize) -> Result<ReservedMemory, BufferAddValueError> {
-        print!("START RESERVATION");
+        //print!("START RESERVATION");
         self.print_status();
 
 
@@ -149,7 +152,7 @@ impl CircullarBuffer {
         unsafe {
             let mut pointer = align_ptr_to_usize(self.reservation_pointer.load(Ordering::Acquire));
 
-            let end_of_buffer = self as *const _ as usize + BUFFER_SIZE;
+            let end_of_buffer = self.data.as_ptr() as usize + BUFFER_SIZE;
             let release_pointer = self.release_pointer.load(Ordering::Acquire);
             if (release_pointer as usize) + BUFFER_SIZE
                 - (pointer as usize)
@@ -177,15 +180,15 @@ impl CircullarBuffer {
             } else {
                 self.reservation_pointer.store(pointer, Ordering::Release);
             }
-            print!("END RESERVATION      ");
+            //print!("END RESERVATION      ");
             self.print_status();
             Ok(res)
         }
     }
 
     fn declare(&self) {
-        // print!("START DECLARATION");
-        // self.print_status();
+        //print!("START DECLARATION");
+        self.print_status();
         if self.reservation_pointer.load(Ordering::Acquire) as u64
             == self.write_pointer.load(Ordering::Acquire) as u64
         {
@@ -193,7 +196,7 @@ impl CircullarBuffer {
         }
         let mut pointer = self.write_pointer.load(Ordering::Acquire);
         let mut changed = false;
-        let end_of_buffer = self as *const _ as usize + BUFFER_SIZE;
+        let end_of_buffer = self.data.as_ptr() as usize + BUFFER_SIZE;
 
         unsafe {
             loop {
@@ -211,8 +214,8 @@ impl CircullarBuffer {
                         }
                     }
 
-                    // print!("END DECLARATION");
-                    // self.print_status();
+                    //print!("END DECLARATION");
+                    self.print_status();
 
                     return;
                 }
@@ -228,13 +231,13 @@ impl CircullarBuffer {
 
     pub fn get_value(&self) -> Result<ReturnedValue, BufferGetValueError> {
         unsafe {
-            // print!("START GETVAL");
-            // self.print_status();
+            //print!("START GETVAL");
+            self.print_status();
 
             let mut read_pointer = self.read_pointer.load(Ordering::Acquire);
             let write_pointer = self.write_pointer.load(Ordering::Acquire);
 
-            let end_of_buffer = self as *const _ as usize + BUFFER_SIZE;
+            let end_of_buffer = self.data.as_ptr() as usize + BUFFER_SIZE;
 
             if read_pointer as usize == write_pointer as usize {
                 return Err(BufferGetValueError::NoValueInBuffer);
@@ -259,15 +262,15 @@ impl CircullarBuffer {
                 self.read_pointer.store(read_pointer, Ordering::Release);
             }
 
-            // print!("END GETVAL");
-            // self.print_status();
+            //print!("END GETVAL");
+            self.print_status();
             Ok(res)
         }
     }
 
     pub fn release(&self) {
-        // print!("START RELEASE");
-        // self.print_status();
+        //print!("START RELEASE");
+        self.print_status();
 
         if self.release_pointer.load(Ordering::Acquire) as u64
             == self.read_pointer.load(Ordering::Acquire) as u64
@@ -275,7 +278,7 @@ impl CircullarBuffer {
             return;
         }
         let mut pointer = self.release_pointer.load(Ordering::Acquire);
-        let end_of_buffer = self as *const _ as usize + BUFFER_SIZE;
+        let end_of_buffer = self.data.as_ptr() as usize + BUFFER_SIZE;
         let mut changed = false;
         unsafe {
             loop {
@@ -293,8 +296,8 @@ impl CircullarBuffer {
                         }
                     }
 
-                    // print!("END RELEASE");
-                    // self.print_status();
+                    //print!("END RELEASE");
+                    self.print_status();
 
                     return;
                 }

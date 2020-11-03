@@ -72,8 +72,8 @@ pub struct TaskContext {
     pub(super) gpr: Gpr,
     pub(super) state: TaskStates,
     stack: Option<task_stack::TaskStack>,
-    pub write_buffer: Option<Box<CircullarBuffer>>,
-    pub read_buffer: Option<Box<CircullarBuffer>>,
+    pub write_buffer: CircullarBuffer,
+    pub read_buffer: CircullarBuffer,
 }
 
 // ONLY TEMPORARY SOLUTION
@@ -86,8 +86,8 @@ impl TaskContext {
             gpr: Default::default(),
             state: TaskStates::NotStarted,
             stack: None,
-            write_buffer: None,
-            read_buffer: None,
+            write_buffer: CircullarBuffer::new(),
+            read_buffer: CircullarBuffer::new(),
         }
     }
 
@@ -110,6 +110,19 @@ impl TaskContext {
             task.gpr.x20 = user_address(start_function as *const () as usize);
         }
         task.stack = Some(stack);
+        // # Safety: exception_context is stack variable and exception_context_ptr is valid empty space for this data.
+        unsafe {
+            core::ptr::copy_nonoverlapping(
+                &exception_context as *const _,
+                exception_context_ptr,
+                1,
+            );
+        }
+
+
+        // crate::println!("Jkdja;klsjdf;lksdjfl;kdjfkldsjl;kfjdkl;fj");
+        crate::println!("{:#018x}",&task.write_buffer as *const _ as u64);
+        // crate::println!("=====Jkdja;klsjdf;lksdjfl;kdjfkldsjl;kfjdkl;fj");
 
         Ok(task)
     }
