@@ -1,11 +1,7 @@
 use core::mem::size_of;
 use core::sync::atomic::{AtomicPtr, Ordering};
 
-use crate::println;
-use crate::print;
-
 use alloc::boxed::Box;
-
 
 const BUFFER_SIZE: usize = 40960;
 const ONLY_MSB_OF_USIZE: usize = 1 << (core::mem::size_of::<usize>() * 8 - 1);
@@ -64,11 +60,11 @@ pub struct ReturnedValue<'a> {
     buffer: &'a CircullarBuffer,
 }
 
-impl<'a> ReturnedValue<'a>{
-    pub fn get_ref(&self) ->  &'a [u8]{
+impl<'a> ReturnedValue<'a> {
+    pub fn get_ref(&self) -> &'a [u8] {
         self.memory
     }
-    pub fn get_size(&self) -> usize{
+    pub fn get_size(&self) -> usize {
         *self.control & !ONLY_MSB_OF_USIZE
     }
 }
@@ -90,7 +86,7 @@ impl<'a> Drop for ReturnedValue<'a> {
 
 #[repr(C)]
 pub struct CircullarBuffer {
-    data: Box<[u8; 2*BUFFER_SIZE]>,
+    data: Box<[u8; 2 * BUFFER_SIZE]>,
     // additional_data: [u8; BUFFER_SIZE],
     read_pointer: AtomicPtr<u8>,
     write_pointer: AtomicPtr<u8>,
@@ -101,7 +97,7 @@ pub struct CircullarBuffer {
 impl CircullarBuffer {
     pub fn new() -> Self {
         let mut buff = CircullarBuffer {
-            data: Box::new([0; 2*BUFFER_SIZE]),
+            data: Box::new([0; 2 * BUFFER_SIZE]),
             // additional_data: [0; BUFFER_SIZE],
             reservation_pointer: AtomicPtr::new(&mut 0),
             write_pointer: AtomicPtr::new(&mut 0),
@@ -124,7 +120,6 @@ impl CircullarBuffer {
         buff
     }
 
-
     pub fn print_status(&self) {
         // println!(
         //     "\tres: {:#018x},\twrite: {:#018x},\tread: {:#018x},\trel: {:#018x}",
@@ -136,15 +131,14 @@ impl CircullarBuffer {
         // println!("addr: {:#018x} / {:#018x} half: {:#018x}, end: {:#018x}", self as *const _ as usize, self.data.as_ptr() as usize, self.data.as_ptr() as usize + BUFFER_SIZE, self.data.as_ptr() as usize + 2*BUFFER_SIZE);
     }
 
-
-    pub fn isEmpty(&self) -> bool{
-        self.write_pointer.load(Ordering::Acquire) as u64 == self.read_pointer.load(Ordering::Acquire) as u64 
+    pub fn is_empty(&self) -> bool {
+        self.write_pointer.load(Ordering::Acquire) as u64
+            == self.read_pointer.load(Ordering::Acquire) as u64
     }
 
     pub fn reserve(&self, size: usize) -> Result<ReservedMemory, BufferAddValueError> {
         //print!("START RESERVATION");
         self.print_status();
-
 
         if size & ONLY_MSB_OF_USIZE != 0 {
             return Err(BufferAddValueError::SizeTooBig);
@@ -205,7 +199,6 @@ impl CircullarBuffer {
 
                 if *size_ref & ONLY_MSB_OF_USIZE == 0 {
                     if changed {
-                        
                         if pointer as usize >= end_of_buffer {
                             self.write_pointer
                                 .store(pointer.sub(BUFFER_SIZE), Ordering::Release);

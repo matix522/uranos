@@ -1,12 +1,5 @@
 use super::task_stack;
-use crate::interupts::ExceptionContext;
 use crate::utils::circullar_buffer::*;
-use crate::syscall::async_syscall::*;
-use crate::syscall::Syscalls;
-
-use alloc::boxed::Box;
-
-use num_traits::FromPrimitive;
 
 /// Stack size of task in bytes
 pub const TASK_STACK_SIZE: usize = 0x8000;
@@ -110,11 +103,9 @@ impl TaskContext {
             task.gpr.x20 = user_address(start_function as *const () as usize);
         }
         task.stack = Some(stack);
-       
-        crate::println!("{:#018x}",&task.write_buffer as *const _ as u64);
+
+        crate::println!("{:#018x}", &task.write_buffer as *const _ as u64);
 
         Ok(task)
     }
-
-  
 }

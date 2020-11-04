@@ -1,5 +1,5 @@
-use super::*;
 use crate::utils::circullar_buffer::*;
+use num_traits::{FromPrimitive};
 
 #[repr(usize)]
 #[derive(FromPrimitive, ToPrimitive, Debug)]
@@ -28,7 +28,7 @@ pub fn send_async_syscall(buffer: &mut CircullarBuffer, syscall: AsyncSyscall){
 }
 
 pub fn read_async_syscall(buffer: &mut CircullarBuffer) -> Option<AsyncSyscallReturnedValue>{
-    if buffer.isEmpty(){
+    if buffer.is_empty(){
         return None;
     }
     let buffer_entry: ReturnedValue = buffer.get_value().expect("Error during reading async syscall");
@@ -36,34 +36,9 @@ pub fn read_async_syscall(buffer: &mut CircullarBuffer) -> Option<AsyncSyscallRe
         let syscall_type_usize = *(buffer_entry.get_ref() as *const _ as *const usize);
         let syscall_type = AsyncSyscalls::from_usize(syscall_type_usize).unwrap();
         Some(AsyncSyscallReturnedValue{
-            syscall_type: syscall_type,
+            syscall_type,
             data: buffer_entry,
         })
     }
     
-}
-
-
-
-pub fn async_print(msg: &str){
-    let bytes = msg.as_bytes();
-
-    let mut writeBuffer = crate::syscall::get_async_write_buffer();
-
-    let a : AsyncSyscall = AsyncSyscall{
-        data_size: bytes.len(),
-        syscall_type: crate::syscall::async_syscall::AsyncSyscalls::Print,
-        data: bytes,
-    };
-
-    crate::syscall::async_syscall::send_async_syscall(writeBuffer, a);
-}
-
-pub fn handle_async_print(ptr: *const u8, len: usize){
-    let string = print::construct_utf8_str(ptr, len);
-
-    match string {
-        Some(message) => crate::print!("{}", message),
-        None => (),
-    };
 }

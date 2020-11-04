@@ -2,13 +2,11 @@ pub mod task_context;
 pub mod task_stack;
 
 use crate::device_driver;
+use crate::syscall::asynchronous::async_print::*;
+use crate::syscall::asynchronous::async_syscall::*;
 use alloc::vec::Vec;
 use core::time::Duration;
 use task_context::*;
-use crate::syscall::async_syscall::AsyncSyscall;
-use crate::syscall::Syscalls;
-use crate::utils::circullar_buffer::*;
-use crate::syscall::async_syscall::*;
 
 pub const MAX_TASK_COUNT: usize = 2048;
 
@@ -39,7 +37,7 @@ pub fn start() {
     scheduler.start();
 }
 
-pub fn get_current_task_context() ->  *mut TaskContext {
+pub fn get_current_task_context() -> *mut TaskContext {
     let mut scheduler = TASK_MANAGER.lock();
     scheduler.get_current_task() as *mut TaskContext
 }
@@ -166,17 +164,16 @@ impl TaskManager {
             .get_two_tasks(previous_task_pid, next_task_pid)
             .expect("Error during task switch: {:?}");
 
-
-        while !current_task.write_buffer.isEmpty() {
-            let syscall_ret_opt = crate::syscall::async_syscall::read_async_syscall(&mut current_task.write_buffer);
-            match syscall_ret_opt {
-                Some(syscall_ret) => {
-                    match syscall_ret.syscall_type {
-                        AsyncSyscalls::Print => handle_async_print(syscall_ret.data.memory as *const _ as *const u8, syscall_ret.data.get_size()),
-                    }
-                },
-                None => (),
-            }
+        while !current_task.write_buffer.is_empty() {
+            let syscall_ret_opt = crate::syscall::asynchronous::async_syscall::read_async_syscall(
+                &mut current_task.write_buffer,
+            );
+            if let Some(syscall_ret) = syscall_ret_opt { match syscall_ret.syscall_type {
+                AsyncSyscalls::Print => handle_async_print(
+                    syscall_ret.data.memory as *const _ as *const u8,
+                    syscall_ret.data.get_size(),
+                ),
+            } }
         }
 
         // #Safety: lifetime of this reference is the same as lifetime of whole TaskManager; exception_context is always properly initialized if task is in tasks vector
@@ -220,17 +217,13 @@ pub fn drop_el0() {
 #[no_mangle]
 #[inline(never)]
 pub extern "C" fn first_task() {
-    let mut i = 0;
+    let buffer = crate::syscall::get_async_write_buffer();
     loop {
-        // crate::println!("BEHOLD! FIRST TASK");
-        
-        // for i in 1..3 {
-            crate::syscall::async_syscall::async_print("Hello from Async1\n");
-            // }
-            
-            crate::syscall::print::print("BEHOLD! FIRST TASK FROM USERSPACE!!!!\n");
-            crate::syscall::async_syscall::async_print("Hello from Async2\n");
-        
+        crate::syscall::asynchronous::async_print::async_print("Hello from Async1\n", buffer);
+
+        crate::syscall::print::print("BEHOLD! FIRST TASK FROM USERSPACE!!!!\n");
+        crate::syscall::asynchronous::async_print::async_print("Hello from Async2\n", buffer);
+
         crate::syscall::yield_cpu();
     }
 }
