@@ -191,52 +191,6 @@ pub fn drop_el0() {
         llvm_asm!("brk 0");
     };
 }
-#[no_mangle]
-#[inline(never)]
-pub extern "C" fn first_task() {
-    let mut i = 0;
-    loop {
-        if i > 1000 {
-            crate::syscall::finish_task();
-        }
-        crate::syscall::create_task(worker);
-        crate::syscall::print::print("Creating worker\n");
-        i += 1;
-    }
-}
-
-#[no_mangle]
-#[inline(never)]
-pub extern "C" fn worker() {
-    let mut i = 0;
-    loop {
-        if i > 10 {
-            crate::syscall::create_task(worker);
-            crate::syscall::finish_task();
-        }
-        crate::println!("WURKER {}; PID: {} ", i, get_current_task_pid());
-        i += 1;
-        crate::syscall::yield_cpu();
-    }
-}
-
-#[no_mangle]
-#[inline(never)]
-pub extern "C" fn hello() {
-    loop {
-        crate::println!("HELLO!");
-        crate::syscall::yield_cpu();
-    }
-}
-
-#[no_mangle]
-#[inline(never)]
-pub extern "C" fn hello2() {
-    loop {
-        crate::println!("HELLO!2");
-        crate::syscall::yield_cpu();
-    }
-}
 
 pub fn handle_new_task_syscall(function_address: usize) {
     // crate::println!("NEW TASK FUNCTION ADDRESS {:#018x}", function_address);

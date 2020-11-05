@@ -14,6 +14,7 @@
 #![feature(new_uninit)]
 #![feature(const_fn)]
 
+#[macro_use]
 extern crate alloc;
 #[macro_use]
 extern crate num_derive;
@@ -30,7 +31,9 @@ pub mod memory;
 pub mod scheduler;
 pub mod syscall;
 
+pub mod config;
 pub mod sync;
+pub mod userspace;
 
 pub mod utils;
 
@@ -72,9 +75,6 @@ fn kernel_entry() -> ! {
     println!("Enabling ARM Timer");
 
     let _controller = Rpi3InterruptController::new(INTERRUPT_CONTROLLER_BASE);
-
-    #[cfg(feature = "debug")]
-    printRegisterAddress(&_controller.deref());
 
     interupts::enable_irqs();
 
@@ -130,12 +130,12 @@ fn echo() -> ! {
         );
     }
 
-    let task1 = scheduler::task_context::TaskContext::new(scheduler::first_task, false)
-        .expect("Error creating task context");
-
-    scheduler::add_task(task1).expect("Error adding task");
-
-    // syscall::start_scheduling();
+    let task1 = scheduler::task_context::TaskContext::new(userspace::task_one, false)
+        .expect("Error creating task 1 context");
+    let task2 = scheduler::task_context::TaskContext::new(userspace::task_two, false)
+        .expect("Error creating task 2 context");
+    scheduler::add_task(task1).expect("Error adding task 1");
+    scheduler::add_task(task2).expect("Error adding task 2");
 
     println!("Echoing input.");
 
@@ -146,6 +146,9 @@ fn echo() -> ! {
             utils::binary_info::BinaryInfo::get().exception_vector | KERNEL_OFFSET,
         );
     }
+
+    syscall::start_scheduling();
+
     let ips = ID_AA64MMFR0_EL1.read(ID_AA64MMFR0_EL1::PARange);
     let mut uart = drivers::UART.lock();
     uart.move_uart();

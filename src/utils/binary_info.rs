@@ -28,7 +28,7 @@ impl BinaryInfo {
                 read_write: &__read_write_start as *const _ as usize
                     ..&__read_write_end as *const _ as usize,
                 exception_vector: &__exception_vector_start as *const _ as usize,
-                heap: crate::memory::allocator::heap_base()..crate::memory::allocator::heap_end(),
+                heap: crate::memory::allocator::kernel_heap_range(),
                 mmio: crate::memory::physical::mmio::BASE..crate::memory::physical::mmio::END,
             }
         }

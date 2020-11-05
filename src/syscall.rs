@@ -10,6 +10,7 @@ pub enum Syscalls {
     Yield,
     FinishTask,
     CreateTask,
+    CheckEL,
 }
 
 #[inline(never)]

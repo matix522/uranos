@@ -132,7 +132,7 @@ pub const MEMORY_LAYOUT: [RangeDescriptor; 5] = [
             binary_info.read_only
         },
         Translation::Identity,
-        KERNEL_R_X,
+        USER_R_X,
         Granule::Page4KiB,
     ),
     RangeDescriptor::new(
@@ -142,7 +142,7 @@ pub const MEMORY_LAYOUT: [RangeDescriptor; 5] = [
             binary_info.read_write
         },
         Translation::Identity,
-        KERNEL_RW_,
+        USER_RW_,
         Granule::Page4KiB,
     ),
     RangeDescriptor::new(
@@ -152,7 +152,7 @@ pub const MEMORY_LAYOUT: [RangeDescriptor; 5] = [
             binary_info.heap
         },
         Translation::Identity,
-        KERNEL_RW_,
+        USER_RW_,
         Granule::Page4KiB,
     ),
     RangeDescriptor::new(

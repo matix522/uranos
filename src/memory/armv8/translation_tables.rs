@@ -20,7 +20,7 @@ register_bitfields! {u64,
         NEXT_LEVEL_TABLE_ADDR_4KiB OFFSET(12) NUMBITS(36) [], // [47:12]
 
         TYPE  OFFSET(1) NUMBITS(1) [
-            Block = 0,
+            OldBlock = 0,
             Table = 1
         ],
 
@@ -72,7 +72,7 @@ register_bitfields! {u64,
         AttrIndx OFFSET(2) NUMBITS(3) [],
 
         TYPE     OFFSET(1) NUMBITS(1) [
-            Block = 0,
+            OldBlock = 0,
             Page = 1
         ],
 
@@ -103,7 +103,7 @@ impl PageRecord {
             + STAGE1_PAGE_DESCRIPTOR::AF::True
             + attribute_fields.into()
             + if is_block {
-                STAGE1_PAGE_DESCRIPTOR::TYPE::Block
+                STAGE1_PAGE_DESCRIPTOR::TYPE::OldBlock
             } else {
                 STAGE1_PAGE_DESCRIPTOR::TYPE::Page
             }

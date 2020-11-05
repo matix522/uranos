@@ -5,7 +5,22 @@ use crate::interupts::ExceptionContext;
 use crate::scheduler;
 use crate::syscall;
 use crate::syscall::Syscalls;
+
+use crate::config;
+
 pub use num_traits::FromPrimitive;
+
+const BRK_FLAG: u64 = 0b111100;
+const SVC_FLAG: u64 = 0b010101;
+
+fn handle_chcek_el(e: &mut ExceptionContext) {
+    e.gpr[0] = match e.spsr_el1 & 0b1111 {
+        0b0000 => 0,
+        0b0101 => 1,
+        _ => 3,
+    };
+    crate::println!("CALLING LEVEL {}", e.gpr[0]);
+}
 
 fn default_exception_handler(context: &mut ExceptionContext, source: &str) {
     crate::println!(
@@ -55,9 +70,13 @@ unsafe extern "C" fn current_elx_synchronous(e: &mut ExceptionContext) {
     interupts::disable_irqs();
 
     let exception_type = (e.esr_el1 & (0b111111 << 26)) >> 26;
-    if exception_type == 0b111100 {
+    if exception_type == BRK_FLAG && !config::use_user_space() {
+        config::set_use_user_space(true);
         e.elr_el1 = e.gpr[0] | crate::KERNEL_OFFSET as u64;
-    } else if exception_type == 0b010101 {
+    } else if exception_type == BRK_FLAG {
+        e.spsr_el1 = 0b0;
+        e.elr_el1 = e.gpr[0] & (!crate::KERNEL_OFFSET) as u64;
+    } else if exception_type == SVC_FLAG {
         let syscall_type = Syscalls::from_u64(e.gpr[8])
             .unwrap_or_else(|| panic!("Unknown syscall type {}", e.gpr[8]));
         match syscall_type {
@@ -66,6 +85,7 @@ unsafe extern "C" fn current_elx_synchronous(e: &mut ExceptionContext) {
             Syscalls::Print => syscall::print::handle_print_syscall(e),
             Syscalls::FinishTask => scheduler::finish_current_task(),
             Syscalls::CreateTask => scheduler::handle_new_task_syscall(e.gpr[0] as usize),
+            Syscalls::CheckEL => handle_chcek_el(e),
         }
     } else {
         default_exception_handler(e, "current_elx_synchronous");
@@ -112,9 +132,9 @@ unsafe extern "C" fn lower_aarch64_synchronous(e: &mut ExceptionContext) {
     interupts::disable_irqs();
 
     let exception_type = (e.esr_el1 & (0b111111 << 26)) >> 26;
-    if exception_type == 0b111100 {
+    if exception_type == BRK_FLAG {
         e.elr_el1 = e.gpr[0] | crate::KERNEL_OFFSET as u64;
-    } else if exception_type == 0b010101 {
+    } else if exception_type == SVC_FLAG {
         let syscall_type = Syscalls::from_u64(e.gpr[8])
             .unwrap_or_else(|| panic!("Unknown syscall type {}", e.gpr[8]));
         match syscall_type {
@@ -123,6 +143,7 @@ unsafe extern "C" fn lower_aarch64_synchronous(e: &mut ExceptionContext) {
             Syscalls::Print => syscall::print::handle_print_syscall(e),
             Syscalls::FinishTask => scheduler::finish_current_task(),
             Syscalls::CreateTask => scheduler::handle_new_task_syscall(e.gpr[0] as usize),
+            Syscalls::CheckEL => handle_chcek_el(e),
         }
     } else {
         default_exception_handler(e, "lower_aarch64_synchronous");
