@@ -28,9 +28,9 @@ pub mod interupts;
 pub mod io;
 pub mod memory;
 pub mod scheduler;
-pub mod syscall;
-
 pub mod sync;
+pub mod syscall;
+pub mod vfs;
 
 pub mod utils;
 
