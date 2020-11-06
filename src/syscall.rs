@@ -1,5 +1,6 @@
 pub use num_traits::FromPrimitive;
 
+pub mod files;
 pub mod print;
 
 #[repr(usize)]
@@ -10,6 +11,11 @@ pub enum Syscalls {
     Yield,
     FinishTask,
     CreateTask,
+    // OpenFile,
+    // ReadFile,
+    // CloseFile,
+    // WriteFile,
+    // SeekFile,
 }
 
 #[inline(never)]
