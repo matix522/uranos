@@ -139,8 +139,6 @@ fn echo() -> ! {
 
     println!("Echoing input.");
 
-    use cortex_a::regs::*;
-
     unsafe {
         interupts::init_exceptions(
             utils::binary_info::BinaryInfo::get().exception_vector | KERNEL_OFFSET,
@@ -149,7 +147,6 @@ fn echo() -> ! {
 
     syscall::start_scheduling();
 
-    let ips = ID_AA64MMFR0_EL1.read(ID_AA64MMFR0_EL1::PARange);
     let mut uart = drivers::UART.lock();
     uart.move_uart();
     uart.puts("string\n\n\n");
@@ -166,10 +163,6 @@ fn echo() -> ! {
         let value = echo_loop().unwrap_err();
         println!("{}", value);
     }
-}
-
-fn mmu_testing() {
-    // let moved_str = core::str::from_utf8_unchecked(core::slice::from_raw_parts(moved_ptr, size));
 }
 
 entry!(kernel_entry);

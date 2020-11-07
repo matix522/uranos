@@ -92,6 +92,7 @@ pub const KERNEL_RW_: AttributeFields = AttributeFields::new(
     AccessPermissions::KernelReadWrite,
     false,
 );
+#[allow(dead_code)]
 const KERNEL_R_X: AttributeFields = AttributeFields::new(
     MemAttributes::CacheableDRAM,
     AccessPermissions::KernelReadOnly,

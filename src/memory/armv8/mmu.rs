@@ -1,5 +1,3 @@
-use core::ops::{Range, RangeBounds};
-// use alloc::vec::Vec;
 use cortex_a::regs::*;
 
 use super::translation_tables::*;
@@ -106,14 +104,12 @@ unsafe fn get_base_memory_table() -> &'static mut Level1MemoryTable {
 /// Should be only called once before MMU is Initialized
 
 pub unsafe fn add_translation(p_address: usize, v_address: usize) {
-    unsafe {
         (&mut *MEMORY_TABLE).map_memory(
             v_address,
             p_address - v_address,
             &KERNEL_RW_,
             Granule::Page4KiB,
         )
-    }
 }
 
 pub unsafe fn test() -> Result<(), &'static str> {

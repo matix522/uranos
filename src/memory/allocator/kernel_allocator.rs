@@ -4,8 +4,6 @@ use core::mem::size_of;
 use core::ops::Range;
 use core::ptr::null_mut;
 
-use crate::config;
-
 use super::block_descriptor::Block;
 
 pub struct KernelAllocator {
@@ -23,7 +21,15 @@ struct ControlBlock {
 impl ControlBlock {
     unsafe fn get_new_block(&mut self) -> *mut Block {
         self.stack_top = self.stack_top.offset(-1);
+        self.memory_size -= core::mem::size_of::<Block>();
         self.stack_top
+    }
+
+    unsafe fn get_top_bytes(&mut self, size: usize) -> *mut u8 {
+        let return_val = self.data_top;
+        self.data_top = self.data_top.add(size);
+        self.memory_size -= size;
+        return_val
     }
     /// # Safety:
     /// It is assumed that pointer list is non_null
@@ -33,12 +39,14 @@ impl ControlBlock {
     ) -> (*mut Block, *mut Block) {
         let mut prev_free_list = list;
         let mut free_list = (*list).next;
-        while free_list != null_mut() {
+        while !free_list.is_null() {
             if !p(free_list) {
                 return (prev_free_list, free_list);
             }
+            prev_free_list = free_list;
+            free_list = (*free_list).next;
         }
-        return (prev_free_list, free_list);
+        (prev_free_list, free_list)
     }
 
     unsafe fn find_free_memory(&mut self, layout: Layout) -> *mut Block {
@@ -48,11 +56,10 @@ impl ControlBlock {
         let (mut prev_free, next_free) = ControlBlock::find(self.free_list, |next| {
             let next_block = &mut *next;
             let padding_size = next_block.data_ptr.align_offset(requested_allign);
-            let alligned_ptr = next_block.data_ptr.add(padding_size);
             let alligned_size = next_block.data_size - padding_size;
             alligned_size >= requested_size
         });
-        if next_free != null_mut() {
+        if !next_free.is_null() {
             let padding_size = (*next_free).data_ptr.align_offset(requested_allign);
             let alligned_ptr = (*next_free).data_ptr.add(padding_size);
             let alligned_size = (*next_free).data_size - padding_size;
@@ -78,54 +85,117 @@ impl ControlBlock {
 
         let alligned_offset = self.data_top.align_offset(requested_allign);
 
+        if self.memory_size - alligned_offset < requested_size {
+            return null_mut();
+        }
+
         if alligned_offset > 0 {
             let new_free_block = self.get_new_block();
-            (*new_free_block).data_size = alligned_offset;
-            (*new_free_block).data_ptr = self.data_top;
-            (*new_free_block).next = null_mut();
+            *new_free_block = Block::new(
+                null_mut(),
+                self.get_top_bytes(alligned_offset),
+                alligned_offset,
+            );
 
             let (previous, next) = ControlBlock::find(self.free_list, |next| {
                 (*next).data_ptr < (*new_free_block).data_ptr
             });
 
+            self.data_top = self.data_top.add(alligned_offset);
+
             (*previous).next = new_free_block;
             (*new_free_block).next = next;
         }
+        let allocated_data_ptr = self.get_top_bytes(requested_size);
+        let (previous, next) = ControlBlock::find(self.alloc_list, |next| {
+            (*next).data_ptr < allocated_data_ptr
+        });
+        let new_allocated_block = self.get_new_block();
+        *new_allocated_block = Block::new(next, allocated_data_ptr, requested_size);
+        (*previous).next = new_allocated_block;
         null_mut()
     }
 }
+
+
+ char* data = malloc(200);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 // let mut prev_free_list = self.free_list;
-        // let mut free_list = (*self.free_list).next;
+// let mut free_list = (*self.free_list).next;
 
-        // while free_list != null_mut() {
-        //     let free_block = &mut *free_list;
-        //     let padding_size = free_block.data_ptr.align_offset(requested_allign);
-        //     let alligned_ptr = free_block.data_ptr.add(padding_size);
-        //     let alligned_size = free_block.data_size - padding_size;
-        //     if alligned_size >= requested_size {
-        //         if padding_size > 0 {
-        //             let padding_block = self.get_new_block();
-        //             *padding_block = Block::new(free_list, free_block.data_ptr, padding_size);
-        //             (*prev_free_list).next = padding_block;
-        //             prev_free_list = padding_block;
-        //         }
-        //         if alligned_size > requested_size {
-        //             let new_free_block = self.get_new_block();
+// while free_list != null_mut() {
+//     let free_block = &mut *free_list;
+//     let padding_size = free_block.data_ptr.align_offset(requested_allign);
+//     let alligned_ptr = free_block.data_ptr.add(padding_size);
+//     let alligned_size = free_block.data_size - padding_size;
+//     if alligned_size >= requested_size {
+//         if padding_size > 0 {
+//             let padding_block = self.get_new_block();
+//             *padding_block = Block::new(free_list, free_block.data_ptr, padding_size);
+//             (*prev_free_list).next = padding_block;
+//             prev_free_list = padding_block;
+//         }
+//         if alligned_size > requested_size {
+//             let new_free_block = self.get_new_block();
 
-        //             *new_free_block = Block::new(
-        //                 free_block.next,
-        //                 alligned_ptr.add(requested_size),
-        //                 alligned_size - requested_size,
-        //             );
-        //             free_block.next = new_free_block
-        //         }
-        //         (*prev_free_list).next = free_block.next;
-        //         return free_block as *mut Block;
-        //     }
-        //     prev_free_list = free_list;
-        //     free_list = (*free_list).next;
-        // }
-
+//             *new_free_block = Block::new(
+//                 free_block.next,
+//                 alligned_ptr.add(requested_size),
+//                 alligned_size - requested_size,
+//             );
+//             free_block.next = new_free_block
+//         }
+//         (*prev_free_list).next = free_block.next;
+//         return free_block as *mut Block;
+//     }
+//     prev_free_list = free_list;
+//     free_list = (*free_list).next;
+// }
 
 impl KernelAllocator {
     pub const fn new() -> Self {
@@ -153,8 +223,8 @@ impl KernelAllocator {
         let free_warden = control.stack_top.offset(-1);
         let alloc_warden = control.stack_top.offset(-2);
 
-        *free_warden = unsafe { core::mem::zeroed() };
-        *alloc_warden = unsafe { core::mem::zeroed() };
+        *free_warden = core::mem::zeroed();
+        *alloc_warden = core::mem::zeroed();
 
         control.stack_top = control.stack_top.offset(-2);
     }
@@ -163,10 +233,18 @@ impl KernelAllocator {
 unsafe impl GlobalAlloc for KernelAllocator {
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
         let control = &mut *self.control_block.get();
+        
+        let allocated_block = control.find_free_memory(layout);
+
+        if !allocated_block.is_null() {
+            return (*allocated_block).data_ptr;
+        }
 
         null_mut()
     }
-    unsafe fn dealloc(&self, ptr: *mut u8, _layout: Layout) {}
+    unsafe fn dealloc(&self, _ptr: *mut u8, _layout: Layout) {
+        unimplemented!();
+    }
 }
 
 use super::block_descriptor::OldBlock;
@@ -197,9 +275,6 @@ impl KernelAllocatorOld {
     pub(super) fn heap_start(&self) -> usize {
         self.first_block.get() as usize
     }
-    fn heap_base(&self) -> usize {
-        &self.heap_size as *const _ as usize
-    }
     pub(super) fn heap_end(&self) -> usize {
         self.heap_start() + self.heap_size
     }
@@ -210,15 +285,6 @@ impl KernelAllocatorOld {
 #[link_section = ".heap"]
 pub static ALLOCATOR: KernelAllocatorOld = KernelAllocatorOld::new(0x800_0000);
 
-pub fn heap_start() -> usize {
-    ALLOCATOR.heap_start()
-}
-pub fn heap_end() -> usize {
-    ALLOCATOR.heap_end()
-}
-pub fn heap_base() -> usize {
-    ALLOCATOR.heap_base()
-}
 ///
 /// # Safety
 /// aligment must be non 0
