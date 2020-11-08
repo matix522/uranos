@@ -20,9 +20,14 @@ struct ControlBlock {
 
 impl ControlBlock {
     unsafe fn get_new_block(&mut self) -> *mut Block {
-        self.stack_top = self.stack_top.offset(-1);
-        self.memory_size -= core::mem::size_of::<Block>();
-        self.stack_top
+        if self.unused_blocks.is_null() {
+            self.stack_top = self.stack_top.offset(-1);
+            self.memory_size -= core::mem::size_of::<Block>();
+            return self.stack_top;
+        }
+        let block = self.unused_blocks;
+        self.unused_blocks = (*self.unused_blocks).next;
+        block
     }
 
     unsafe fn get_top_bytes(&mut self, size: usize) -> *mut u8 {
@@ -40,7 +45,7 @@ impl ControlBlock {
         let mut prev_free_list = list;
         let mut free_list = (*list).next;
         while !free_list.is_null() {
-            if !p(free_list) {
+            if p(free_list) {
                 return (prev_free_list, free_list);
             }
             prev_free_list = free_list;
@@ -98,7 +103,7 @@ impl ControlBlock {
             );
 
             let (previous, next) = ControlBlock::find(self.free_list, |next| {
-                (*next).data_ptr < (*new_free_block).data_ptr
+                (*next).data_ptr > (*new_free_block).data_ptr
             });
 
             self.data_top = self.data_top.add(alligned_offset);
@@ -108,7 +113,7 @@ impl ControlBlock {
         }
         let allocated_data_ptr = self.get_top_bytes(requested_size);
         let (previous, next) = ControlBlock::find(self.alloc_list, |next| {
-            (*next).data_ptr < allocated_data_ptr
+            (*next).data_ptr > allocated_data_ptr
         });
         let new_allocated_block = self.get_new_block();
         *new_allocated_block = Block::new(next, allocated_data_ptr, requested_size);
@@ -153,7 +158,7 @@ impl KernelAllocator {
 unsafe impl GlobalAlloc for KernelAllocator {
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
         let control = &mut *self.control_block.get();
-        
+
         let allocated_block = control.find_free_memory(layout);
 
         if !allocated_block.is_null() {
@@ -162,8 +167,54 @@ unsafe impl GlobalAlloc for KernelAllocator {
 
         null_mut()
     }
-    unsafe fn dealloc(&self, _ptr: *mut u8, _layout: Layout) {
-        unimplemented!();
+    unsafe fn dealloc(&self, ptr: *mut u8, _layout: Layout) {
+        let control = &mut *self.control_block.get();
+        let (previous, element) =
+            ControlBlock::find(control.alloc_list, |next| (*next).data_ptr == ptr);
+        if element.is_null() {
+            panic!("Could not deallocate ptr {:x}", ptr as u64);
+        }
+
+        // remove element from alloc list
+        (*previous).next = (*element).next;
+
+        let (previous_free, next_free) =
+            ControlBlock::find(control.free_list, |next| (*next).data_ptr > ptr);
+        (*previous_free).next = element;
+        (*element).next = next_free;
+
+        let previous = &mut *previous_free;
+        let current = &mut *element;
+        let next = &mut *next_free;
+
+        if previous.data_ptr.add(previous.data_size) == current.data_ptr {
+            previous.data_size += current.data_size;
+            previous.next = next_free;
+
+            current.data_ptr = null_mut();
+            current.data_size = 0;
+            current.next = control.unused_blocks;
+            control.unused_blocks = element;
+
+            if previous.data_ptr.add(previous.data_size) == next.data_ptr {
+                previous.data_size += next.data_size;
+                previous.next = next.next;
+
+                next.data_ptr = null_mut();
+                next.data_size = 0;
+                next.next = control.unused_blocks;
+                control.unused_blocks = next_free;
+            }
+        }
+        if current.data_ptr.add(current.data_size) == next.data_ptr {
+            current.data_size += next.data_size;
+            current.next = next.next;
+
+            next.data_ptr = null_mut();
+            next.data_size = 0;
+            next.next = control.unused_blocks;
+            control.unused_blocks = next_free;
+        }
     }
 }
 
