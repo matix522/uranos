@@ -145,7 +145,7 @@ fn echo() -> ! {
         );
     }
 
-    // config::set_debug_alloc(true);
+    config::set_debug_alloc(true);
 
     syscall::start_scheduling();
 
