@@ -2,11 +2,11 @@ use alloc::collections::BTreeMap;
 use alloc::string::String;
 use alloc::string::ToString;
 
-pub use num_traits::FromPrimitive;
 use crate::device_driver;
+pub use num_traits::FromPrimitive;
 
 device_driver!(
-    unsynchronized VIRTUAL_FILE_SYSTEM: VFS = VFS::new()
+    unsynchronized VIRTUAL_FILE_SYSTEM: VFS = VFS::example_vfs()
 );
 
 pub fn open(filename: &str, with_write: bool) -> Result<OpenedFile, FileError> {
@@ -111,16 +111,15 @@ impl VFS {
             }
         };
         if with_write {
-            if file.is_opened_for_write{
+            if file.is_opened_for_write {
                 return Err(FileError::FileAlreadyOpenedForWrite);
-            } else if file.is_opened_for_read > 0{
+            } else if file.is_opened_for_read > 0 {
                 return Err(FileError::FileAlreadyOpenedForRead);
-            }
-            else {
+            } else {
                 file.is_opened_for_write = true;
             }
         } else {
-            if file.is_opened_for_write{
+            if file.is_opened_for_write {
                 return Err(FileError::FileAlreadyOpenedForWrite);
             }
             file.is_opened_for_read += 1;
@@ -138,7 +137,7 @@ impl VFS {
                 } else {
                     return Err(FileError::ReadOnClosedFile);
                 }
-            },
+            }
             None => {
                 return Err(FileError::FileDoesNotExist);
             }
@@ -162,7 +161,7 @@ impl VFS {
                 } else {
                     return Err(FileError::ModifyingWithoutWritePermission);
                 }
-            },
+            }
             None => {
                 return Err(FileError::FileDoesNotExist);
             }
@@ -188,5 +187,4 @@ impl VFS {
         }
         Ok(())
     }
-
 }

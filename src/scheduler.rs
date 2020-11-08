@@ -2,6 +2,7 @@ pub mod task_context;
 pub mod task_stack;
 
 use crate::device_driver;
+use crate::vfs::FileError;
 use alloc::vec::Vec;
 use core::time::Duration;
 use task_context::*;
@@ -95,7 +96,6 @@ impl TaskManager {
 
         Ok(task)
     }
-
 
     pub fn get_current_task(&mut self) -> &mut TaskContext {
         &mut self.tasks[self.current_task]
@@ -203,30 +203,10 @@ pub fn drop_el0() {
 #[no_mangle]
 #[inline(never)]
 pub extern "C" fn first_task() {
-    use crate::vfs::*;
-
-    let mut fs = VFS::example_vfs();
-
-    let mut f1 = fs.open("file1", false).unwrap();
-    let mut f2 = fs.open("file1", false).unwrap();
-    
-    f1.seek(20);
-    
-    crate::println!("{}", fs.read(&mut f1, 10).unwrap());
-    crate::println!("{}", fs.read(&mut f2, 10).unwrap());
-    
-    fs.close(&mut f1);
-    fs.close(&mut f2);
-
-    let mut f2 = fs.open("file1", true).unwrap();
-
-    fs.append(&f2, "HELLOO THERE");
-
-    loop{
-        crate::print!("{}", fs.read(&mut f2, 1).unwrap());
-    }
+    let fd = crate::syscall::files::open::open("file1", true).unwrap();
+    crate::println!("{}", fd);
+    let fd = crate::syscall::files::open::open("file1", false).unwrap();
 }
-
 
 #[no_mangle]
 #[inline(never)]

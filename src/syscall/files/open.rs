@@ -1,23 +1,34 @@
+use crate::interupts::ExceptionContext;
+use crate::scheduler::task_context::*;
 use crate::syscall::*;
 use crate::vfs;
-use crate::interupts::ExceptionContext;
-use num_traits::FromPrimitive;
 use core::slice;
 use core::str::from_utf8;
-use crate::scheduler::task_context::*;
-
+use num_traits::FromPrimitive;
 
 const ONLY_MSB_OF_USIZE: usize = 1 << (core::mem::size_of::<usize>() * 8 - 1);
 
-pub fn open(filename: &str, with_write: bool) -> Result<usize, vfs::FileError>{
+pub fn open(filename: &str, with_write: bool) -> Result<usize, vfs::FileError> {
     let mut val: usize = 0;
     let bytes = filename.as_bytes();
 
-    unsafe{
-        val = syscall3(bytes.as_ptr() as usize, bytes.len(), with_write as usize, Syscalls::OpenFile as usize);
+    unsafe {
+        val = syscall3(
+            bytes.as_ptr() as usize,
+            bytes.len(),
+            with_write as usize,
+            Syscalls::OpenFile as usize,
+        );
     }
     if val & ONLY_MSB_OF_USIZE > 0 {
-        Err(vfs::FileError::from_usize(val & !ONLY_MSB_OF_USIZE).unwrap_or_else(|| panic!("Unknown error during file opening: {}", val & !ONLY_MSB_OF_USIZE)))
+        Err(
+            vfs::FileError::from_usize(val & !ONLY_MSB_OF_USIZE).unwrap_or_else(|| {
+                panic!(
+                    "Unknown error during file opening: {}",
+                    val & !ONLY_MSB_OF_USIZE
+                )
+            }),
+        )
     } else {
         Ok(val)
     }
@@ -42,11 +53,10 @@ pub fn handle_open(context: &mut ExceptionContext) {
     }
     let filename = string.unwrap();
 
-    
     let opened_file = vfs::open(&filename, with_write);
-    
+
     if opened_file.is_err() {
-        context.gpr[0] = ( ONLY_MSB_OF_USIZE | opened_file.err().unwrap() as usize )as u64;
+        context.gpr[0] = (ONLY_MSB_OF_USIZE | opened_file.err().unwrap() as usize) as u64;
         return;
     }
 
@@ -57,5 +67,4 @@ pub fn handle_open(context: &mut ExceptionContext) {
     unsafe {
         context.gpr[0] = (*current_task).file_descriptor_table.add_file(opened_file) as u64;
     }
-
 }
