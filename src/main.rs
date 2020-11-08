@@ -125,7 +125,7 @@ fn echo() -> ! {
         );
     }
 
-    let task1 = scheduler::task_context::TaskContext::new(scheduler::first_task, false)
+    let task1 = scheduler::task_context::TaskContext::new(scheduler::first_task, true)
         .expect("Error creating task context");
 
     scheduler::add_task(task1).expect("Error adding task");

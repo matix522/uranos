@@ -194,31 +194,30 @@ pub fn drop_el0() {
 #[no_mangle]
 #[inline(never)]
 pub extern "C" fn first_task() {
-    let mut i = 0;
-    loop {
-        if i > 1000 {
-            crate::syscall::finish_task();
-        }
-        crate::syscall::create_task(worker);
-        crate::syscall::print::print("Creating worker\n");
-        i += 1;
+    use crate::vfs::*;
+
+    let mut fs = VFS::example_vfs();
+
+    let mut f1 = fs.open("file1", false).unwrap();
+    let mut f2 = fs.open("file1", false).unwrap();
+    
+    f1.seek(20);
+    
+    crate::println!("{}", fs.read(&mut f1, 10).unwrap());
+    crate::println!("{}", fs.read(&mut f2, 10).unwrap());
+    
+    fs.close(&mut f1);
+    fs.close(&mut f2);
+
+    let mut f2 = fs.open("file1", true).unwrap();
+
+    fs.append(&f2, "HELLOO THERE");
+
+    loop{
+        crate::print!("{}", fs.read(&mut f2, 1).unwrap());
     }
 }
 
-#[no_mangle]
-#[inline(never)]
-pub extern "C" fn worker() {
-    let mut i = 0;
-    loop {
-        if i > 10 {
-            crate::syscall::create_task(worker);
-            crate::syscall::finish_task();
-        }
-        crate::println!("WURKER {}; PID: {} ", i, get_current_task_pid());
-        i += 1;
-        crate::syscall::yield_cpu();
-    }
-}
 
 #[no_mangle]
 #[inline(never)]

@@ -1,6 +1,6 @@
 use super::task_stack;
 use crate::interupts::ExceptionContext;
-use crate::syscall::files::file_descriptor_map::*;
+// use crate::syscall::files::file_descriptor_map::*;
 
 /// Stack size of task in bytes
 pub const TASK_STACK_SIZE: usize = 0x8000;

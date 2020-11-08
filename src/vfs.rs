@@ -9,6 +9,9 @@ pub enum FileError {
     AttemptToCloseClosedFile,
     PositionOutOfBoundsOfFile,
     ModifyingWithoutWritePermission,
+    ReadOnClosedFile,
+    FileAlreadyOpenedForWrite,
+    FileAlreadyOpenedForRead,
 }
 
 pub struct File {
@@ -39,52 +42,14 @@ impl File {
     }
 }
 
-pub struct OpenedFile<'a> {
-    file: &'a mut File,
+pub struct OpenedFile {
+    filename: String,
     read_pointer: usize,
 }
 
-impl<'a> OpenedFile<'a> {
-    pub fn close(&mut self) -> Result<(), FileError> {
-        self.file.close()
-    }
-    pub fn read(&mut self, length: usize) -> &str {
-        let file_len = self.file.data.len();
-        let end_of_read = if file_len < self.read_pointer + length {
-            file_len
-        } else {
-            self.read_pointer + length
-        };
-        let result = &self.file.data[self.read_pointer..end_of_read];
-        self.read_pointer = end_of_read;
-        result
-    }
-    pub fn seek(&mut self, position: usize) -> Result<(), FileError> {
-        if position >= self.len() {
-            Err(FileError::PositionOutOfBoundsOfFile)
-        } else {
-            self.read_pointer = position;
-            Ok(())
-        }
-    }
-
-    pub fn append(&mut self, message: &str) -> Result<(), FileError> {
-        if self.file.is_opened_for_write {
-            self.file.data.push_str(message);
-            Ok(())
-        } else {
-            Err(FileError::ModifyingWithoutWritePermission)
-        }
-    }
-
-    pub fn len(&self) -> usize {
-        self.file.data.len()
-    }
-}
-
-impl<'a> Drop for OpenedFile<'a> {
-    fn drop(&mut self) {
-        self.close();
+impl OpenedFile {
+    pub fn seek(&mut self, position: usize) {
+        self.read_pointer = position;
     }
 }
 
@@ -133,13 +98,82 @@ impl VFS {
             }
         };
         if with_write {
-            file.is_opened_for_write = true;
+            if file.is_opened_for_write{
+                return Err(FileError::FileAlreadyOpenedForWrite);
+            } else if file.is_opened_for_read > 0{
+                return Err(FileError::FileAlreadyOpenedForRead);
+            }
+            else {
+                file.is_opened_for_write = true;
+            }
         } else {
+            if file.is_opened_for_write{
+                return Err(FileError::FileAlreadyOpenedForWrite);
+            }
             file.is_opened_for_read += 1;
         }
         Ok(OpenedFile {
-            file,
+            filename: String::from(filename),
             read_pointer: 0,
         })
     }
+    pub fn read(&mut self, of: &mut OpenedFile, length: usize) -> Result<&str, FileError> {
+        let mut file = match self.file_map.get(&of.filename) {
+            Some(f) => {
+                if f.is_opened_for_read > 0 || f.is_opened_for_write {
+                    f
+                } else {
+                    return Err(FileError::ReadOnClosedFile);
+                }
+            },
+            None => {
+                return Err(FileError::FileDoesNotExist);
+            }
+        };
+        let file_len = file.data.len();
+        let end_of_read = if file_len < of.read_pointer + length {
+            file_len
+        } else {
+            of.read_pointer + length
+        };
+        let result = &file.data[of.read_pointer..end_of_read];
+        of.read_pointer = end_of_read;
+        Ok(result)
+    }
+
+    pub fn append(&mut self, of: &OpenedFile, message: &str) -> Result<(), FileError> {
+        let mut file = match self.file_map.get_mut(&of.filename) {
+            Some(f) => {
+                if f.is_opened_for_write {
+                    f
+                } else {
+                    return Err(FileError::ModifyingWithoutWritePermission);
+                }
+            },
+            None => {
+                return Err(FileError::FileDoesNotExist);
+            }
+        };
+        file.data.push_str(message);
+        Ok(())
+    }
+
+    pub fn close(&mut self, of: &mut OpenedFile) -> Result<(), FileError> {
+        let mut file = match self.file_map.get_mut(&of.filename) {
+            Some(f) => f,
+            None => {
+                return Err(FileError::FileDoesNotExist);
+            }
+        };
+        if file.is_opened_for_write {
+            file.is_opened_for_write = false;
+        } else {
+            if file.is_opened_for_read == 0 {
+                return Err(FileError::AttemptToCloseClosedFile);
+            }
+            file.is_opened_for_read -= 1;
+        }
+        Ok(())
+    }
+
 }
