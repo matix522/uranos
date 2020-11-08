@@ -1,4 +1,5 @@
 use alloc::collections::BTreeMap;
+use alloc::format;
 use alloc::string::String;
 use alloc::string::ToString;
 
@@ -17,6 +18,11 @@ pub fn open(filename: &str, with_write: bool) -> Result<OpenedFile, FileError> {
 pub fn close(of: &mut OpenedFile) -> Result<(), FileError> {
     let mut fs = VIRTUAL_FILE_SYSTEM.lock();
     fs.close(of)
+}
+
+pub fn write(of: &OpenedFile, message: &str) -> Result<(), FileError> {
+    let mut fs = VIRTUAL_FILE_SYSTEM.lock();
+    fs.write(of, message)
 }
 
 pub fn read(of: &mut OpenedFile, length: usize) -> Result<ReadData, FileError> {
@@ -185,7 +191,7 @@ impl VFS {
         Ok(result)
     }
 
-    pub fn append(&mut self, of: &OpenedFile, message: &str) -> Result<(), FileError> {
+    pub fn write(&mut self, of: &OpenedFile, message: &str) -> Result<(), FileError> {
         let file = match self.file_map.get_mut(&of.filename) {
             Some(f) => {
                 if f.is_opened_for_write {
@@ -198,7 +204,8 @@ impl VFS {
                 return Err(FileError::FileDoesNotExist);
             }
         };
-        file.data.push_str(message);
+        let split_off = file.data.split_off(of.read_pointer);
+        file.data = format!("{}{}{}", file.data, message, split_off);
         Ok(())
     }
 

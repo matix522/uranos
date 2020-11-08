@@ -204,18 +204,23 @@ pub fn drop_el0() {
 pub extern "C" fn first_task() {
     use core::str::from_utf8;
 
-    let mut buffer = [0 as u8; 20];
-    let mut buffer1 = [0 as u8; 20];
-    let fd = crate::syscall::files::open::open("file1", false).unwrap();
-    let fd1 = crate::syscall::files::open::open("file1", false).unwrap();
-    crate::syscall::files::seek::seek(fd, 40);
-    crate::syscall::files::read::read(fd1, 20, &mut buffer1 as *mut [u8] as *mut u8);
-    crate::syscall::files::read::read(fd, 20, &mut buffer as *mut [u8] as *mut u8);
-    let string1 = from_utf8(&buffer1).unwrap();
+    let mut buffer = [0 as u8; 50];
+    let mut buffer1 = [0 as u8; 50];
+
+    let data_to_add = "<Added_data>";
+
+    let fd = crate::syscall::files::open::open("file1", true).unwrap();
+    crate::syscall::files::read::read(fd, 50, &mut buffer as *mut [u8] as *mut u8);
     let string = from_utf8(&buffer).unwrap();
-    crate::println!("{}", string1);
-    crate::println!("{}", string);
+    crate::println!("Before write: {}", string);
+    crate::syscall::files::seek::seek(fd, 20);
+    crate::syscall::files::write::write(fd, data_to_add);
     crate::syscall::files::close::close(fd).unwrap();
+
+    let fd1 = crate::syscall::files::open::open("file1", false).unwrap();
+    crate::syscall::files::read::read(fd1, 50, &mut buffer1 as *mut [u8] as *mut u8);
+    let string = from_utf8(&buffer1).unwrap();
+    crate::println!("Before write: {}", string);
     crate::syscall::files::close::close(fd1).unwrap();
 }
 

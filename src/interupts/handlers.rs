@@ -70,6 +70,7 @@ unsafe extern "C" fn current_elx_synchronous(e: &mut ExceptionContext) {
             Syscalls::CloseFile => syscall::files::close::handle_close(e),
             Syscalls::ReadFile => syscall::files::read::handle_read(e),
             Syscalls::SeekFile => syscall::files::seek::handle_seek(e),
+            Syscalls::WriteFile => syscall::files::write::handle_write(e),
         }
     } else {
         default_exception_handler(e, "current_elx_synchronous");
@@ -131,6 +132,7 @@ unsafe extern "C" fn lower_aarch64_synchronous(e: &mut ExceptionContext) {
             Syscalls::CloseFile => syscall::files::close::handle_close(e),
             Syscalls::ReadFile => syscall::files::read::handle_read(e),
             Syscalls::SeekFile => syscall::files::seek::handle_seek(e),
+            Syscalls::WriteFile => syscall::files::write::handle_write(e),
         }
     } else {
         default_exception_handler(e, "lower_aarch64_synchronous");
