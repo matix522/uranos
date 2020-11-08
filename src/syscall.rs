@@ -14,8 +14,8 @@ pub enum Syscalls {
     OpenFile,
     ReadFile,
     CloseFile,
+    SeekFile,
     // WriteFile,
-    // SeekFile,
 }
 
 #[inline(never)]

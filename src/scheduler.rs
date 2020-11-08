@@ -205,11 +205,18 @@ pub extern "C" fn first_task() {
     use core::str::from_utf8;
 
     let mut buffer = [0 as u8; 20];
+    let mut buffer1 = [0 as u8; 20];
     let fd = crate::syscall::files::open::open("file1", false).unwrap();
+    let fd1 = crate::syscall::files::open::open("file1", false).unwrap();
+    crate::syscall::files::seek::seek(fd, 40);
+    crate::syscall::files::read::read(fd1, 20, &mut buffer1 as *mut [u8] as *mut u8);
     crate::syscall::files::read::read(fd, 20, &mut buffer as *mut [u8] as *mut u8);
+    let string1 = from_utf8(&buffer1).unwrap();
     let string = from_utf8(&buffer).unwrap();
+    crate::println!("{}", string1);
     crate::println!("{}", string);
     crate::syscall::files::close::close(fd).unwrap();
+    crate::syscall::files::close::close(fd1).unwrap();
 }
 
 #[no_mangle]
