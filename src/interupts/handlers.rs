@@ -19,7 +19,6 @@ fn handle_chcek_el(e: &mut ExceptionContext) {
         0b0101 => 1,
         _ => 3,
     };
-    crate::println!("CALLING LEVEL {}", e.gpr[0]);
 }
 
 fn default_exception_handler(context: &mut ExceptionContext, source: &str) {

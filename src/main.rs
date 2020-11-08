@@ -67,7 +67,7 @@ fn kernel_entry() -> ! {
     drop(uart);
     let binary_info = binary_info::BinaryInfo::get();
     println!("{}", binary_info);
-
+    println!("{:?}", crate::memory::allocator::kernel_heap_range());
     unsafe {
         interupts::init_exceptions(binary_info.exception_vector);
     }

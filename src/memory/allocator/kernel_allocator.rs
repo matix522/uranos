@@ -9,6 +9,9 @@ use super::block_descriptor::Block;
 pub struct KernelAllocator {
     control_block: UnsafeCell<ControlBlock>,
 }
+
+unsafe impl Sync for KernelAllocator {}
+
 struct ControlBlock {
     free_list: *mut Block,
     alloc_list: *mut Block,
@@ -23,14 +26,19 @@ impl ControlBlock {
         if self.unused_blocks.is_null() {
             self.stack_top = self.stack_top.offset(-1);
             self.memory_size -= core::mem::size_of::<Block>();
+            crate::println!("NEW BLOCK: {:x}", self.stack_top as u64);
             return self.stack_top;
         }
+        crate::println!("USED BLOCK: {:x}", self.unused_blocks as u64);
+
         let block = self.unused_blocks;
-        self.unused_blocks = (*self.unused_blocks).next;
+        self.unused_blocks = (*block).next;
         block
     }
 
     unsafe fn get_top_bytes(&mut self, size: usize) -> *mut u8 {
+        crate::println!("DATA TOP: {:x}", self.data_top as u64);
+
         let return_val = self.data_top;
         self.data_top = self.data_top.add(size);
         self.memory_size -= size;
@@ -54,6 +62,16 @@ impl ControlBlock {
         (prev_free_list, free_list)
     }
 
+    unsafe fn for_each<Function: Fn(&mut Block)>(list: *mut Block, f: Function) {
+        let mut prev_free_list = list;
+        let mut free_list = (*list).next;
+        while !free_list.is_null() {
+            f(&mut *free_list);
+            prev_free_list = free_list;
+            free_list = (*free_list).next;
+        }
+    }
+
     unsafe fn find_free_memory(&mut self, layout: Layout) -> *mut Block {
         let requested_size = core::cmp::max(8, layout.size());
         let requested_allign = core::cmp::max(8, layout.align());
@@ -64,6 +82,30 @@ impl ControlBlock {
             let alligned_size = next_block.data_size - padding_size;
             alligned_size >= requested_size
         });
+        ControlBlock::for_each(self.free_list, |link| {
+            crate::println!("********* FREE *********");
+            crate::println!("Block Info - {:x}", link as *mut _ as usize);
+
+            crate::println!("Start      - {:x}", link.data_ptr as usize);
+            crate::println!("Size       - {:x}", link.data_size);
+            crate::println!("End        - {:x}", link.data_ptr as usize + link.data_size);
+            crate::println!("************************");
+
+        });
+        ControlBlock::for_each(self.alloc_list, |link| {
+            crate::println!("********* ALLOC ********");
+            crate::println!("Block Info - {:x}", link as *mut _ as usize);
+
+            crate::println!("Start      - {:x}", link.data_ptr as usize);
+            crate::println!("Size       - {:x}", link.data_size);
+            crate::println!("End        - {:x}", link.data_ptr as usize + link.data_size);
+            crate::println!("************************");
+
+        });
+
+        crate::println!("next_free: {:x}", next_free as u64);
+        crate::println!("data_top: {:x}", self.data_top as u64);
+
         if !next_free.is_null() {
             let padding_size = (*next_free).data_ptr.align_offset(requested_allign);
             let alligned_ptr = (*next_free).data_ptr.add(padding_size);
@@ -85,6 +127,7 @@ impl ControlBlock {
                 (*next_free).next = new_free_block
             }
             (*prev_free).next = (*next_free).next;
+
             return next_free;
         }
 
@@ -106,19 +149,19 @@ impl ControlBlock {
                 (*next).data_ptr > (*new_free_block).data_ptr
             });
 
-            self.data_top = self.data_top.add(alligned_offset);
-
             (*previous).next = new_free_block;
             (*new_free_block).next = next;
         }
         let allocated_data_ptr = self.get_top_bytes(requested_size);
+        let new_allocated_block = self.get_new_block();
+
         let (previous, next) = ControlBlock::find(self.alloc_list, |next| {
             (*next).data_ptr > allocated_data_ptr
         });
-        let new_allocated_block = self.get_new_block();
+
         *new_allocated_block = Block::new(next, allocated_data_ptr, requested_size);
         (*previous).next = new_allocated_block;
-        null_mut()
+        new_allocated_block
     }
 }
 
@@ -135,7 +178,7 @@ impl KernelAllocator {
             }),
         }
     }
-    pub unsafe fn initialize_memory(&mut self, range: Range<usize>) {
+    pub unsafe fn initialize_memory(&self, range: Range<usize>) {
         let control = &mut *self.control_block.get();
         // let base_address = align_address(control as *const _ as usize , config::page_size());
         assert!(range.end % 8 == 0);
@@ -168,6 +211,7 @@ unsafe impl GlobalAlloc for KernelAllocator {
         null_mut()
     }
     unsafe fn dealloc(&self, ptr: *mut u8, _layout: Layout) {
+        crate::println!("KURWA DEALLOCATE");
         let control = &mut *self.control_block.get();
         let (previous, element) =
             ControlBlock::find(control.alloc_list, |next| (*next).data_ptr == ptr);
@@ -253,8 +297,12 @@ impl KernelAllocatorOld {
         self.heap_start() as *mut OldBlock
     }
 }
+
 #[link_section = ".heap"]
-pub static ALLOCATOR: KernelAllocatorOld = KernelAllocatorOld::new(0x800_0000);
+pub static ALLOCATOR: KernelAllocator = KernelAllocator::new();
+
+// #[link_section = ".heap"]
+// pub static ALLOCATOR: KernelAllocatorOld = KernelAllocatorOld::new(0x800_0000);
 
 ///
 /// # Safety
