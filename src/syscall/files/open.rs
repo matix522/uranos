@@ -1,5 +1,4 @@
 use crate::interupts::ExceptionContext;
-use crate::scheduler::task_context::*;
 use crate::syscall::*;
 use crate::vfs;
 use core::slice;
@@ -9,7 +8,7 @@ use num_traits::FromPrimitive;
 const ONLY_MSB_OF_USIZE: usize = 1 << (core::mem::size_of::<usize>() * 8 - 1);
 
 pub fn open(filename: &str, with_write: bool) -> Result<usize, vfs::FileError> {
-    let mut val: usize = 0;
+    let val: usize;
     let bytes = filename.as_bytes();
 
     unsafe {

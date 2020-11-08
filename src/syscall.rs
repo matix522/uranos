@@ -13,7 +13,7 @@ pub enum Syscalls {
     CreateTask,
     OpenFile,
     // ReadFile,
-    // CloseFile,
+    CloseFile,
     // WriteFile,
     // SeekFile,
 }

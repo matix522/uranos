@@ -14,6 +14,11 @@ pub fn open(filename: &str, with_write: bool) -> Result<OpenedFile, FileError> {
     fs.open(filename, with_write)
 }
 
+pub fn close(of: &mut OpenedFile) -> Result<(), FileError> {
+    let mut fs = VIRTUAL_FILE_SYSTEM.lock();
+    fs.close(of)
+}
+
 #[repr(usize)]
 #[derive(FromPrimitive, ToPrimitive, Debug)]
 pub enum FileError {
@@ -68,6 +73,12 @@ impl OpenedFile {
 
 pub struct VFS {
     file_map: BTreeMap<String, File>,
+}
+
+impl Default for VFS{
+    fn default() -> Self{
+        Self::new()
+    }
 }
 
 impl VFS {
@@ -130,7 +141,7 @@ impl VFS {
         })
     }
     pub fn read(&mut self, of: &mut OpenedFile, length: usize) -> Result<&str, FileError> {
-        let mut file = match self.file_map.get(&of.filename) {
+        let file = match self.file_map.get(&of.filename) {
             Some(f) => {
                 if f.is_opened_for_read > 0 || f.is_opened_for_write {
                     f
@@ -154,7 +165,7 @@ impl VFS {
     }
 
     pub fn append(&mut self, of: &OpenedFile, message: &str) -> Result<(), FileError> {
-        let mut file = match self.file_map.get_mut(&of.filename) {
+        let file = match self.file_map.get_mut(&of.filename) {
             Some(f) => {
                 if f.is_opened_for_write {
                     f

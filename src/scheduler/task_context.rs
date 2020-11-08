@@ -1,5 +1,4 @@
 use super::task_stack;
-use crate::interupts::ExceptionContext;
 use crate::syscall::files::file_descriptor_map::*;
 
 /// Stack size of task in bytes

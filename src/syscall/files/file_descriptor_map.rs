@@ -1,4 +1,3 @@
-use crate::device_driver;
 use crate::vfs::*;
 use alloc::collections::BTreeMap;
 
@@ -7,7 +6,13 @@ pub struct FileDescriptiorMap {
     next_fd: usize,
 }
 
-impl<'a> FileDescriptiorMap {
+impl Default for FileDescriptiorMap{
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl FileDescriptiorMap {
     pub fn new() -> Self {
         FileDescriptiorMap {
             map: BTreeMap::new(),
@@ -29,7 +34,11 @@ impl<'a> FileDescriptiorMap {
         self.map.get_mut(&fd)
     }
 
-    pub fn delete_file(&mut self, fd: usize) {
-        self.map.remove(&fd);
+    pub fn exists(&mut self, fd: usize) -> bool {
+        self.map.get(&fd).is_some()
+    }
+
+    pub fn delete_file(&mut self, fd: usize) -> Option<OpenedFile> {
+        self.map.remove(&fd)
     }
 }

@@ -2,7 +2,6 @@ pub mod task_context;
 pub mod task_stack;
 
 use crate::device_driver;
-use crate::vfs::FileError;
 use alloc::vec::Vec;
 use core::time::Duration;
 use task_context::*;
@@ -203,9 +202,14 @@ pub fn drop_el0() {
 #[no_mangle]
 #[inline(never)]
 pub extern "C" fn first_task() {
-    let fd = crate::syscall::files::open::open("file1", true).unwrap();
-    crate::println!("{}", fd);
     let fd = crate::syscall::files::open::open("file1", false).unwrap();
+    crate::syscall::files::close::close(fd).unwrap();
+    let fd = crate::syscall::files::open::open("file1", true).unwrap();
+    crate::syscall::files::close::close(fd).unwrap();
+    let _fd = crate::syscall::files::open::open("file1", false).unwrap();
+    let _fd = crate::syscall::files::open::open("file1", false).unwrap();
+
+    let _fd = crate::syscall::files::open::open("file1", true).unwrap();
 }
 
 #[no_mangle]
