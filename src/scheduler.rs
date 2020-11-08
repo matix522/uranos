@@ -49,6 +49,10 @@ pub fn get_current_task_pid() -> usize {
     let scheduler = TASK_MANAGER.lock();
     scheduler.get_current_task_pid()
 }
+pub fn get_current_task_context() -> *mut TaskContext {
+    let mut scheduler = TASK_MANAGER.lock();
+    scheduler.get_current_task() as *mut TaskContext
+}
 
 pub struct TaskManager {
     tasks: Vec<TaskContext>,
@@ -90,6 +94,11 @@ impl TaskManager {
             .ok_or(TaskError::InvalidTaskReference)?;
 
         Ok(task)
+    }
+
+
+    pub fn get_current_task(&mut self) -> &mut TaskContext {
+        &mut self.tasks[self.current_task]
     }
 
     fn get_two_tasks(

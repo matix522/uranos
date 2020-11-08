@@ -1,6 +1,6 @@
 use super::task_stack;
 use crate::interupts::ExceptionContext;
-// use crate::syscall::files::file_descriptor_map::*;
+use crate::syscall::files::file_descriptor_map::*;
 
 /// Stack size of task in bytes
 pub const TASK_STACK_SIZE: usize = 0x8000;
@@ -66,7 +66,7 @@ pub struct TaskContext {
     pub(super) gpr: Gpr,
     pub(super) state: TaskStates,
     stack: Option<task_stack::TaskStack>,
-    // file_descriptor_table: FileDescriptiorMap,
+    pub file_descriptor_table: FileDescriptiorMap,
 }
 
 // ONLY TEMPORARY SOLUTION
@@ -79,6 +79,7 @@ impl TaskContext {
             gpr: Default::default(),
             state: TaskStates::NotStarted,
             stack: None,
+            file_descriptor_table: FileDescriptiorMap::new(),
         }
     }
 

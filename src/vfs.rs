@@ -2,7 +2,20 @@ use alloc::collections::BTreeMap;
 use alloc::string::String;
 use alloc::string::ToString;
 
-#[derive(Debug)]
+pub use num_traits::FromPrimitive;
+use crate::device_driver;
+
+device_driver!(
+    unsynchronized VIRTUAL_FILE_SYSTEM: VFS = VFS::new()
+);
+
+pub fn open(filename: &str, with_write: bool) -> Result<OpenedFile, FileError> {
+    let mut fs = VIRTUAL_FILE_SYSTEM.lock();
+    fs.open(filename, with_write)
+}
+
+#[repr(usize)]
+#[derive(FromPrimitive, ToPrimitive, Debug)]
 pub enum FileError {
     FileNameAlreadyExists,
     FileDoesNotExist,

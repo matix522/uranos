@@ -3,8 +3,8 @@ use crate::vfs::*;
 use alloc::collections::BTreeMap;
 
 pub struct FileDescriptiorMap {
-    map: BTreeMap<isize, OpenedFile>,
-    next_fd: isize,
+    map: BTreeMap<usize, OpenedFile>,
+    next_fd: usize,
 }
 
 impl<'a> FileDescriptiorMap {
@@ -15,7 +15,7 @@ impl<'a> FileDescriptiorMap {
         }
     }
 
-    pub fn add_file(&mut self, file: OpenedFile) -> isize {
+    pub fn add_file(&mut self, file: OpenedFile) -> usize {
         let ret = self.next_fd;
         self.map.insert(ret, file);
         self.next_fd = match self.map.keys().max() {
@@ -25,11 +25,11 @@ impl<'a> FileDescriptiorMap {
         ret
     }
 
-    pub fn get_file(&mut self, fd: isize) -> Option<&mut OpenedFile> {
+    pub fn get_file(&mut self, fd: usize) -> Option<&mut OpenedFile> {
         self.map.get_mut(&fd)
     }
 
-    pub fn delete_file(&mut self, fd: isize) {
+    pub fn delete_file(&mut self, fd: usize) {
         self.map.remove(&fd);
     }
 }

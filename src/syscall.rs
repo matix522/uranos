@@ -11,7 +11,7 @@ pub enum Syscalls {
     Yield,
     FinishTask,
     CreateTask,
-    // OpenFile,
+    OpenFile,
     // ReadFile,
     // CloseFile,
     // WriteFile,
