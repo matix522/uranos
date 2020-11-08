@@ -68,6 +68,7 @@ unsafe extern "C" fn current_elx_synchronous(e: &mut ExceptionContext) {
             Syscalls::CreateTask => scheduler::handle_new_task_syscall(e.gpr[0] as usize),
             Syscalls::OpenFile => return syscall::files::open::handle_open(e),
             Syscalls::CloseFile => return syscall::files::close::handle_close(e),
+            Syscalls::ReadFile => return syscall::files::read::handle_read(e),
         }
     } else {
         default_exception_handler(e, "current_elx_synchronous");
@@ -127,6 +128,7 @@ unsafe extern "C" fn lower_aarch64_synchronous(e: &mut ExceptionContext) {
             Syscalls::CreateTask => scheduler::handle_new_task_syscall(e.gpr[0] as usize),
             Syscalls::OpenFile => return syscall::files::open::handle_open(e),
             Syscalls::CloseFile => return syscall::files::close::handle_close(e),
+            Syscalls::ReadFile => return syscall::files::read::handle_read(e),
         }
     } else {
         default_exception_handler(e, "lower_aarch64_synchronous");

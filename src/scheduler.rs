@@ -202,14 +202,14 @@ pub fn drop_el0() {
 #[no_mangle]
 #[inline(never)]
 pub extern "C" fn first_task() {
-    let fd = crate::syscall::files::open::open("file1", false).unwrap();
-    crate::syscall::files::close::close(fd).unwrap();
-    let fd = crate::syscall::files::open::open("file1", true).unwrap();
-    crate::syscall::files::close::close(fd).unwrap();
-    let _fd = crate::syscall::files::open::open("file1", false).unwrap();
-    let _fd = crate::syscall::files::open::open("file1", false).unwrap();
+    use core::str::from_utf8;
 
-    let _fd = crate::syscall::files::open::open("file1", true).unwrap();
+    let mut buffer = [0 as u8; 20];
+    let fd = crate::syscall::files::open::open("file1", false).unwrap();
+    crate::syscall::files::read::read(fd, 20, &mut buffer as *mut [u8] as *mut u8);
+    let string = from_utf8(&buffer).unwrap();
+    crate::println!("{}", string);
+    crate::syscall::files::close::close(fd).unwrap();
 }
 
 #[no_mangle]

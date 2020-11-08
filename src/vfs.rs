@@ -19,6 +19,27 @@ pub fn close(of: &mut OpenedFile) -> Result<(), FileError> {
     fs.close(of)
 }
 
+pub fn read(of: &mut OpenedFile, length: usize) -> Result<ReadData, FileError> {
+    let mut fs = VIRTUAL_FILE_SYSTEM.lock();
+    let data = fs.read(of, length);
+
+    if data.is_err() {
+        return Err(data.err().unwrap());
+    }
+
+    let bytes = data.unwrap();
+
+    Ok(ReadData {
+        data: bytes.as_ptr(),
+        len: bytes.len(),
+    })
+}
+
+pub struct ReadData {
+    pub data: *const u8,
+    pub len: usize,
+}
+
 #[repr(usize)]
 #[derive(FromPrimitive, ToPrimitive, Debug)]
 pub enum FileError {
@@ -75,8 +96,8 @@ pub struct VFS {
     file_map: BTreeMap<String, File>,
 }
 
-impl Default for VFS{
-    fn default() -> Self{
+impl Default for VFS {
+    fn default() -> Self {
         Self::new()
     }
 }

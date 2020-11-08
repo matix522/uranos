@@ -6,7 +6,7 @@ pub struct FileDescriptiorMap {
     next_fd: usize,
 }
 
-impl Default for FileDescriptiorMap{
+impl Default for FileDescriptiorMap {
     fn default() -> Self {
         Self::new()
     }
@@ -30,8 +30,12 @@ impl FileDescriptiorMap {
         ret
     }
 
-    pub fn get_file(&mut self, fd: usize) -> Option<&mut OpenedFile> {
+    pub fn get_file_mut(&mut self, fd: usize) -> Option<&mut OpenedFile> {
         self.map.get_mut(&fd)
+    }
+
+    pub fn get_file(&mut self, fd: usize) -> Option<&OpenedFile> {
+        self.map.get(&fd)
     }
 
     pub fn exists(&mut self, fd: usize) -> bool {
