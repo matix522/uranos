@@ -66,6 +66,11 @@ unsafe extern "C" fn current_elx_synchronous(e: &mut ExceptionContext) {
             Syscalls::Print => syscall::print::handle_print_syscall(e),
             Syscalls::FinishTask => scheduler::finish_current_task(),
             Syscalls::CreateTask => scheduler::handle_new_task_syscall(e.gpr[0] as usize),
+            Syscalls::OpenFile => syscall::files::open::handle_open(e),
+            Syscalls::CloseFile => syscall::files::close::handle_close(e),
+            Syscalls::ReadFile => syscall::files::read::handle_read(e),
+            Syscalls::SeekFile => syscall::files::seek::handle_seek(e),
+            Syscalls::WriteFile => syscall::files::write::handle_write(e),
         }
     } else {
         default_exception_handler(e, "current_elx_synchronous");
@@ -123,6 +128,11 @@ unsafe extern "C" fn lower_aarch64_synchronous(e: &mut ExceptionContext) {
             Syscalls::Print => syscall::print::handle_print_syscall(e),
             Syscalls::FinishTask => scheduler::finish_current_task(),
             Syscalls::CreateTask => scheduler::handle_new_task_syscall(e.gpr[0] as usize),
+            Syscalls::OpenFile => syscall::files::open::handle_open(e),
+            Syscalls::CloseFile => syscall::files::close::handle_close(e),
+            Syscalls::ReadFile => syscall::files::read::handle_read(e),
+            Syscalls::SeekFile => syscall::files::seek::handle_seek(e),
+            Syscalls::WriteFile => syscall::files::write::handle_write(e),
         }
     } else {
         default_exception_handler(e, "lower_aarch64_synchronous");
