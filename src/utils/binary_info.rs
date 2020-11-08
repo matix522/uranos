@@ -15,6 +15,7 @@ pub struct BinaryInfo {
     pub read_only: Range<usize>,
     pub read_write: Range<usize>,
     pub exception_vector: usize,
+    pub allocator : Range<usize>,
     pub heap: Range<usize>,
     pub mmio: Range<usize>,
 }
@@ -28,6 +29,10 @@ impl BinaryInfo {
                 read_write: &__read_write_start as *const _ as usize
                     ..&__read_write_end as *const _ as usize,
                 exception_vector: &__exception_vector_start as *const _ as usize,
+                allocator: (|| {
+                    let alloc = &crate::memory::allocator::kernel_heap_range().start - 0x1000;
+                    alloc as usize .. alloc + 0x1000 as usize
+                })(),
                 heap: crate::memory::allocator::kernel_heap_range(),
                 mmio: crate::memory::physical::mmio::BASE..crate::memory::physical::mmio::END,
             }
@@ -50,7 +55,7 @@ impl fmt::Display for BinaryInfo {
         )?;
         writeln!(
             f,
-            "\tRead Write Range:  [{:#10x} - {:#10x}]",
+            "\tRead Write Range: [{:#10x} - {:#10x}]",
             self.read_write.start, self.read_write.end
         )?;
         writeln!(
@@ -60,8 +65,18 @@ impl fmt::Display for BinaryInfo {
         )?;
         writeln!(
             f,
+            "\tMain Alocator:    [{:#10x} - {:#10x}]",
+            self.allocator.start, self.allocator.end
+        )?;
+        writeln!(
+            f,
             "\tMain Heap:        [{:#10x} - {:#10x}]",
             self.heap.start, self.heap.end
+        )?;
+        writeln!(
+            f,
+            "\tMMIO:             [{:#10x} - {:#10x}]",
+            self.mmio.start, self.mmio.end
         )?;
         Ok(())
     }

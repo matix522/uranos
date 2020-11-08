@@ -25,7 +25,7 @@ unsafe fn get_level() -> ExceptionLevel {
 
 unsafe impl GlobalAlloc for ChooseAllocator {
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
-        crate::println!("ALLOCATE: {:?}", layout);
+        // crate::println!("ALLOCATE: {:?}", layout);
         match get_level() {
             ExceptionLevel::Kernel => kernel_allocator::ALLOCATOR.alloc(layout),
             ExceptionLevel::User => user_allocator::UserAllocator::get().alloc(layout),
@@ -33,7 +33,7 @@ unsafe impl GlobalAlloc for ChooseAllocator {
         }
     }
     unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
-        crate::println!("DEALLOCATE: {:?}", layout);
+        // crate::println!("DEALLOCATE: {:?}", layout);
         match get_level() {
             ExceptionLevel::Kernel => kernel_allocator::ALLOCATOR.dealloc(ptr, layout),
             ExceptionLevel::User => user_allocator::UserAllocator::get().dealloc(ptr, layout),

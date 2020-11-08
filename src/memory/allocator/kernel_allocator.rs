@@ -26,10 +26,10 @@ impl ControlBlock {
         if self.unused_blocks.is_null() {
             self.stack_top = self.stack_top.offset(-1);
             self.memory_size -= core::mem::size_of::<Block>();
-            crate::println!("NEW BLOCK: {:x}", self.stack_top as u64);
+            // crate::println!("NEW BLOCK: {:x}", self.stack_top as u64);
             return self.stack_top;
         }
-        crate::println!("USED BLOCK: {:x}", self.unused_blocks as u64);
+        // crate::println!("USED BLOCK: {:x}", self.unused_blocks as u64);
 
         let block = self.unused_blocks;
         self.unused_blocks = (*block).next;
@@ -37,7 +37,7 @@ impl ControlBlock {
     }
 
     unsafe fn get_top_bytes(&mut self, size: usize) -> *mut u8 {
-        crate::println!("DATA TOP: {:x}", self.data_top as u64);
+        // crate::println!("DATA TOP: {:x}", self.data_top as u64);
 
         let return_val = self.data_top;
         self.data_top = self.data_top.add(size);
@@ -82,29 +82,34 @@ impl ControlBlock {
             let alligned_size = next_block.data_size - padding_size;
             alligned_size >= requested_size
         });
-        ControlBlock::for_each(self.free_list, |link| {
-            crate::println!("********* FREE *********");
-            crate::println!("Block Info - {:x}", link as *mut _ as usize);
 
-            crate::println!("Start      - {:x}", link.data_ptr as usize);
-            crate::println!("Size       - {:x}", link.data_size);
-            crate::println!("End        - {:x}", link.data_ptr as usize + link.data_size);
-            crate::println!("************************");
+        // crate::println!("control.free_list  - {:x}", self.free_list as usize);
+        // crate::println!("control.alloc_list - {:x}", self.alloc_list as usize);
 
-        });
-        ControlBlock::for_each(self.alloc_list, |link| {
-            crate::println!("********* ALLOC ********");
-            crate::println!("Block Info - {:x}", link as *mut _ as usize);
 
-            crate::println!("Start      - {:x}", link.data_ptr as usize);
-            crate::println!("Size       - {:x}", link.data_size);
-            crate::println!("End        - {:x}", link.data_ptr as usize + link.data_size);
-            crate::println!("************************");
+        // ControlBlock::for_each(self.free_list, |link| {
+        //     crate::println!("********* FREE *********");
+        //     crate::println!("Block Info - {:x}", link as *mut _ as usize);
 
-        });
+        //     crate::println!("Start      - {:x}", link.data_ptr as usize);
+        //     crate::println!("Size       - {:x}", link.data_size);
+        //     crate::println!("End        - {:x}", link.data_ptr as usize + link.data_size);
+        //     crate::println!("************************");
 
-        crate::println!("next_free: {:x}", next_free as u64);
-        crate::println!("data_top: {:x}", self.data_top as u64);
+        // });
+        // ControlBlock::for_each(self.alloc_list, |link| {
+        //     crate::println!("********* ALLOC ********");
+        //     crate::println!("Block Info - {:x}", link as *mut _ as usize);
+
+        //     crate::println!("Start      - {:x}", link.data_ptr as usize);
+        //     crate::println!("Size       - {:x}", link.data_size);
+        //     crate::println!("End        - {:x}", link.data_ptr as usize + link.data_size);
+        //     crate::println!("************************");
+
+        // });
+
+        // crate::println!("next_free: {:x}", next_free as u64);
+        // crate::println!("data_top: {:x}", self.data_top as u64);
 
         if !next_free.is_null() {
             let padding_size = (*next_free).data_ptr.align_offset(requested_allign);
@@ -127,6 +132,15 @@ impl ControlBlock {
                 (*next_free).next = new_free_block
             }
             (*prev_free).next = (*next_free).next;
+
+            (*next_free).data_ptr = alligned_ptr;
+            (*next_free).data_size = requested_size;
+
+            let (previous_alloc, next_alloc) = ControlBlock::find(self.alloc_list, |next| {
+                (*next).data_ptr > alligned_ptr
+            });
+            (*previous_alloc).next = next_free;
+            (*next_free).next = next_alloc;
 
             return next_free;
         }
@@ -194,6 +208,9 @@ impl KernelAllocator {
         *free_warden = core::mem::zeroed();
         *alloc_warden = core::mem::zeroed();
 
+        control.alloc_list = alloc_warden;
+        control.free_list = free_warden;
+
         control.stack_top = control.stack_top.offset(-2);
     }
 }
@@ -205,18 +222,43 @@ unsafe impl GlobalAlloc for KernelAllocator {
         let allocated_block = control.find_free_memory(layout);
 
         if !allocated_block.is_null() {
+            if crate::config::debug_alloc() {
+                crate::println!("Alloc: {:x} Layout {{size: {:x}, allign : {:x} }} ", (*allocated_block).data_ptr as u64, layout.size(), layout.align());
+            }
             return (*allocated_block).data_ptr;
         }
 
         null_mut()
     }
     unsafe fn dealloc(&self, ptr: *mut u8, _layout: Layout) {
-        crate::println!("KURWA DEALLOCATE");
+        let control = &mut *self.control_block.get();
+
+        // ControlBlock::for_each(control.free_list, |link| {
+        //     crate::println!("********* FREE *********");
+        //     crate::println!("Block Info - {:x}", link as *mut _ as usize);
+
+        //     crate::println!("Start      - {:x}", link.data_ptr as usize);
+        //     crate::println!("Size       - {:x}", link.data_size);
+        //     crate::println!("End        - {:x}", link.data_ptr as usize + link.data_size);
+        //     crate::println!("************************");
+
+        // });
+        // crate::println!("\nPtr - {:x}", ptr as usize);
+        if crate::config::debug_alloc() {
+            crate::println!("Dealloc: {:x} Layout {{size: {:x}, allign : {:x} }} ", ptr as u64, _layout.size(), _layout.align());
+        }
+        // ControlBlock::for_each(control.alloc_list, |link| {
+        //     crate::println!("Start      - {:x}", link.data_ptr as usize);
+        // });
+
+
+
+
         let control = &mut *self.control_block.get();
         let (previous, element) =
             ControlBlock::find(control.alloc_list, |next| (*next).data_ptr == ptr);
         if element.is_null() {
-            panic!("Could not deallocate ptr {:x}", ptr as u64);
+            crate::println!("[WARN] Could not deallocate ptr {:x}", ptr as u64);
         }
 
         // remove element from alloc list
@@ -297,7 +339,6 @@ impl KernelAllocatorOld {
         self.heap_start() as *mut OldBlock
     }
 }
-
 #[link_section = ".heap"]
 pub static ALLOCATOR: KernelAllocator = KernelAllocator::new();
 

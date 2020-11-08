@@ -115,7 +115,7 @@ const DEVICE: AttributeFields = AttributeFields::new(
 );
 
 use crate::utils::binary_info::BinaryInfo;
-pub const MEMORY_LAYOUT: [RangeDescriptor; 5] = [
+pub const MEMORY_LAYOUT: [RangeDescriptor; 6] = [
     RangeDescriptor::new(
         "Init Stack",
         || {
@@ -141,6 +141,16 @@ pub const MEMORY_LAYOUT: [RangeDescriptor; 5] = [
         || {
             let binary_info = BinaryInfo::get();
             binary_info.read_write
+        },
+        Translation::Identity,
+        USER_RW_,
+        Granule::Page4KiB,
+    ),
+    RangeDescriptor::new(
+        "Allocator Page",
+        || {
+            let binary_info = BinaryInfo::get();
+            binary_info.allocator
         },
         Translation::Identity,
         USER_RW_,
