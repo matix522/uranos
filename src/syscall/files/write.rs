@@ -50,18 +50,16 @@ pub fn handle_write(context: &mut ExceptionContext) {
         );
         return;
     }
-    unsafe {
-        let current_task = crate::scheduler::get_current_task_context();
-        let fd_table = &mut (*current_task).file_descriptor_table;
-        let data_to_add = string.unwrap();
-        let opened_file = fd_table.get_file_mut(fd).unwrap();
-        match vfs::write(opened_file, &data_to_add) {
-            Ok(_) => {
-                context.gpr[0] = 0;
-            }
-            Err(err) => {
-                context.gpr[0] = (ONLY_MSB_OF_USIZE | err as usize) as u64;
-            }
+    let current_task = crate::scheduler::get_current_task_context();
+    let fd_table = unsafe { &mut (*current_task).file_descriptor_table };
+    let data_to_add = string.unwrap();
+    let opened_file = fd_table.get_file_mut(fd).unwrap();
+    match vfs::write(opened_file, &data_to_add) {
+        Ok(_) => {
+            context.gpr[0] = 0;
+        }
+        Err(err) => {
+            context.gpr[0] = (ONLY_MSB_OF_USIZE | err as usize) as u64;
         }
     }
 }
