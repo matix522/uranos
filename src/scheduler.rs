@@ -56,10 +56,6 @@ pub fn get_current_task_pid() -> usize {
     let scheduler = TASK_MANAGER.lock();
     scheduler.get_current_task_pid()
 }
-pub fn get_current_task_context() -> *mut TaskContext {
-    let mut scheduler = TASK_MANAGER.lock();
-    scheduler.get_current_task() as *mut TaskContext
-}
 
 pub struct TaskManager {
     tasks: Vec<TaskContext>,
@@ -76,10 +72,6 @@ impl TaskManager {
             started: false,
             time_quant,
         }
-    }
-
-    pub fn get_current_task(&mut self) -> &mut TaskContext {
-        &mut self.tasks[self.current_task]
     }
 
     pub fn add_task(&mut self, mut task: TaskContext) -> Result<(), TaskError> {
@@ -257,13 +249,13 @@ pub extern "C" fn first_task() {
     crate::println!("Before write: {}", string);
     crate::syscall::files::close::close(fd1).unwrap();
     let buffer = crate::syscall::get_async_write_buffer();
-      loop {
-          crate::syscall::asynchronous::async_print::async_print("Hello from Async1\n", buffer);
+    loop {
+        crate::syscall::asynchronous::async_print::async_print("Hello from Async1\n", buffer);
 
-          crate::syscall::print::print("BEHOLD! FIRST TASK FROM USERSPACE!!!!\n");
-          crate::syscall::asynchronous::async_print::async_print("Hello from Async2\n", buffer);
+        crate::syscall::print::print("BEHOLD! FIRST TASK FROM USERSPACE!!!!\n");
+        crate::syscall::asynchronous::async_print::async_print("Hello from Async2\n", buffer);
 
-          crate::syscall::yield_cpu();
+        crate::syscall::yield_cpu();
     }
 }
 
