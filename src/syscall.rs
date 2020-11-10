@@ -1,5 +1,6 @@
 pub use num_traits::FromPrimitive;
 
+pub mod files;
 pub mod print;
 
 pub mod asynchronous;
@@ -16,6 +17,11 @@ pub enum Syscalls {
     CreateTask,
     GetAsyncWriteBuffer,
     GetAsyncReadBuffer,
+    OpenFile,
+    ReadFile,
+    CloseFile,
+    SeekFile,
+    WriteFile,
 }
 
 #[inline(never)]

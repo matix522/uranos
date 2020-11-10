@@ -56,6 +56,10 @@ pub fn get_current_task_pid() -> usize {
     let scheduler = TASK_MANAGER.lock();
     scheduler.get_current_task_pid()
 }
+pub fn get_current_task_context() -> *mut TaskContext {
+    let mut scheduler = TASK_MANAGER.lock();
+    scheduler.get_current_task() as *mut TaskContext
+}
 
 pub struct TaskManager {
     tasks: Vec<TaskContext>,
@@ -101,6 +105,10 @@ impl TaskManager {
             .ok_or(TaskError::InvalidTaskReference)?;
 
         Ok(task)
+    }
+
+    pub fn get_current_task(&mut self) -> &mut TaskContext {
+        &mut self.tasks[self.current_task]
     }
 
     fn get_two_tasks(
@@ -227,6 +235,35 @@ pub extern "C" fn first_task() {
         crate::syscall::asynchronous::async_print::async_print("Hello from Async2\n", buffer);
 
         crate::syscall::yield_cpu();
+    }
+    use core::str::from_utf8;
+
+    let mut buffer = [0 as u8; 5000];
+    let mut buffer1 = [0 as u8; 5000];
+
+    let data_to_add = "<Added_data>";
+
+    let fd = crate::syscall::files::open::open("file1", true).unwrap();
+    crate::syscall::files::read::read(fd, 5000, &mut buffer as *mut [u8] as *mut u8);
+    let string = from_utf8(&buffer).unwrap();
+    crate::println!("Before write: {}", string);
+    crate::syscall::files::seek::seek(fd, -2, crate::vfs::SeekType::FromEnd);
+    crate::syscall::files::write::write(fd, data_to_add);
+    crate::syscall::files::close::close(fd).unwrap();
+
+    let fd1 = crate::syscall::files::open::open("file1", false).unwrap();
+    crate::syscall::files::read::read(fd1, 5000, &mut buffer1 as *mut [u8] as *mut u8);
+    let string = from_utf8(&buffer1).unwrap();
+    crate::println!("Before write: {}", string);
+    crate::syscall::files::close::close(fd1).unwrap();
+    let buffer = crate::syscall::get_async_write_buffer();
+      loop {
+          crate::syscall::asynchronous::async_print::async_print("Hello from Async1\n", buffer);
+
+          crate::syscall::print::print("BEHOLD! FIRST TASK FROM USERSPACE!!!!\n");
+          crate::syscall::asynchronous::async_print::async_print("Hello from Async2\n", buffer);
+
+          crate::syscall::yield_cpu();
     }
 }
 
