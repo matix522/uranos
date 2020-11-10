@@ -25,6 +25,15 @@ pub fn write(of: &OpenedFile, message: &str) -> Result<(), FileError> {
     fs.write(of, message)
 }
 
+pub fn seek(
+    of: &mut OpenedFile,
+    difference: isize,
+    seek_type: SeekType,
+) -> Result<usize, FileError> {
+    let mut fs = VIRTUAL_FILE_SYSTEM.lock();
+    fs.seek(of, difference, seek_type)
+}
+
 pub fn read(of: &mut OpenedFile, length: usize) -> Result<ReadData, FileError> {
     let mut fs = VIRTUAL_FILE_SYSTEM.lock();
     let data = fs.read(of, length);
@@ -59,6 +68,14 @@ pub enum FileError {
     FileAlreadyOpenedForRead,
 }
 
+#[repr(usize)]
+#[derive(FromPrimitive, ToPrimitive, Debug)]
+pub enum SeekType {
+    FromBeginning,
+    FromCurrent,
+    FromEnd,
+}
+
 pub struct File {
     pub data: String,
     pub is_opened_for_read: u16,
@@ -89,13 +106,7 @@ impl File {
 
 pub struct OpenedFile {
     filename: String,
-    read_pointer: usize,
-}
-
-impl OpenedFile {
-    pub fn seek(&mut self, position: usize) {
-        self.read_pointer = position;
-    }
+    cursor: usize,
 }
 
 pub struct VFS {
@@ -164,7 +175,7 @@ impl VFS {
         }
         Ok(OpenedFile {
             filename: String::from(filename),
-            read_pointer: 0,
+            cursor: 0,
         })
     }
     pub fn read(&mut self, of: &mut OpenedFile, length: usize) -> Result<&str, FileError> {
@@ -181,13 +192,13 @@ impl VFS {
             }
         };
         let file_len = file.data.len();
-        let end_of_read = if file_len < of.read_pointer + length {
+        let end_of_read = if file_len < of.cursor + length {
             file_len
         } else {
-            of.read_pointer + length
+            of.cursor + length
         };
-        let result = &file.data[of.read_pointer..end_of_read];
-        of.read_pointer = end_of_read;
+        let result = &file.data[of.cursor..end_of_read];
+        of.cursor = end_of_read;
         Ok(result)
     }
 
@@ -204,7 +215,7 @@ impl VFS {
                 return Err(FileError::FileDoesNotExist);
             }
         };
-        let split_off = file.data.split_off(of.read_pointer);
+        let split_off = file.data.split_off(of.cursor);
         file.data = format!("{}{}{}", file.data, message, split_off);
         Ok(())
     }
@@ -225,5 +236,60 @@ impl VFS {
             file.is_opened_for_read -= 1;
         }
         Ok(())
+    }
+
+    pub fn seek(
+        &mut self,
+        of: &mut OpenedFile,
+        difference: isize,
+        seek_type: SeekType,
+    ) -> Result<usize, FileError> {
+        let file = match self.file_map.get_mut(&of.filename) {
+            Some(f) => {
+                if f.is_opened_for_write {
+                    f
+                } else {
+                    return Err(FileError::ModifyingWithoutWritePermission);
+                }
+            }
+            None => {
+                return Err(FileError::FileDoesNotExist);
+            }
+        };
+        let size = file.data.len();
+        match seek_type {
+            SeekType::FromBeginning => {
+                if difference < 0 {
+                    of.cursor = 0;
+                } else {
+                    of.cursor = core::cmp::min(difference as usize, size);
+                }
+            }
+            SeekType::FromCurrent => {
+                if difference < 0 {
+                    of.cursor = core::cmp::max(
+                        of.cursor
+                            .checked_sub(-difference as usize)
+                            .unwrap_or_else(|| 0usize),
+                        0usize,
+                    );
+                } else {
+                    of.cursor = core::cmp::min(
+                        of.cursor
+                            .checked_add(difference as usize)
+                            .unwrap_or_else(|| size),
+                        size,
+                    );
+                }
+            }
+            SeekType::FromEnd => {
+                if difference < 0 {
+                    of.cursor = size;
+                } else {
+                    of.cursor = core::cmp::max(size - (difference as usize), 0);
+                }
+            }
+        }
+        Ok(of.cursor)
     }
 }
