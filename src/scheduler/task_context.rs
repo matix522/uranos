@@ -1,4 +1,5 @@
 use super::task_stack;
+use crate::utils::circullar_buffer::*;
 use crate::syscall::files::file_descriptor_map::*;
 
 /// Stack size of task in bytes
@@ -65,6 +66,8 @@ pub struct TaskContext {
     pub(super) gpr: Gpr,
     pub(super) state: TaskStates,
     stack: Option<task_stack::TaskStack>,
+    pub write_buffer: CircullarBuffer,
+    pub read_buffer: CircullarBuffer,
     pub file_descriptor_table: FileDescriptiorMap,
 }
 
@@ -78,6 +81,8 @@ impl TaskContext {
             gpr: Default::default(),
             state: TaskStates::NotStarted,
             stack: None,
+            write_buffer: CircullarBuffer::new(),
+            read_buffer: CircullarBuffer::new(),
             file_descriptor_table: FileDescriptiorMap::new(),
         }
     }
@@ -101,6 +106,8 @@ impl TaskContext {
             task.gpr.x20 = user_address(start_function as *const () as usize);
         }
         task.stack = Some(stack);
+
+        crate::println!("{:#018x}", &task.write_buffer as *const _ as u64);
 
         Ok(task)
     }
