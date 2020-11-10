@@ -168,12 +168,14 @@ impl TaskManager {
             let syscall_ret_opt = crate::syscall::asynchronous::async_syscall::read_async_syscall(
                 &mut current_task.write_buffer,
             );
-            if let Some(syscall_ret) = syscall_ret_opt { match syscall_ret.syscall_type {
-                AsyncSyscalls::Print => handle_async_print(
-                    syscall_ret.data.memory as *const _ as *const u8,
-                    syscall_ret.data.get_size(),
-                ),
-            } }
+            if let Some(syscall_ret) = syscall_ret_opt {
+                match syscall_ret.syscall_type {
+                    AsyncSyscalls::Print => handle_async_print(
+                        syscall_ret.data.memory as *const _ as *const u8,
+                        syscall_ret.data.get_size(),
+                    ),
+                }
+            }
         }
 
         // #Safety: lifetime of this reference is the same as lifetime of whole TaskManager; exception_context is always properly initialized if task is in tasks vector

@@ -21,7 +21,9 @@ pub fn async_print(msg: &str, write_buffer: &mut CircullarBuffer) {
 }
 
 pub fn handle_async_print(ptr: *const u8, len: usize) {
-    let string = unsafe {print::construct_utf8_str(ptr, len) };
+    let string = unsafe { print::construct_utf8_str(ptr, len) };
 
-    if let Some(message) = string { crate::print!("{}", message) }
+    if let Some(message) = string {
+        crate::print!("{}", message)
+    }
 }
