@@ -9,6 +9,7 @@ pub enum AsyncSyscalls {
     ReadFile,
     SeekFile,
     WriteFile,
+    CloseFile,
 }
 
 pub struct AsyncSyscall<'a> {

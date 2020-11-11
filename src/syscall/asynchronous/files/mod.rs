@@ -1,3 +1,4 @@
+pub mod close;
 pub mod open;
 pub mod read;
 pub mod seek;
@@ -62,5 +63,8 @@ impl AsyncOpenedFile {
     ) -> &AsyncOpenedFile {
         write::write(&self.afd, message, id, submission_buffer);
         self
+    }
+    pub fn then_close(&self, id: usize, submission_buffer: &mut CircullarBuffer) {
+        close::close(&self.afd, id, submission_buffer);
     }
 }

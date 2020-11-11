@@ -52,7 +52,6 @@ pub fn handle_async_open(ptr: *const u8, len: usize) -> usize {
 
     match opened_file_res {
         Err(e) => {
-            crate::println!("DUPAAA {}, {:?}", data.filename, e);
             super::ONLY_MSB_OF_USIZE | (e as usize)
         }
 
