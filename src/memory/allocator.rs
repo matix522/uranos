@@ -7,6 +7,7 @@ mod kernel_allocator;
 mod user_allocator;
 
 use crate::boot::mode::ExceptionLevel;
+use crate::sync::mutex::Mutex;
 pub struct ChooseAllocator;
 
 #[global_allocator]
@@ -22,12 +23,14 @@ unsafe fn get_level() -> ExceptionLevel {
         _ => unreachable!(),
     }
 }
-
 unsafe impl GlobalAlloc for ChooseAllocator {
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
         // crate::println!("ALLOCATE: {:?}", layout);
         match get_level() {
-            ExceptionLevel::Kernel => kernel_allocator::ALLOCATOR.alloc(layout),
+            ExceptionLevel::Kernel => {
+                let allocator = kernel_allocator::ALLOCATOR.lock();
+                allocator.alloc(layout)
+            }
             ExceptionLevel::User => user_allocator::UserAllocator::get().alloc(layout),
             _ => null_mut(),
         }
@@ -35,20 +38,25 @@ unsafe impl GlobalAlloc for ChooseAllocator {
     unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
         // crate::println!("DEALLOCATE: {:?}", layout);
         match get_level() {
-            ExceptionLevel::Kernel => kernel_allocator::ALLOCATOR.dealloc(ptr, layout),
+            ExceptionLevel::Kernel => {
+                let allocator = kernel_allocator::ALLOCATOR.lock();
+                allocator.dealloc(ptr, layout)
+            }
             ExceptionLevel::User => user_allocator::UserAllocator::get().dealloc(ptr, layout),
             _ => panic!("Global Allocator in invalid context!"),
         };
     }
 }
+/// # Safety
+/// Must be called only once before first allocation.  
 pub unsafe fn init_kernel() {
-    kernel_allocator::ALLOCATOR.initialize_memory(kernel_heap_range());
+    let allocator = kernel_allocator::ALLOCATOR.lock();
+    allocator.initialize_memory(kernel_heap_range());
 }
 
 pub fn kernel_heap_range() -> Range<usize> {
-    let allocator = &kernel_allocator::ALLOCATOR;
-    let allocator_address =
-        &kernel_allocator::ALLOCATOR as *const kernel_allocator::KernelAllocator as *const u8;
+    let allocator_address = &kernel_allocator::ALLOCATOR
+        as *const Mutex<kernel_allocator::KernelAllocator> as *const u8;
     let heap_start = unsafe { allocator_address.add(4096) };
     heap_start as usize..heap_start as usize + 0x1000_0000
 }

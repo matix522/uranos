@@ -17,6 +17,6 @@ pub fn debug_alloc() -> bool {
     DEBUG_ALLOC.load(Ordering::SeqCst)
 }
 
-pub fn set_debug_alloc(value : bool) {
+pub fn set_debug_alloc(value: bool) {
     DEBUG_ALLOC.store(value, Ordering::SeqCst);
 }

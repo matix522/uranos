@@ -111,7 +111,8 @@ pub unsafe fn add_translation(p_address: usize, v_address: usize) {
         Granule::Page4KiB,
     )
 }
-
+/// # Safety
+/// It is not safe xD
 pub unsafe fn test() -> Result<(), &'static str> {
     use cortex_a::barrier;
     let mut m = MMU::new();

@@ -15,7 +15,7 @@ pub struct BinaryInfo {
     pub read_only: Range<usize>,
     pub read_write: Range<usize>,
     pub exception_vector: usize,
-    pub allocator : Range<usize>,
+    pub allocator: Range<usize>,
     pub heap: Range<usize>,
     pub mmio: Range<usize>,
 }
@@ -29,10 +29,10 @@ impl BinaryInfo {
                 read_write: &__read_write_start as *const _ as usize
                     ..&__read_write_end as *const _ as usize,
                 exception_vector: &__exception_vector_start as *const _ as usize,
-                allocator: (|| {
+                allocator: {
                     let alloc = &crate::memory::allocator::kernel_heap_range().start - 0x1000;
-                    alloc as usize .. alloc + 0x1000 as usize
-                })(),
+                    alloc as usize..alloc + 0x1000 as usize
+                },
                 heap: crate::memory::allocator::kernel_heap_range(),
                 mmio: crate::memory::physical::mmio::BASE..crate::memory::physical::mmio::END,
             }

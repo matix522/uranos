@@ -202,9 +202,13 @@ impl TableRecord {
     pub fn is_valid(&self) -> bool {
         (self.0 & 0b1) == 1
     }
+    /// # Safety
+    /// self must be correct entry of 1,2 level describing a table of tables
     pub unsafe fn next_table(&self) -> *mut [TableRecord; 512] {
         (self.0 & (((1 << 36) - 1) << 12)) as *mut [TableRecord; 512]
     }
+    /// # Safety
+    /// self must be correct entry of 1,2 level describing a table of page records
     pub unsafe fn next_page(&self) -> *mut [PageRecord; 512] {
         (self.0 & (((1 << 36) - 1) << 12)) as *mut [PageRecord; 512]
     }

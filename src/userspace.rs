@@ -14,7 +14,7 @@ pub extern "C" fn task_two() {
     loop {
         crate::syscall::print::print("Printing Task Two\n");
         vec.push(i);
-        i += 1;
+        i += 10;
         crate::syscall::print::print(&format!("{:?}", vec.last()));
     }
 }
