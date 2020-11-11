@@ -20,3 +20,13 @@ pub fn debug_alloc() -> bool {
 pub fn set_debug_alloc(value: bool) {
     DEBUG_ALLOC.store(value, Ordering::SeqCst);
 }
+
+static DEBUG_MMU: AtomicBool = AtomicBool::new(false);
+
+pub fn debug_mmu() -> bool {
+    DEBUG_MMU.load(Ordering::SeqCst)
+}
+
+pub fn set_debug_mmu(value: bool) {
+    DEBUG_MMU.store(value, Ordering::SeqCst);
+}

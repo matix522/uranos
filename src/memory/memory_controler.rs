@@ -60,25 +60,49 @@ impl core::default::Default for AttributeFields {
     }
 }
 
-/// Descriptor for a memory range.
+/// Static descriptor for a memory range.
 #[allow(missing_docs)]
-pub struct RangeDescriptor {
+pub struct StaticRangeDescriptor {
     pub name: &'static str,
     pub virtual_range: fn() -> Range<usize>,
     pub translation: Translation,
     pub attribute_fields: AttributeFields,
     pub granule: Granule,
 }
-impl RangeDescriptor {
-    const fn new(
+impl StaticRangeDescriptor {
+    pub const fn new(
         name: &'static str,
         virtual_range: fn() -> Range<usize>,
         translation: Translation,
         attribute_fields: AttributeFields,
         granule: Granule,
     ) -> Self {
-        RangeDescriptor {
+        StaticRangeDescriptor {
             name,
+            virtual_range,
+            translation,
+            attribute_fields,
+            granule,
+        }
+    }
+}
+
+/// Descriptor for a memory range.
+#[allow(missing_docs)]
+pub struct RangeDescriptor {
+    pub virtual_range: Range<usize>,
+    pub translation: Translation,
+    pub attribute_fields: AttributeFields,
+    pub granule: Granule,
+}
+impl RangeDescriptor {
+    pub const fn new(
+        virtual_range: Range<usize>,
+        translation: Translation,
+        attribute_fields: AttributeFields,
+        granule: Granule,
+    ) -> Self {
+        RangeDescriptor {
             virtual_range,
             translation,
             attribute_fields,
@@ -115,8 +139,9 @@ const DEVICE: AttributeFields = AttributeFields::new(
 );
 
 use crate::utils::binary_info::BinaryInfo;
-pub const MEMORY_LAYOUT: [RangeDescriptor; 6] = [
-    RangeDescriptor::new(
+
+pub const PHYSICAL_MEMORY_LAYOUT: [StaticRangeDescriptor; 6] = [
+    StaticRangeDescriptor::new(
         "Init Stack",
         || {
             let binary_info = BinaryInfo::get();
@@ -126,7 +151,7 @@ pub const MEMORY_LAYOUT: [RangeDescriptor; 6] = [
         KERNEL_RW_,
         Granule::Page4KiB,
     ),
-    RangeDescriptor::new(
+    StaticRangeDescriptor::new(
         "Static Kernel Data and Code",
         || {
             let binary_info = BinaryInfo::get();
@@ -136,7 +161,7 @@ pub const MEMORY_LAYOUT: [RangeDescriptor; 6] = [
         USER_R_X,
         Granule::Page4KiB,
     ),
-    RangeDescriptor::new(
+    StaticRangeDescriptor::new(
         "Mutable Kernel Data",
         || {
             let binary_info = BinaryInfo::get();
@@ -146,7 +171,7 @@ pub const MEMORY_LAYOUT: [RangeDescriptor; 6] = [
         USER_RW_,
         Granule::Page4KiB,
     ),
-    RangeDescriptor::new(
+    StaticRangeDescriptor::new(
         "Allocator Page",
         || {
             let binary_info = BinaryInfo::get();
@@ -156,7 +181,7 @@ pub const MEMORY_LAYOUT: [RangeDescriptor; 6] = [
         USER_RW_,
         Granule::Page4KiB,
     ),
-    RangeDescriptor::new(
+    StaticRangeDescriptor::new(
         "Initial Kernel Heap",
         || {
             let binary_info = BinaryInfo::get();
@@ -166,7 +191,7 @@ pub const MEMORY_LAYOUT: [RangeDescriptor; 6] = [
         USER_RW_,
         Granule::Page4KiB,
     ),
-    RangeDescriptor::new(
+    StaticRangeDescriptor::new(
         "MMIO devices",
         || {
             let binary_info = BinaryInfo::get();
@@ -177,3 +202,46 @@ pub const MEMORY_LAYOUT: [RangeDescriptor; 6] = [
         Granule::Block2MiB,
     ),
 ];
+
+use crate::sync::mutex::Mutex;
+use alloc::collections::BTreeMap;
+use alloc::string::String;
+
+type MemoryMap = Mutex<BTreeMap<String, RangeDescriptor>>;
+
+pub static DYNAMIC_MEMORY_MAP_KERNEL: MemoryMap = Mutex::new(BTreeMap::new());
+
+pub enum AddressSpace {
+    Kernel,
+    User,
+}
+
+use super::armv8::mmu::{map_memory, unmap_memory};
+
+pub fn map_kernel_memory(
+    memory_id: &str,
+    virtual_range: Range<usize>,
+    physical_start: usize,
+    is_writable: bool,
+) {
+    let memory_range = RangeDescriptor::new(
+        virtual_range,
+        Translation::Offset(physical_start),
+        if is_writable { KERNEL_RW_ } else { KERNEL_R_X },
+        Granule::Page4KiB,
+    );
+    let mut map = DYNAMIC_MEMORY_MAP_KERNEL.lock();
+    let remapped = map.insert(memory_id.into(), memory_range);
+
+    if let Some(old_memory_range) = remapped {}
+
+    unsafe {
+        map_memory(AddressSpace::Kernel, map.get(memory_id).unwrap()).unwrap();
+    };
+}
+
+pub fn unmap_kernel_memory(memory_id: &str) {
+    let map = DYNAMIC_MEMORY_MAP_KERNEL.lock();
+    map.get(memory_id)
+        .expect("The name does not match any kernel.");
+}
