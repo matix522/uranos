@@ -169,11 +169,14 @@ impl TaskManager {
                 &mut current_task.write_buffer,
             );
             if let Some(syscall_ret) = syscall_ret_opt {
+                //ommit the syscall type value that is at the beginning of the data from buffer
+                let ptr = unsafe {
+                    (syscall_ret.data.memory as *const _ as *const u8)
+                        .add(core::mem::size_of::<usize>())
+                }; 
+                let length = syscall_ret.data.get_size() - core::mem::size_of::<usize>();
                 match syscall_ret.syscall_type {
-                    AsyncSyscalls::Print => handle_async_print(
-                        syscall_ret.data.memory as *const _ as *const u8,
-                        syscall_ret.data.get_size(),
-                    ),
+                    AsyncSyscalls::Print => handle_async_print(ptr, length),
                 }
             }
         }
