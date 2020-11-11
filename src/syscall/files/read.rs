@@ -42,7 +42,7 @@ pub fn handle_read(context: &mut ExceptionContext) {
             unsafe {
                 core::ptr::copy_nonoverlapping(data.data, buffer, data.len);
             }
-            context.gpr[0] = 0;
+            context.gpr[0] = data.len as u64;
         }
         Err(err) => {
             context.gpr[0] = (ONLY_MSB_OF_USIZE | err as usize) as u64;

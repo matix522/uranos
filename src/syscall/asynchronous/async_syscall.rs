@@ -6,6 +6,7 @@ use num_traits::FromPrimitive;
 pub enum AsyncSyscalls {
     Print,
     OpenFile,
+    ReadFile,
 }
 
 pub struct AsyncSyscall<'a> {
@@ -21,24 +22,24 @@ pub struct AsyncSyscallRequest<'a> {
     pub data: ReturnedValue<'a>,
 }
 
-pub struct AsyncSyscallReturnedValue{
+pub struct AsyncSyscallReturnedValue {
     pub id: usize,
     pub value: usize,
 }
 
-impl <'a> AsyncSyscallRequest <'a>{
-    pub fn get_syscall_data(&self) -> &'a[u8]{
-        &self.data.memory[2*core::mem::size_of::<usize>()..]
+impl<'a> AsyncSyscallRequest<'a> {
+    pub fn get_syscall_data(&self) -> &'a [u8] {
+        &self.data.memory[2 * core::mem::size_of::<usize>()..]
     }
-    pub fn get_data_size(&self) -> usize{
-        self.data.get_size() - 2*core::mem::size_of::<usize>()
+    pub fn get_data_size(&self) -> usize {
+        self.data.get_size() - 2 * core::mem::size_of::<usize>()
     }
 }
 
 pub fn send_async_syscall(buffer: &mut CircullarBuffer, syscall: AsyncSyscall) {
     let usize_size = core::mem::size_of::<usize>();
     let mut buffer_frame = buffer
-        .reserve(2*usize_size + syscall.data_size)
+        .reserve(2 * usize_size + syscall.data_size)
         .expect("Error during sending async syscall");
     unsafe {
         let mut pointer = &mut *buffer_frame as *mut _ as *mut usize;
@@ -48,7 +49,7 @@ pub fn send_async_syscall(buffer: &mut CircullarBuffer, syscall: AsyncSyscall) {
 
         core::ptr::copy_nonoverlapping(
             syscall.data as *const _ as *const u8,
-            (&mut (*buffer_frame) as *mut _ as *mut u8).add(2*usize_size),
+            (&mut (*buffer_frame) as *mut _ as *mut u8).add(2 * usize_size),
             syscall.data_size,
         );
     }
@@ -75,15 +76,15 @@ pub fn read_async_syscall(buffer: &mut CircullarBuffer) -> Option<AsyncSyscallRe
     }
 }
 
-pub fn get_syscall_returned_value(completion_buffer: &mut CircullarBuffer) -> Option<&AsyncSyscallReturnedValue>{
+pub fn get_syscall_returned_value(
+    completion_buffer: &mut CircullarBuffer,
+) -> Option<&AsyncSyscallReturnedValue> {
     match completion_buffer.get_value() {
         Err(_) => None,
-        Ok(returned_value) => {
-            Some(
-                unsafe{
-                    crate::utils::struct_to_slice::u8_slice_to_any::<AsyncSyscallReturnedValue>(returned_value.memory)
-                }
+        Ok(returned_value) => Some(unsafe {
+            crate::utils::struct_to_slice::u8_slice_to_any::<AsyncSyscallReturnedValue>(
+                returned_value.memory,
             )
-        }
+        }),
     }
 }

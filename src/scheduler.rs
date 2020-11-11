@@ -3,6 +3,7 @@ pub mod task_stack;
 
 use crate::device_driver;
 use crate::syscall::asynchronous::async_print::*;
+use crate::syscall::asynchronous::async_returned_values::*;
 use crate::syscall::asynchronous::async_syscall::*;
 use crate::syscall::asynchronous::files::*;
 use alloc::vec::Vec;
@@ -165,6 +166,8 @@ impl TaskManager {
             .get_two_tasks(previous_task_pid, next_task_pid)
             .expect("Error during task switch: {:?}");
 
+        let mut values_map = AsyncReturnedValues::new();
+
         while !current_task.submission_buffer.is_empty() {
             let syscall_ret_opt = crate::syscall::asynchronous::async_syscall::read_async_syscall(
                 &mut current_task.submission_buffer,
@@ -178,9 +181,20 @@ impl TaskManager {
                 let returned_value = match syscall_ret.syscall_type {
                     AsyncSyscalls::Print => handle_async_print(ptr, length),
                     AsyncSyscalls::OpenFile => open::handle_async_open(ptr, length),
+                    AsyncSyscalls::ReadFile => {
+                        read::handle_async_read(ptr, length, &mut values_map)
+                    }
                 };
-                let mut buffer_frame = current_task.completion_buffer.reserve(core::mem::size_of::<AsyncSyscallReturnedValue>()).expect("Error during sending async syscall response");
-                let return_structure: &mut AsyncSyscallReturnedValue = unsafe {crate::utils::struct_to_slice::u8_slice_to_any_mut(buffer_frame.memory)};
+                values_map
+                    .map
+                    .insert(syscall_ret.id, (syscall_ret.syscall_type, returned_value));
+                let buffer_frame = current_task
+                    .completion_buffer
+                    .reserve(core::mem::size_of::<AsyncSyscallReturnedValue>())
+                    .expect("Error during sending async syscall response");
+                let return_structure: &mut AsyncSyscallReturnedValue = unsafe {
+                    crate::utils::struct_to_slice::u8_slice_to_any_mut(buffer_frame.memory)
+                };
                 return_structure.id = syscall_ret.id;
                 return_structure.value = returned_value;
             }
@@ -230,17 +244,26 @@ pub extern "C" fn first_task() {
     let buffer = crate::syscall::get_async_submission_buffer();
     let completion_buffer = crate::syscall::get_async_completion_buffer();
 
-    use crate::syscall::asynchronous::files::open::*;
-    use crate::syscall::asynchronous::future_async_syscall_result::FutureAsyncSyscallResult;
     use crate::alloc::string::String;
     use crate::alloc::string::ToString;
+    use crate::syscall::asynchronous::files::open::*;
     use crate::vfs;
+    use core::str::from_utf8;
 
     // let mut future: FutureAsyncSyscallResult::<Result<usize, vfs::FileError>> = FutureAsyncSyscallResult::new();
+
+    let mut str_buffer = [0u8; 20];
 
     crate::syscall::asynchronous::async_print::async_print("Hello world!", 69, buffer);
 
     crate::syscall::asynchronous::files::open::open("file1".to_string(), true, 1, buffer);
+    crate::syscall::asynchronous::files::read::read(
+        AsyncFileDescriptor::AsyncSyscallReturnValue(1),
+        20,
+        &mut str_buffer as *mut [u8] as *mut u8,
+        2,
+        buffer,
+    );
 
     // crate::println!("{:?}, {:#018x}", future, &syscall_data.future  as *const _ as u64 );
     // crate::println!("{:?}", future);
@@ -250,13 +273,21 @@ pub extern "C" fn first_task() {
     // crate::println!("{:?}", future);
     // crate::println!("{:?}", future);
 
-    loop{
-        match crate::syscall::asynchronous::async_syscall::get_syscall_returned_value(completion_buffer){
-            Some(val) => crate::println!("Received response for id: {} - {}", val.id, val.value),
+    loop {
+        match crate::syscall::asynchronous::async_syscall::get_syscall_returned_value(
+            completion_buffer,
+        ) {
+            Some(val) => {
+                crate::println!("Received response for id: {} - {}", val.id, val.value);
+                if val.id == 2 {
+                    let string = from_utf8(&str_buffer).unwrap();
+                    crate::println!("Read_value: {}", string);
+                    loop {}
+                }
+            }
             None => crate::println!("No responses"),
         };
     }
-    
 }
 
 #[no_mangle]
