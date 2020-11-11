@@ -22,7 +22,7 @@ pub fn open(
     with_write: bool,
     id: usize,
     submission_buffer: &mut CircullarBuffer,
-) {
+) -> AsyncOpenedFile {
     let data = AsyncOpenSyscallData {
         filename,
         with_write,
@@ -41,6 +41,10 @@ pub fn open(
         crate::println!("{}", element);
     }
     crate::syscall::asynchronous::async_syscall::send_async_syscall(submission_buffer, a);
+    AsyncOpenedFile {
+        afd: AsyncFileDescriptor::AsyncSyscallReturnValue(id),
+        with_write,
+    }
 }
 
 pub fn handle_async_open(ptr: *const u8, len: usize) -> usize {

@@ -6,30 +6,31 @@ use crate::utils::circullar_buffer::*;
 use crate::vfs;
 use alloc::string::String;
 use alloc::string::ToString;
+use num_traits::FromPrimitive;
 
-pub struct AsyncReadSyscallData {
+pub struct AsyncSeekSyscallData {
     pub afd: usize,
-    pub length: usize,
-    pub buffer: *mut u8,
+    pub value: isize,
+    pub seek_type: usize,
 }
 
-impl AsyncReadSyscallData {
+impl AsyncSeekSyscallData {
     pub fn as_bytes(&self) -> &[u8] {
         unsafe { crate::utils::struct_to_slice::any_as_u8_slice(self) }
     }
 }
 
-pub fn read(
+pub fn seek(
     afd: &AsyncFileDescriptor,
-    length: usize,
-    buffer: *mut u8,
+    value: isize,
+    seek_type: vfs::SeekType,
     id: usize,
     submission_buffer: &mut CircullarBuffer,
 ) {
-    let data = AsyncReadSyscallData {
+    let data = AsyncSeekSyscallData {
         afd: afd.to_usize(),
-        length,
-        buffer,
+        value,
+        seek_type: seek_type as usize,
     };
 
     let bytes = data.as_bytes();
@@ -38,18 +39,18 @@ pub fn read(
         data: bytes,
         id,
         data_size: bytes.len(),
-        syscall_type: AsyncSyscalls::ReadFile,
+        syscall_type: AsyncSyscalls::SeekFile,
     };
 
     crate::syscall::asynchronous::async_syscall::send_async_syscall(submission_buffer, a);
 }
 
-pub fn handle_async_read(
+pub fn handle_async_seek(
     ptr: *const u8,
     len: usize,
     returned_values: &mut AsyncReturnedValues,
 ) -> usize {
-    let syscall_data: &AsyncReadSyscallData = unsafe {
+    let syscall_data: &AsyncSeekSyscallData = unsafe {
         let slice = core::slice::from_raw_parts(ptr, len);
         crate::utils::struct_to_slice::u8_slice_to_any(slice)
     };
@@ -79,13 +80,10 @@ pub fn handle_async_read(
         return ONLY_MSB_OF_USIZE | vfs::FileError::ReadOnClosedFile as usize;
     }
     let opened_file = fd_table.get_file_mut(fd).unwrap();
-    match vfs::read(opened_file, syscall_data.length) {
-        Ok(data) => {
-            unsafe {
-                core::ptr::copy_nonoverlapping(data.data, syscall_data.buffer, data.len);
-            }
-            data.len
-        }
+    let seek_type = vfs::SeekType::from_usize(syscall_data.seek_type)
+        .unwrap_or_else(|| panic!("Wrong type of SeekType sent: {}", syscall_data.seek_type));
+    match vfs::seek(opened_file, syscall_data.value, seek_type) {
+        Ok(val) => val,
         Err(err) => ONLY_MSB_OF_USIZE | err as usize,
     }
 }

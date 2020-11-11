@@ -1,4 +1,5 @@
 use super::task_stack;
+use crate::syscall::asynchronous::async_returned_values::AsyncReturnedValues;
 use crate::syscall::files::file_descriptor_map::*;
 use crate::utils::circullar_buffer::*;
 
@@ -69,6 +70,7 @@ pub struct TaskContext {
     pub submission_buffer: CircullarBuffer,
     pub completion_buffer: CircullarBuffer,
     pub file_descriptor_table: FileDescriptiorMap,
+    pub async_returns_map: AsyncReturnedValues,
 }
 
 // ONLY TEMPORARY SOLUTION
@@ -84,6 +86,7 @@ impl TaskContext {
             submission_buffer: CircullarBuffer::new(),
             completion_buffer: CircullarBuffer::new(),
             file_descriptor_table: FileDescriptiorMap::new(),
+            async_returns_map: AsyncReturnedValues::new(),
         }
     }
 

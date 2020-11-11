@@ -7,6 +7,7 @@ pub enum AsyncSyscalls {
     Print,
     OpenFile,
     ReadFile,
+    SeekFile,
 }
 
 pub struct AsyncSyscall<'a> {
