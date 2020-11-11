@@ -1,6 +1,7 @@
 pub mod open;
 pub mod read;
 pub mod seek;
+pub mod write;
 use crate::utils::circullar_buffer::CircullarBuffer;
 use crate::vfs;
 
@@ -30,7 +31,6 @@ impl AsyncFileDescriptor {
 
 pub struct AsyncOpenedFile {
     pub afd: AsyncFileDescriptor,
-    pub with_write: bool,
 }
 
 impl AsyncOpenedFile {
@@ -52,6 +52,15 @@ impl AsyncOpenedFile {
         submission_buffer: &mut CircullarBuffer,
     ) -> &AsyncOpenedFile {
         seek::seek(&self.afd, value, seek_type, id, submission_buffer);
+        self
+    }
+    pub fn then_write(
+        &self,
+        message: &'static str,
+        id: usize,
+        submission_buffer: &mut CircullarBuffer,
+    ) -> &AsyncOpenedFile {
+        write::write(&self.afd, message, id, submission_buffer);
         self
     }
 }

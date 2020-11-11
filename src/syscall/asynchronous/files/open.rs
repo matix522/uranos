@@ -1,13 +1,10 @@
 use super::*;
 use crate::syscall::asynchronous::async_syscall::*;
-use crate::syscall::asynchronous::future_async_syscall_result::FutureAsyncSyscallResult;
 use crate::utils::circullar_buffer::*;
 use crate::vfs;
-use alloc::string::String;
-use alloc::string::ToString;
 
 pub struct AsyncOpenSyscallData {
-    pub filename: String,
+    pub filename: &'static str,
     pub with_write: bool,
 }
 
@@ -18,7 +15,7 @@ impl AsyncOpenSyscallData {
 }
 
 pub fn open(
-    filename: String,
+    filename: &'static str,
     with_write: bool,
     id: usize,
     submission_buffer: &mut CircullarBuffer,
@@ -36,14 +33,10 @@ pub fn open(
         data_size: bytes.len(),
         syscall_type: AsyncSyscalls::OpenFile,
     };
-    crate::println!("SIZE: {}", a.data_size);
-    for element in a.data.iter() {
-        crate::println!("{}", element);
-    }
+
     crate::syscall::asynchronous::async_syscall::send_async_syscall(submission_buffer, a);
     AsyncOpenedFile {
         afd: AsyncFileDescriptor::AsyncSyscallReturnValue(id),
-        with_write,
     }
 }
 
@@ -53,12 +46,15 @@ pub fn handle_async_open(ptr: *const u8, len: usize) -> usize {
         crate::utils::struct_to_slice::u8_slice_to_any(slice)
     };
 
-    let opened_file_res = vfs::open(&data.filename, data.with_write);
+    let opened_file_res = vfs::open(data.filename, data.with_write);
 
     let current_task = crate::scheduler::get_current_task_context();
 
     match opened_file_res {
-        Err(e) => super::ONLY_MSB_OF_USIZE | (e as usize),
+        Err(e) => {
+            crate::println!("DUPAAA {}, {:?}", data.filename, e);
+            super::ONLY_MSB_OF_USIZE | (e as usize)
+        }
 
         Ok(opened_file) => unsafe { (*current_task).file_descriptor_table.add_file(opened_file) },
     }

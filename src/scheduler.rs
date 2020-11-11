@@ -3,7 +3,6 @@ pub mod task_stack;
 
 use crate::device_driver;
 use crate::syscall::asynchronous::async_print::*;
-use crate::syscall::asynchronous::async_returned_values::*;
 use crate::syscall::asynchronous::async_syscall::*;
 use crate::syscall::asynchronous::files::*;
 use alloc::vec::Vec;
@@ -185,6 +184,9 @@ impl TaskManager {
                     AsyncSyscalls::SeekFile => {
                         seek::handle_async_seek(ptr, length, &mut current_task.async_returns_map)
                     }
+                    AsyncSyscalls::WriteFile => {
+                        write::handle_async_write(ptr, length, &mut current_task.async_returns_map)
+                    }
                 };
 
                 current_task
@@ -248,20 +250,21 @@ pub extern "C" fn first_task() {
     let buffer = crate::syscall::get_async_submission_buffer();
     let completion_buffer = crate::syscall::get_async_completion_buffer();
 
-    use crate::alloc::string::String;
-    use crate::alloc::string::ToString;
-    use crate::syscall::asynchronous::files::open::*;
-    use crate::syscall::asynchronous::files::AsyncOpenedFile;
     use crate::vfs;
     use core::str::from_utf8;
 
     // let mut future: FutureAsyncSyscallResult::<Result<usize, vfs::FileError>> = FutureAsyncSyscallResult::new();
 
     let mut str_buffer = [0u8; 20];
+    let mut str_buffer1 = [0u8; 20];
 
-    crate::syscall::asynchronous::files::open::open("file1".to_string(), true, 1, buffer)
-        .then_seek(30, vfs::SeekType::FromEnd, 3, buffer)
-        .then_read(20, &mut str_buffer as *mut [u8] as *mut u8, 2, buffer);
+    crate::syscall::asynchronous::files::open::open("file1", true, 1, buffer)
+        .then_read(20, &mut str_buffer as *mut [u8] as *mut u8, 2, buffer)
+        .then_seek(-15, vfs::SeekType::FromCurrent, 3, buffer)
+        .then_write("<Added>", 4, buffer)
+        .then_seek(2, vfs::SeekType::FromBeginning, 5, buffer)
+        .then_read(20, &mut str_buffer1 as *mut [u8] as *mut u8, 6, buffer);
+
     crate::syscall::asynchronous::async_print::async_print("Hello world!", 69, buffer);
     // crate::syscall::asynchronous::files::read::read(
     //     AsyncFileDescriptor::AsyncSyscallReturnValue(1),
@@ -284,10 +287,17 @@ pub extern "C" fn first_task() {
             completion_buffer,
         ) {
             Some(val) => {
-                crate::println!("Received response for id: {} - {}", val.id, val.value);
-                if val.id == 2 {
+                crate::println!(
+                    "Received response for id: {} - {} : {}",
+                    val.id,
+                    val.value,
+                    val.value & !ONLY_MSB_OF_USIZE
+                );
+                if val.id == 6 {
                     let string = from_utf8(&str_buffer).unwrap();
-                    crate::println!("Read_value: {}", string);
+                    crate::println!("1st Read_value: {}", string);
+                    let string = from_utf8(&str_buffer1).unwrap();
+                    crate::println!("2nd Read_value: {}", string);
                     loop {}
                 }
             }
