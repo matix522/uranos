@@ -15,8 +15,8 @@ pub enum Syscalls {
     Yield,
     FinishTask,
     CreateTask,
-    GetAsyncWriteBuffer,
-    GetAsyncReadBuffer,
+    GetAsyncSubmissionBuffer,
+    GetAsyncCompletionBuffer,
     OpenFile,
     ReadFile,
     CloseFile,
@@ -143,9 +143,9 @@ pub fn create_task(function: extern "C" fn()) {
         );
     }
 }
-pub fn get_async_write_buffer() -> &'static mut CircullarBuffer {
-    unsafe { &mut *(syscall0(Syscalls::GetAsyncWriteBuffer as usize) as *mut CircullarBuffer) }
+pub fn get_async_submission_buffer() -> &'static mut CircullarBuffer {
+    unsafe { &mut *(syscall0(Syscalls::GetAsyncSubmissionBuffer as usize) as *mut CircullarBuffer) }
 }
-pub fn get_async_read_buffer() -> &'static mut CircullarBuffer {
-    unsafe { &mut *(syscall0(Syscalls::GetAsyncReadBuffer as usize) as *mut CircullarBuffer) }
+pub fn get_async_completion_buffer() -> &'static mut CircullarBuffer {
+    unsafe { &mut *(syscall0(Syscalls::GetAsyncCompletionBuffer as usize) as *mut CircullarBuffer) }
 }

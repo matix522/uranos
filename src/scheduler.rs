@@ -4,6 +4,7 @@ pub mod task_stack;
 use crate::device_driver;
 use crate::syscall::asynchronous::async_print::*;
 use crate::syscall::asynchronous::async_syscall::*;
+use crate::syscall::asynchronous::files::*;
 use alloc::vec::Vec;
 use core::time::Duration;
 use task_context::*;
@@ -65,7 +66,7 @@ pub struct TaskManager {
 }
 
 impl TaskManager {
-    pub const fn new(time_quant: Duration) -> Self {
+    pub fn new(time_quant: Duration) -> Self {
         Self {
             tasks: Vec::new(),
             current_task: 0,
@@ -164,20 +165,50 @@ impl TaskManager {
             .get_two_tasks(previous_task_pid, next_task_pid)
             .expect("Error during task switch: {:?}");
 
-        while !current_task.write_buffer.is_empty() {
+        while !current_task.submission_buffer.is_empty() {
             let syscall_ret_opt = crate::syscall::asynchronous::async_syscall::read_async_syscall(
-                &mut current_task.write_buffer,
+                &mut current_task.submission_buffer,
             );
             if let Some(syscall_ret) = syscall_ret_opt {
                 //ommit the syscall type value that is at the beginning of the data from buffer
-                let ptr = unsafe {
-                    (syscall_ret.data.memory as *const _ as *const u8)
-                        .add(core::mem::size_of::<usize>())
-                }; 
-                let length = syscall_ret.data.get_size() - core::mem::size_of::<usize>();
-                match syscall_ret.syscall_type {
+                let data = syscall_ret.get_syscall_data();
+                let ptr = data as *const _ as *const u8;
+                let length = syscall_ret.get_data_size();
+                crate::println!("Handling syscall of id: {}", syscall_ret.id);
+                let returned_value = match syscall_ret.syscall_type {
                     AsyncSyscalls::Print => handle_async_print(ptr, length),
-                }
+                    AsyncSyscalls::OpenFile => {
+                        let ret = open::handle_async_open(ptr, length);
+                        current_task
+                            .async_returns_map
+                            .map
+                            .insert(syscall_ret.id, (syscall_ret.syscall_type, ret));
+                        ret
+                    }
+                    AsyncSyscalls::ReadFile => {
+                        read::handle_async_read(ptr, length, &mut current_task.async_returns_map)
+                    }
+                    AsyncSyscalls::SeekFile => {
+                        seek::handle_async_seek(ptr, length, &mut current_task.async_returns_map)
+                    }
+                    AsyncSyscalls::WriteFile => {
+                        write::handle_async_write(ptr, length, &mut current_task.async_returns_map)
+                    }
+                    AsyncSyscalls::CloseFile => {
+                        current_task.async_returns_map.map.remove(&syscall_ret.id);
+                        close::handle_async_close(ptr, length, &mut current_task.async_returns_map)
+                    }
+                };
+
+                let buffer_frame = current_task
+                    .completion_buffer
+                    .reserve(core::mem::size_of::<AsyncSyscallReturnedValue>())
+                    .expect("Error during sending async syscall response");
+                let return_structure: &mut AsyncSyscallReturnedValue = unsafe {
+                    crate::utils::struct_to_slice::u8_slice_to_any_mut(buffer_frame.memory)
+                };
+                return_structure.id = syscall_ret.id;
+                return_structure.value = returned_value;
             }
         }
 
@@ -222,43 +253,46 @@ pub fn drop_el0() {
 #[no_mangle]
 #[inline(never)]
 pub extern "C" fn first_task() {
-    let buffer = crate::syscall::get_async_write_buffer();
-    loop {
-        crate::syscall::asynchronous::async_print::async_print("Hello from Async1\n", buffer);
+    let buffer = crate::syscall::get_async_submission_buffer();
+    let completion_buffer = crate::syscall::get_async_completion_buffer();
 
-        crate::syscall::print::print("BEHOLD! FIRST TASK FROM USERSPACE!!!!\n");
-        crate::syscall::asynchronous::async_print::async_print("Hello from Async2\n", buffer);
-
-        crate::syscall::yield_cpu();
-    }
+    use crate::vfs;
     use core::str::from_utf8;
 
-    let mut buffer = [0 as u8; 5000];
-    let mut buffer1 = [0 as u8; 5000];
+    let mut str_buffer = [0u8; 20];
+    let mut str_buffer1 = [0u8; 20];
 
-    let data_to_add = "<Added_data>";
+    crate::syscall::asynchronous::files::open::open("file1", true, 1, buffer)
+        .then_read(20, &mut str_buffer as *mut [u8] as *mut u8, 2, buffer)
+        .then_seek(-15, vfs::SeekType::FromCurrent, 3, buffer)
+        .then_write(b"<Added>", 4, buffer)
+        .then_seek(2, vfs::SeekType::FromBeginning, 5, buffer)
+        .then_read(20, &mut str_buffer1 as *mut [u8] as *mut u8, 6, buffer)
+        .then_close(7, buffer);
 
-    let fd = crate::syscall::files::open::open("file1", true).unwrap();
-    crate::syscall::files::read::read(fd, 5000, &mut buffer as *mut [u8] as *mut u8);
-    let string = from_utf8(&buffer).unwrap();
-    crate::println!("Before write: {}", string);
-    crate::syscall::files::seek::seek(fd, -2, crate::vfs::SeekType::FromEnd);
-    crate::syscall::files::write::write(fd, data_to_add);
-    crate::syscall::files::close::close(fd).unwrap();
+    crate::syscall::asynchronous::async_print::async_print("Hello world!", 69, buffer);
 
-    let fd1 = crate::syscall::files::open::open("file1", false).unwrap();
-    crate::syscall::files::read::read(fd1, 5000, &mut buffer1 as *mut [u8] as *mut u8);
-    let string = from_utf8(&buffer1).unwrap();
-    crate::println!("Before write: {}", string);
-    crate::syscall::files::close::close(fd1).unwrap();
-    let buffer = crate::syscall::get_async_write_buffer();
     loop {
-        crate::syscall::asynchronous::async_print::async_print("Hello from Async1\n", buffer);
-
-        crate::syscall::print::print("BEHOLD! FIRST TASK FROM USERSPACE!!!!\n");
-        crate::syscall::asynchronous::async_print::async_print("Hello from Async2\n", buffer);
-
-        crate::syscall::yield_cpu();
+        match crate::syscall::asynchronous::async_syscall::get_syscall_returned_value(
+            completion_buffer,
+        ) {
+            Some(val) => {
+                crate::println!(
+                    "Received response for id: {} - {} : {}",
+                    val.id,
+                    val.value,
+                    val.value & !ONLY_MSB_OF_USIZE
+                );
+                if val.id == 7 {
+                    let string = from_utf8(&str_buffer).unwrap();
+                    crate::println!("1st Read_value: {}", string);
+                    let string = from_utf8(&str_buffer1).unwrap();
+                    crate::println!("2nd Read_value: {}", string);
+                    loop {}
+                }
+            }
+            None => crate::println!("No responses"),
+        };
     }
 }
 
@@ -266,7 +300,7 @@ pub extern "C" fn first_task() {
 #[inline(never)]
 pub extern "C" fn hello() {
     loop {
-        crate::syscall::print::print("SECOND task USERSPACE!!!!\n");
+        // crate::syscall::print::print("SECOND task USERSPACE!!!!\n");
         crate::syscall::yield_cpu();
     }
 }
@@ -275,7 +309,7 @@ pub extern "C" fn hello() {
 #[inline(never)]
 pub extern "C" fn hello2() {
     loop {
-        crate::println!("HELLO!2");
+        // crate::println!("HELLO!2");
         crate::syscall::yield_cpu();
     }
 }

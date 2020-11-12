@@ -7,9 +7,8 @@ use num_traits::FromPrimitive;
 
 const ONLY_MSB_OF_USIZE: usize = 1 << (core::mem::size_of::<usize>() * 8 - 1);
 
-pub fn write(fd: usize, message: &str) -> Result<(), vfs::FileError> {
+pub fn write(fd: usize, bytes: &[u8]) -> Result<(), vfs::FileError> {
     let val: usize;
-    let bytes = message.as_bytes();
 
     unsafe {
         val = syscall3(
@@ -40,21 +39,10 @@ pub fn handle_write(context: &mut ExceptionContext) {
 
     let data = unsafe { slice::from_raw_parts(ptr, len) };
 
-    let string = from_utf8(data);
-
-    if string.is_err() {
-        crate::println!(
-            "[Syscall Fault (Write)] String provided doesen't apper to be correct UTF-8 string.
-            \n\t -- Caused by: '{}'",
-            string.err().unwrap()
-        );
-        return;
-    }
     let current_task = crate::scheduler::get_current_task_context();
     let fd_table = unsafe { &mut (*current_task).file_descriptor_table };
-    let data_to_add = string.unwrap();
     let opened_file = fd_table.get_file_mut(fd).unwrap();
-    match vfs::write(opened_file, &data_to_add) {
+    match vfs::write(opened_file, data) {
         Ok(_) => {
             context.gpr[0] = 0;
         }

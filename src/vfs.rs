@@ -2,6 +2,8 @@ use alloc::collections::BTreeMap;
 use alloc::format;
 use alloc::string::String;
 use alloc::string::ToString;
+use crate::alloc::borrow::ToOwned;
+use crate::alloc::vec::Vec;
 
 use crate::device_driver;
 pub use num_traits::FromPrimitive;
@@ -20,7 +22,7 @@ pub fn close(of: &mut OpenedFile) -> Result<(), FileError> {
     fs.close(of)
 }
 
-pub fn write(of: &OpenedFile, message: &str) -> Result<(), FileError> {
+pub fn write(of: &OpenedFile, message: &[u8]) -> Result<(), FileError> {
     let mut fs = VIRTUAL_FILE_SYSTEM.lock();
     fs.write(of, message)
 }
@@ -77,7 +79,7 @@ pub enum SeekType {
 }
 
 pub struct File {
-    pub data: String,
+    pub data: Vec<u8>,
     pub is_opened_for_read: u16,
     pub is_opened_for_write: bool,
 }
@@ -85,7 +87,7 @@ pub struct File {
 impl File {
     pub fn empty() -> Self {
         File {
-            data: String::new(),
+            data: Vec::new(),
             is_opened_for_read: 0,
             is_opened_for_write: false,
         }
@@ -128,11 +130,11 @@ impl VFS {
     pub fn example_vfs() -> Self {
         let mut vfs = VFS::new();
         vfs.file_map.insert("file1".to_string(), File{
-            data: "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nam volutpat posuere massa, quis feugiat diam consectetur eget. Quisque vitae feugiat odio. Pellentesque sed sem eu turpis aliquet lacinia. Nam facilisis finibus mi vitae dignissim. Praesent id nunc leo. Nulla non dapibus justo, quis sagittis est. Maecenas et lorem a nulla imperdiet facilisis ac sit amet nulla. Nulla facilisi. Fusce orci nibh, dapibus at rhoncus non, faucibus eget ipsum. Suspendisse potenti. Nunc tempor felis elit, rhoncus porta ante porttitor id. Ut viverra tincidunt feugiat. Curabitur enim elit, fringilla ac metus eget, vestibulum malesuada enim. Proin ac augue dignissim, egestas lacus eu, dictum eros. Suspendisse rutrum venenatis risus eleifend consectetur.".to_string(),
+            data: "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nam volutpat posuere massa, quis feugiat diam consectetur eget. Quisque vitae feugiat odio. Pellentesque sed sem eu turpis aliquet lacinia. Nam facilisis finibus mi vitae dignissim. Praesent id nunc leo. Nulla non dapibus justo, quis sagittis est. Maecenas et lorem a nulla imperdiet facilisis ac sit amet nulla. Nulla facilisi. Fusce orci nibh, dapibus at rhoncus non, faucibus eget ipsum. Suspendisse potenti. Nunc tempor felis elit, rhoncus porta ante porttitor id. Ut viverra tincidunt feugiat. Curabitur enim elit, fringilla ac metus eget, vestibulum malesuada enim. Proin ac augue dignissim, egestas lacus eu, dictum eros. Suspendisse rutrum venenatis risus eleifend consectetur.".as_bytes().to_owned(),
             is_opened_for_read: 0,
             is_opened_for_write: false});
         vfs.file_map.insert("file2".to_string(), File{
-            data: "Bee Movie Script - Dialogue Transcript According to all known laws of aviation, there is no way a bee should be able to fly. Its wings are too small to get its fat little body off the ground. The bee, of course, flies anyway because bees don't care what humans think is impossible. Yellow, black. Yellow, black. Yellow, black. Yellow, black. Ooh, black and yellow! Let's shake it up a little. Barry! Breakfast is ready! Ooming!".to_string(),
+            data: "Bee Movie Script - Dialogue Transcript According to all known laws of aviation, there is no way a bee should be able to fly. Its wings are too small to get its fat little body off the ground. The bee, of course, flies anyway because bees don't care what humans think is impossible. Yellow, black. Yellow, black. Yellow, black. Yellow, black. Ooh, black and yellow! Let's shake it up a little. Barry! Breakfast is ready! Ooming!".as_bytes().to_owned(),
             is_opened_for_read: 0,
             is_opened_for_write: false});
         vfs
@@ -178,7 +180,7 @@ impl VFS {
             cursor: 0,
         })
     }
-    pub fn read(&mut self, of: &mut OpenedFile, length: usize) -> Result<&str, FileError> {
+    pub fn read(&mut self, of: &mut OpenedFile, length: usize) -> Result<&[u8], FileError> {
         let file = match self.file_map.get(&of.filename) {
             Some(f) => {
                 if f.is_opened_for_read > 0 || f.is_opened_for_write {
@@ -202,7 +204,7 @@ impl VFS {
         Ok(result)
     }
 
-    pub fn write(&mut self, of: &OpenedFile, message: &str) -> Result<(), FileError> {
+    pub fn write(&mut self, of: &OpenedFile, message: &[u8]) -> Result<(), FileError> {
         let file = match self.file_map.get_mut(&of.filename) {
             Some(f) => {
                 if f.is_opened_for_write {
@@ -216,7 +218,8 @@ impl VFS {
             }
         };
         let split_off = file.data.split_off(of.cursor);
-        file.data = format!("{}{}{}", file.data, message, split_off);
+        file.data.extend_from_slice(message);
+        file.data.extend(split_off);
         Ok(())
     }
 

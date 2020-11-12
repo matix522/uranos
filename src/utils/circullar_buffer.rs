@@ -18,7 +18,7 @@ pub enum BufferGetValueError {
 
 #[repr(C)]
 pub struct ReservedMemory<'a> {
-    memory: &'a mut [u8],
+    pub memory: &'a mut [u8],
     control: &'a mut usize,
     buffer: &'a CircullarBuffer,
 }
