@@ -1,5 +1,6 @@
 pub mod task_context;
 pub mod task_stack;
+pub mod special_return_vals;
 
 use crate::device_driver;
 use crate::syscall::asynchronous::async_print::*;
@@ -8,6 +9,8 @@ use crate::syscall::asynchronous::files::*;
 use alloc::vec::Vec;
 use core::time::Duration;
 use task_context::*;
+use crate::alloc::collections::BTreeMap;
+use crate::interupts::ExceptionContext;
 
 pub const MAX_TASK_COUNT: usize = 2048;
 
@@ -23,7 +26,7 @@ device_driver!(
     unsynchronized TASK_MANAGER: TaskManager = TaskManager::new(Duration::from_millis(100))
 );
 
-pub fn add_task(task: TaskContext) -> Result<(), TaskError> {
+pub fn add_task(task: TaskContext) -> Result<u64, TaskError> {
     let mut scheduler = TASK_MANAGER.lock();
     scheduler.add_task(task)
 }
@@ -48,15 +51,16 @@ pub fn get_time_quant() -> Duration {
     scheduler.time_quant
 }
 
-pub fn finish_current_task() {
+pub fn finish_current_task(return_value: u32) {
     let mut scheduler = TASK_MANAGER.lock();
-    scheduler.finish_current_task();
+    scheduler.finish_current_task(return_value);
 }
 
 pub fn get_current_task_pid() -> usize {
     let scheduler = TASK_MANAGER.lock();
     scheduler.get_current_task_pid()
 }
+
 
 pub struct TaskManager {
     tasks: Vec<TaskContext>,
@@ -75,20 +79,21 @@ impl TaskManager {
         }
     }
 
-    pub fn add_task(&mut self, mut task: TaskContext) -> Result<(), TaskError> {
+    pub fn add_task(&mut self, mut task: TaskContext) -> Result<u64, TaskError> {
         if self.tasks.len() >= MAX_TASK_COUNT {
             return Err(TaskError::TaskLimitReached);
         }
         task.state = TaskStates::Running;
-        for t in &mut self.tasks {
-            if let TaskStates::Dead = t.state {
-                core::mem::swap(t, &mut task);
+        for (index, item) in self.tasks.iter_mut().enumerate() {
+            if let TaskStates::Dead = item.state {
+                core::mem::swap(item, &mut task);
                 drop(task);
-                return Ok(());
+                return Ok(index as u64);
             }
         }
+        let index = self.tasks.len();
         self.tasks.push(task);
-        Ok(())
+        Ok(index as u64)
     }
 
     pub fn get_task(&mut self, pid: usize) -> Result<&mut TaskContext, TaskError> {
@@ -211,7 +216,6 @@ impl TaskManager {
                 return_structure.value = returned_value;
             }
         }
-
         // #Safety: lifetime of this reference is the same as lifetime of whole TaskManager; exception_context is always properly initialized if task is in tasks vector
         unsafe {
             cpu_switch_to(
@@ -233,9 +237,29 @@ impl TaskManager {
         }
     }
 
-    pub fn finish_current_task(&mut self) {
-        self.tasks[self.current_task].state = TaskStates::Dead;
+    pub fn finish_task(&mut self, return_value: u32, task_pid: usize) {
+        self.tasks[task_pid].state = TaskStates::Dead;
+        let keys = self.tasks[task_pid].children_return_vals.keys().cloned().collect::<Vec<usize>>();
+        for pid in keys{
+            if pid < self.tasks.len(){
+                if let TaskStates::Dead = self.tasks[pid].state{}
+                else{
+                    self.finish_task(special_return_vals::PARENT_PROCESS_ENDED, pid);
+                }
+            }
+        }
+
+        match self.tasks[task_pid].ppid {
+            Some(ppid) => {
+                self.tasks[ppid].children_return_vals.insert(self.current_task, Some(return_value));
+            },
+            None => (),
+        };
         self.switch_task()
+    }
+
+    pub fn finish_current_task(&mut self, return_value: u32) {
+        self.finish_task(return_value, self.current_task);
     }
 
     pub fn get_current_task_pid(&self) -> usize {
@@ -253,7 +277,7 @@ pub fn drop_el0() {
 
 #[no_mangle]
 #[inline(never)]
-pub extern "C" fn first_task() {
+pub extern "C" fn first_task() -> u32{
     let buffer = crate::syscall::get_async_submission_buffer();
     let completion_buffer = crate::syscall::get_async_completion_buffer();
 
@@ -262,6 +286,9 @@ pub extern "C" fn first_task() {
 
     let mut str_buffer = [0u8; 20];
     let mut str_buffer1 = [0u8; 20];
+
+    let hello_pid = crate::syscall::create_task(hello);
+    // crate::println!("Created hello task with PID: {}", hello_pid);
 
     crate::syscall::asynchronous::files::open::open("file1", true, 1, buffer)
         .then_read(20, &mut str_buffer as *mut [u8] as *mut u8, 2, buffer)
@@ -295,40 +322,65 @@ pub extern "C" fn first_task() {
             None => crate::println!("No responses"),
         };
     }
+    return 0;
 }
 
 #[no_mangle]
 #[inline(never)]
-pub extern "C" fn hello() {
-    loop {
-        // crate::syscall::print::print("SECOND task USERSPACE!!!!\n");
-        crate::syscall::yield_cpu();
-    }
+pub extern "C" fn hello() -> u32{
+    // loop {
+        crate::syscall::print::print("SECOND task USERSPACE!!!!\n");
+        // crate::syscall::yield_cpu();
+    // }
+    return 3;
 }
 
 #[no_mangle]
 #[inline(never)]
 pub extern "C" fn hello2() {
     loop {
-        // crate::println!("HELLO!2");
-        crate::syscall::yield_cpu();
+        crate::println!("HELLO!2");
+        // crate::syscall::yield_cpu();
     }
 }
 
-pub fn handle_new_task_syscall(function_address: usize) {
-    // crate::println!("NEW TASK FUNCTION ADDRESS {:#018x}", function_address);
-    let function = unsafe { core::mem::transmute::<usize, extern "C" fn()>(function_address) };
-    let task = TaskContext::new(function, false).expect("Failed to create new task");
+pub fn handle_new_task_syscall(e: &mut ExceptionContext) {
+    let function_address = e.gpr[0] as usize;
+    
+    
+    let function = unsafe { core::mem::transmute::<usize, extern "C" fn() -> u32>(function_address) };
+    crate::println!("DUPAAA1 {:#018x} ", function_address);
+    let mut task = TaskContext::new(function, false).expect("Failed to create new task");
+    crate::println!("DUPAAA_AFTER");
+    
+    task.ppid = Some(get_current_task_pid());
+    
+    let current_task: &mut TaskContext = unsafe {&mut *(get_current_task_context())};
+    current_task.children_return_vals.insert(get_current_task_pid(), None);
 
-    match add_task(task) {
-        Ok(()) => {}
-        Err(error) => crate::println!("Error when creating new task: {:?}", error),
-    }
+    
+    e.gpr[0] = match add_task(task) {
+        Ok((pid)) => pid,
+        Err(error) => {
+            crate::println!("Error when creating new task: {:?}", error);
+            !0u64
+        },
+    };
+
+    crate::println!("DUPAAA");
+
 }
 
 #[no_mangle]
 pub extern "C" fn schedule_tail() {
     crate::interupts::handlers::end_scheduling();
 }
+
+#[no_mangle]
+pub extern "C" fn finalize_task(returned_value: u64){
+    crate::println!("KONIEC SMIESZKOWANIA: {}", returned_value);
+    crate::syscall::finish_task(returned_value);
+}
+
 
 global_asm!(include_str!("scheduler/change_task.S"));

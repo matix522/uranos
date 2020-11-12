@@ -154,10 +154,10 @@ fn echo() -> ! {
 
     let task1 = scheduler::task_context::TaskContext::new(userspace::task_one, false)
         .expect("Error creating task 1 context");
-    let task2 = scheduler::task_context::TaskContext::new(userspace::task_two, false)
-        .expect("Error creating task 2 context");
+    // let task2 = scheduler::task_context::TaskContext::new(userspace::task_two, false)
+        // .expect("Error creating task 2 context");
     scheduler::add_task(task1).expect("Error adding task 1");
-    scheduler::add_task(task2).expect("Error adding task 2");
+    // scheduler::add_task(task2).expect("Error adding task 2");
   
     unsafe {
         interupts::init_exceptions(

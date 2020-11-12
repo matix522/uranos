@@ -59,4 +59,5 @@ new_task_func:
     mov    x17, xzr
     mov    x18, xzr
     blr    x19         //should never return
+    bl     finalize_task
     // bl terminate_task

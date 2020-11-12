@@ -7,6 +7,7 @@ use crate::syscall;
 use crate::syscall::Syscalls;
 
 use crate::config;
+use core::convert::TryInto;
 
 pub use num_traits::FromPrimitive;
 
@@ -82,8 +83,8 @@ unsafe extern "C" fn current_elx_synchronous(e: &mut ExceptionContext) {
             Syscalls::Yield => scheduler::switch_task(),
             Syscalls::StartScheduling => scheduler::start(),
             Syscalls::Print => syscall::print::handle_print_syscall(e),
-            Syscalls::FinishTask => scheduler::finish_current_task(),
-            Syscalls::CreateTask => scheduler::handle_new_task_syscall(e.gpr[0] as usize),
+            Syscalls::FinishTask => scheduler::finish_current_task((e.gpr[0] as u32).try_into().unwrap_or_else(|_| scheduler::special_return_vals::WRONG_RETURN_VALUE_PASSED)),
+            Syscalls::CreateTask => scheduler::handle_new_task_syscall(e),
             Syscalls::CheckEL => handle_chcek_el(e),
             Syscalls::GetAsyncSubmissionBuffer => {
                 syscall::asynchronous::handle_get_submission_buffer::handle_get_submission_buffer(e)
@@ -96,6 +97,9 @@ unsafe extern "C" fn current_elx_synchronous(e: &mut ExceptionContext) {
             Syscalls::ReadFile => syscall::files::read::handle_read(e),
             Syscalls::SeekFile => syscall::files::seek::handle_seek(e),
             Syscalls::WriteFile => syscall::files::write::handle_write(e),
+            Syscalls::GetPID => {
+                e.gpr[0] = scheduler::get_current_task_pid() as u64;
+            }
         }
     } else {
         default_exception_handler(e, "current_elx_synchronous");
@@ -151,8 +155,8 @@ unsafe extern "C" fn lower_aarch64_synchronous(e: &mut ExceptionContext) {
             Syscalls::Yield => scheduler::switch_task(),
             Syscalls::StartScheduling => scheduler::start(),
             Syscalls::Print => syscall::print::handle_print_syscall(e),
-            Syscalls::FinishTask => scheduler::finish_current_task(),
-            Syscalls::CreateTask => scheduler::handle_new_task_syscall(e.gpr[0] as usize),
+            Syscalls::FinishTask => scheduler::finish_current_task((e.gpr[0] as u32).try_into().unwrap_or_else(|_| scheduler::special_return_vals::WRONG_RETURN_VALUE_PASSED)),
+            Syscalls::CreateTask => scheduler::handle_new_task_syscall(e),
             Syscalls::CheckEL => handle_chcek_el(e),
             Syscalls::GetAsyncSubmissionBuffer => {
                 syscall::asynchronous::handle_get_submission_buffer::handle_get_submission_buffer(e)
@@ -165,6 +169,9 @@ unsafe extern "C" fn lower_aarch64_synchronous(e: &mut ExceptionContext) {
             Syscalls::ReadFile => syscall::files::read::handle_read(e),
             Syscalls::SeekFile => syscall::files::seek::handle_seek(e),
             Syscalls::WriteFile => syscall::files::write::handle_write(e),
+            Syscalls::GetPID => {
+                e.gpr[0] = scheduler::get_current_task_pid() as u64;
+            }
         }
     } else {
         default_exception_handler(e, "lower_aarch64_synchronous");

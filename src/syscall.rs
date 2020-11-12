@@ -23,6 +23,7 @@ pub enum Syscalls {
     CloseFile,
     SeekFile,
     WriteFile,
+    GetPID,
 }
 
 #[inline(never)]
@@ -130,18 +131,18 @@ pub fn yield_cpu() {
     }
 }
 
-pub fn finish_task() {
+pub fn finish_task(return_val: u64) {
     unsafe {
-        syscall0(Syscalls::FinishTask as usize);
+        syscall1(return_val as usize, Syscalls::FinishTask as usize);
     }
 }
 
-pub fn create_task(function: extern "C" fn()) {
+pub fn create_task(function: extern "C" fn() -> u32) -> u64 {
     unsafe {
         syscall1(
             function as *const () as usize,
             Syscalls::CreateTask as usize,
-        );
+        ) as u64
     }
 }
 pub fn get_async_submission_buffer() -> &'static mut CircullarBuffer {
@@ -149,4 +150,10 @@ pub fn get_async_submission_buffer() -> &'static mut CircullarBuffer {
 }
 pub fn get_async_completion_buffer() -> &'static mut CircullarBuffer {
     unsafe { &mut *(syscall0(Syscalls::GetAsyncCompletionBuffer as usize) as *mut CircullarBuffer) }
+}
+
+pub fn get_pid() -> usize{
+    unsafe{
+        syscall0(Syscalls::GetPID as usize) as usize 
+    }
 }

@@ -2,6 +2,7 @@ use super::task_stack;
 use crate::syscall::asynchronous::async_returned_values::AsyncReturnedValues;
 use crate::syscall::files::file_descriptor_map::*;
 use crate::utils::circullar_buffer::*;
+use crate::alloc::collections::BTreeMap;
 
 /// Stack size of task in bytes
 pub const TASK_STACK_SIZE: usize = 0x8000;
@@ -72,6 +73,8 @@ pub struct TaskContext {
     pub completion_buffer: CircullarBuffer,
     pub file_descriptor_table: FileDescriptiorMap,
     pub async_returns_map: AsyncReturnedValues,
+    pub children_return_vals: BTreeMap<usize, Option<u32>>,
+    pub ppid: Option<usize>,
 }
 
 // ONLY TEMPORARY SOLUTION
@@ -89,10 +92,12 @@ impl TaskContext {
             completion_buffer: CircullarBuffer::new(),
             file_descriptor_table: FileDescriptiorMap::new(),
             async_returns_map: AsyncReturnedValues::new(),
+            children_return_vals: BTreeMap::<usize, Option<u32>>::new(),
+            ppid: None,
         }
     }
 
-    pub fn new(start_function: extern "C" fn(), is_kernel: bool) -> Result<Self, TaskError> {
+    pub fn new(start_function: extern "C" fn() -> u32, is_kernel: bool) -> Result<Self, TaskError> {
         let mut task: TaskContext = Self::empty();
 
         let user_address = |address: usize| (address & !crate::KERNEL_OFFSET) as u64;
@@ -112,7 +117,8 @@ impl TaskContext {
         }
         task.stack = Some(stack);
 
-        crate::println!("{:#018x}", &task.submission_buffer as *const _ as u64);
+        // crate::println!("{:#018x}", &task.submission_buffer as *const _ as u64);
+        crate::println!("DUPAAA3");
 
         Ok(task)
     }
