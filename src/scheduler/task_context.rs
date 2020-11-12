@@ -1,4 +1,7 @@
 use super::task_stack;
+use crate::syscall::asynchronous::async_returned_values::AsyncReturnedValues;
+use crate::syscall::files::file_descriptor_map::*;
+use crate::utils::circullar_buffer::*;
 
 /// Stack size of task in bytes
 pub const TASK_STACK_SIZE: usize = 0x8000;
@@ -65,6 +68,10 @@ pub struct TaskContext {
     pub(super) state: TaskStates,
     stack: Option<task_stack::TaskStack>,
     is_kernel: bool,
+    pub submission_buffer: CircullarBuffer,
+    pub completion_buffer: CircullarBuffer,
+    pub file_descriptor_table: FileDescriptiorMap,
+    pub async_returns_map: AsyncReturnedValues,
 }
 
 // ONLY TEMPORARY SOLUTION
@@ -78,6 +85,10 @@ impl TaskContext {
             state: TaskStates::NotStarted,
             stack: None,
             is_kernel: false,
+            submission_buffer: CircullarBuffer::new(),
+            completion_buffer: CircullarBuffer::new(),
+            file_descriptor_table: FileDescriptiorMap::new(),
+            async_returns_map: AsyncReturnedValues::new(),
         }
     }
 
@@ -100,6 +111,8 @@ impl TaskContext {
             task.gpr.x20 = user_address(start_function as *const () as usize);
         }
         task.stack = Some(stack);
+
+        crate::println!("{:#018x}", &task.submission_buffer as *const _ as u64);
 
         Ok(task)
     }

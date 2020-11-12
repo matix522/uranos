@@ -14,6 +14,7 @@
 #![allow(incomplete_features)]
 #![feature(new_uninit)]
 #![feature(const_fn)]
+#![feature(slice_ptr_len)]
 
 #[macro_use]
 extern crate alloc;
@@ -35,6 +36,7 @@ pub mod syscall;
 pub mod config;
 pub mod sync;
 pub mod userspace;
+pub mod vfs;
 
 pub mod utils;
 
@@ -156,9 +158,7 @@ fn echo() -> ! {
         .expect("Error creating task 2 context");
     scheduler::add_task(task1).expect("Error adding task 1");
     scheduler::add_task(task2).expect("Error adding task 2");
-
-    println!("Echoing input.");
-
+  
     unsafe {
         interupts::init_exceptions(
             utils::binary_info::BinaryInfo::get().exception_vector | KERNEL_OFFSET,

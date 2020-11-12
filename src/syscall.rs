@@ -1,6 +1,11 @@
 pub use num_traits::FromPrimitive;
 
+pub mod files;
 pub mod print;
+
+pub mod asynchronous;
+
+use crate::utils::circullar_buffer::*;
 
 #[repr(usize)]
 #[derive(FromPrimitive, ToPrimitive, Debug)]
@@ -11,6 +16,13 @@ pub enum Syscalls {
     FinishTask,
     CreateTask,
     CheckEL,
+    GetAsyncSubmissionBuffer,
+    GetAsyncCompletionBuffer,
+    OpenFile,
+    ReadFile,
+    CloseFile,
+    SeekFile,
+    WriteFile,
 }
 
 #[inline(never)]
@@ -131,4 +143,10 @@ pub fn create_task(function: extern "C" fn()) {
             Syscalls::CreateTask as usize,
         );
     }
+}
+pub fn get_async_submission_buffer() -> &'static mut CircullarBuffer {
+    unsafe { &mut *(syscall0(Syscalls::GetAsyncSubmissionBuffer as usize) as *mut CircullarBuffer) }
+}
+pub fn get_async_completion_buffer() -> &'static mut CircullarBuffer {
+    unsafe { &mut *(syscall0(Syscalls::GetAsyncCompletionBuffer as usize) as *mut CircullarBuffer) }
 }
