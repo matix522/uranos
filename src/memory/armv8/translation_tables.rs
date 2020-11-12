@@ -6,6 +6,13 @@ pub struct PageRecord(pub u64);
 #[repr(transparent)]
 #[derive(Clone, Copy)]
 pub struct TableRecord(pub u64);
+
+impl From<PageRecord> for TableRecord {
+    fn from(val: PageRecord) -> Self {
+        TableRecord(val.0)
+    }
+}
+
 // A level 1 table descriptor, as per ARMv8-A Architecture Reference Manual Figure D4-15.
 register_bitfields! {u64,
     STAGE1_TABLE_1_DESCRIPTOR [
@@ -13,7 +20,7 @@ register_bitfields! {u64,
         NEXT_LEVEL_TABLE_ADDR_4KiB OFFSET(12) NUMBITS(36) [], // [47:12]
 
         TYPE  OFFSET(1) NUMBITS(1) [
-            Block = 0,
+            OldBlock = 0,
             Table = 1
         ],
 
@@ -65,7 +72,7 @@ register_bitfields! {u64,
         AttrIndx OFFSET(2) NUMBITS(3) [],
 
         TYPE     OFFSET(1) NUMBITS(1) [
-            Block = 0,
+            OldBlock = 0,
             Page = 1
         ],
 
@@ -96,7 +103,7 @@ impl PageRecord {
             + STAGE1_PAGE_DESCRIPTOR::AF::True
             + attribute_fields.into()
             + if is_block {
-                STAGE1_PAGE_DESCRIPTOR::TYPE::Block
+                STAGE1_PAGE_DESCRIPTOR::TYPE::OldBlock
             } else {
                 STAGE1_PAGE_DESCRIPTOR::TYPE::Page
             }
@@ -174,17 +181,35 @@ impl core::convert::From<AttributeFields>
 
         // Access Permissions.
         desc += match attribute_fields.acc_perms {
-            AccessPermissions::ReadOnly => STAGE1_PAGE_DESCRIPTOR::AP::RO_EL1_EL0,
-            AccessPermissions::ReadWrite => STAGE1_PAGE_DESCRIPTOR::AP::RW_EL1_EL0,
+            AccessPermissions::KernelReadOnly => STAGE1_PAGE_DESCRIPTOR::AP::RO_EL1,
+            AccessPermissions::KernelReadWrite => STAGE1_PAGE_DESCRIPTOR::AP::RW_EL1,
+            AccessPermissions::UserReadOnly => STAGE1_PAGE_DESCRIPTOR::AP::RO_EL1_EL0,
+            AccessPermissions::UserReadWrite => STAGE1_PAGE_DESCRIPTOR::AP::RW_EL1_EL0,
         };
 
         // Execute Never.
-        desc += if attribute_fields.execute_never {
-            STAGE1_PAGE_DESCRIPTOR::PXN::True + STAGE1_PAGE_DESCRIPTOR::XN::True
-        } else {
+        desc += if attribute_fields.executable {
             STAGE1_PAGE_DESCRIPTOR::PXN::False + STAGE1_PAGE_DESCRIPTOR::XN::False
+        } else {
+            STAGE1_PAGE_DESCRIPTOR::PXN::True + STAGE1_PAGE_DESCRIPTOR::XN::True
         };
 
         desc
+    }
+}
+
+impl TableRecord {
+    pub fn is_valid(&self) -> bool {
+        (self.0 & 0b1) == 1
+    }
+    /// # Safety
+    /// self must be correct entry of 1,2 level describing a table of tables
+    pub unsafe fn next_table(&self) -> *mut [TableRecord; 512] {
+        (self.0 & (((1 << 36) - 1) << 12)) as *mut [TableRecord; 512]
+    }
+    /// # Safety
+    /// self must be correct entry of 1,2 level describing a table of page records
+    pub unsafe fn next_page(&self) -> *mut [PageRecord; 512] {
+        (self.0 & (((1 << 36) - 1) << 12)) as *mut [PageRecord; 512]
     }
 }

@@ -250,6 +250,7 @@ pub fn drop_el0() {
         llvm_asm!("brk 0");
     };
 }
+
 #[no_mangle]
 #[inline(never)]
 pub extern "C" fn first_task() {

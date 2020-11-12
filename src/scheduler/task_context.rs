@@ -67,6 +67,7 @@ pub struct TaskContext {
     pub(super) gpr: Gpr,
     pub(super) state: TaskStates,
     stack: Option<task_stack::TaskStack>,
+    is_kernel: bool,
     pub submission_buffer: CircullarBuffer,
     pub completion_buffer: CircullarBuffer,
     pub file_descriptor_table: FileDescriptiorMap,
@@ -83,6 +84,7 @@ impl TaskContext {
             gpr: Default::default(),
             state: TaskStates::NotStarted,
             stack: None,
+            is_kernel: false,
             submission_buffer: CircullarBuffer::new(),
             completion_buffer: CircullarBuffer::new(),
             file_descriptor_table: FileDescriptiorMap::new(),
@@ -95,14 +97,14 @@ impl TaskContext {
 
         let user_address = |address: usize| (address & !crate::KERNEL_OFFSET) as u64;
 
-        // exception_context.spsr_el1 = if is_kernel { 0b0101 } else { 0b0000 };
+        task.is_kernel = is_kernel;
 
         let stack =
             task_stack::TaskStack::new(TASK_STACK_SIZE).ok_or(TaskError::StackAllocationFail)?;
 
         task.gpr.lr = new_task_func as *const () as u64;
         task.gpr.sp = stack.base() as u64;
-        if is_kernel {
+        if task.is_kernel {
             task.gpr.x19 = start_function as *const () as u64;
         } else {
             task.gpr.x19 = crate::scheduler::drop_el0 as *const () as u64;

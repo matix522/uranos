@@ -36,7 +36,7 @@ CARGO_OUTPUT_RASPI3 = target/$(TARGET_RASPI3)/release/uranos
 XRUSTC_CMD_RASPI4   = cargo xbuild --target=.cargo/$(TARGET_RASPI4).json --release --features="raspi4" 
 CARGO_OUTPUT_RASPI4 = target/$(TARGET_RASPI4)/release/uranos
 
-OBJCOPY        = cargo objcopy --
+OBJCOPY        = rust-objcopy
 OBJCOPY_PARAMS = --strip-all -O binary
 
 CONTAINER_UTILS   = andrerichter/raspi3-utils
@@ -63,7 +63,7 @@ bin/uranos-raspi3.img: $(CARGO_OUTPUT_RASPI3)
 	$(OBJCOPY) $(OBJCOPY_PARAMS) bin/uranos-raspi3 bin/uranos-raspi3.img 
 
 objdump-raspi3:
-	cargo objdump --target .cargo/$(TARGET_RASPI3).json -- -disassemble -print-imm-hex bin/uranos-raspi3
+	rust-objdump --arch=aarch64 --disassemble --print-imm-hex bin/uranos-raspi3
 
 
 
@@ -77,7 +77,7 @@ bin/uranos-raspi4.img: $(CARGO_OUTPUT_RASPI4)
 	$(OBJCOPY) $(OBJCOPY_PARAMS) bin/uranos-raspi4 bin/uranos-raspi4.img
 
 objdump-raspi4:
-	cargo objdump --target .cargo/$(TARGET_RASPI4).json -- -disassemble -print-imm-hex bin/uranos-raspi4
+	rust-objdump --target .cargo/$(TARGET_RASPI4).json -- -disassemble -print-imm-hex bin/uranos-raspi4
 
 
 

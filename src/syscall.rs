@@ -15,6 +15,7 @@ pub enum Syscalls {
     Yield,
     FinishTask,
     CreateTask,
+    CheckEL,
     GetAsyncSubmissionBuffer,
     GetAsyncCompletionBuffer,
     OpenFile,

@@ -1,32 +1,40 @@
+use core::ops::Range;
 extern "C" {
     pub fn _boot_cores() -> !;
     pub static __exception_vector_start: u64;
     pub static __binary_end: u64;
     pub static __read_only_start: usize;
     pub static __read_only_end: usize;
+    pub static __read_write_start: usize;
+    pub static __read_write_end: usize;
 }
 
 #[derive(Debug)]
 pub struct BinaryInfo {
-    pub binary_start: usize,
-    pub binary_end: usize,
-    pub read_only_start: usize,
-    pub read_only_end: usize,
+    pub binary: Range<usize>,
+    pub read_only: Range<usize>,
+    pub read_write: Range<usize>,
     pub exception_vector: usize,
-    pub heap_start: usize,
-    pub heap_end: usize,
+    pub allocator: Range<usize>,
+    pub heap: Range<usize>,
+    pub mmio: Range<usize>,
 }
 impl BinaryInfo {
     pub fn get() -> BinaryInfo {
         unsafe {
             BinaryInfo {
-                binary_start: _boot_cores as *const () as usize,
-                binary_end: &__binary_end as *const _ as usize,
-                read_only_start: &__read_only_start as *const _ as usize,
-                read_only_end: &__read_only_end as *const _ as usize,
+                binary: _boot_cores as *const () as usize..&__binary_end as *const _ as usize,
+                read_only: &__read_only_start as *const _ as usize
+                    ..&__read_only_end as *const _ as usize,
+                read_write: &__read_write_start as *const _ as usize
+                    ..&__read_write_end as *const _ as usize,
                 exception_vector: &__exception_vector_start as *const _ as usize,
-                heap_start: crate::memory::allocator::heap_start(),
-                heap_end: crate::memory::allocator::heap_end(),
+                allocator: {
+                    let alloc = &crate::memory::allocator::kernel_heap_range().start - 0x1000;
+                    alloc as usize..alloc + 0x1000 as usize
+                },
+                heap: crate::memory::allocator::kernel_heap_range(),
+                mmio: crate::memory::physical::mmio::BASE..crate::memory::physical::mmio::END,
             }
         }
     }
@@ -37,13 +45,18 @@ impl fmt::Display for BinaryInfo {
         writeln!(f, "Binary definition:")?;
         writeln!(
             f,
-            "\tRange:            [{:#10x}  {:#10x}]",
-            self.binary_start, self.binary_end
+            "\tRange:            [{:#10x} - {:#10x}]",
+            self.binary.start, self.binary.end
         )?;
         writeln!(
             f,
-            "\tRead Only Range:  [{:#10x}  {:#10x}]",
-            self.read_only_start, self.read_only_end
+            "\tRead Only Range:  [{:#10x} - {:#10x}]",
+            self.read_only.start, self.read_only.end
+        )?;
+        writeln!(
+            f,
+            "\tRead Write Range: [{:#10x} - {:#10x}]",
+            self.read_write.start, self.read_write.end
         )?;
         writeln!(
             f,
@@ -52,8 +65,18 @@ impl fmt::Display for BinaryInfo {
         )?;
         writeln!(
             f,
-            "\tMain Heap:        [{:#10x}  {:#10x}]",
-            self.heap_start, self.heap_end
+            "\tMain Alocator:    [{:#10x} - {:#10x}]",
+            self.allocator.start, self.allocator.end
+        )?;
+        writeln!(
+            f,
+            "\tMain Heap:        [{:#10x} - {:#10x}]",
+            self.heap.start, self.heap.end
+        )?;
+        writeln!(
+            f,
+            "\tMMIO:             [{:#10x} - {:#10x}]",
+            self.mmio.start, self.mmio.end
         )?;
         Ok(())
     }
