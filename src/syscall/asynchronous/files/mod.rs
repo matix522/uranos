@@ -57,7 +57,7 @@ impl AsyncOpenedFile {
     }
     pub fn then_write(
         &self,
-        message: &'static str,
+        message: &'static [u8],
         id: usize,
         submission_buffer: &mut CircullarBuffer,
     ) -> &AsyncOpenedFile {

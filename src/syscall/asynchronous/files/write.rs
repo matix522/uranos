@@ -6,7 +6,7 @@ use crate::vfs;
 
 pub struct AsyncWriteSyscallData {
     pub afd: usize,
-    pub message: &'static str,
+    pub message: &'static[u8],
 }
 
 impl AsyncWriteSyscallData {
@@ -17,7 +17,7 @@ impl AsyncWriteSyscallData {
 
 pub fn write(
     afd: &AsyncFileDescriptor,
-    message: &'static str,
+    message: &'static [u8],
     id: usize,
     submission_buffer: &mut CircullarBuffer,
 ) {

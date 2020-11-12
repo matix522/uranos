@@ -265,7 +265,7 @@ pub extern "C" fn first_task() {
     crate::syscall::asynchronous::files::open::open("file1", true, 1, buffer)
         .then_read(20, &mut str_buffer as *mut [u8] as *mut u8, 2, buffer)
         .then_seek(-15, vfs::SeekType::FromCurrent, 3, buffer)
-        .then_write("<Added>", 4, buffer)
+        .then_write(b"<Added>", 4, buffer)
         .then_seek(2, vfs::SeekType::FromBeginning, 5, buffer)
         .then_read(20, &mut str_buffer1 as *mut [u8] as *mut u8, 6, buffer)
         .then_close(7, buffer);
