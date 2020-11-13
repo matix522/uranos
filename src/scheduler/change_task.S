@@ -9,7 +9,8 @@ cpu_switch_to:
     stp    x25, x26, [x8], #16
     stp    x27, x28, [x8], #16
     stp    x29, x9, [x8], #16
-    str    x30, [x8]
+    mrs    x0, SP_EL0
+    stp    x30, x0, [x8], #16
 
     mov    x8, x1
     ldp    x19, x20, [x8], #16        // restore callee-saved registers
@@ -18,7 +19,8 @@ cpu_switch_to:
     ldp    x25, x26, [x8], #16
     ldp    x27, x28, [x8], #16
     ldp    x29, x9, [x8], #16
-    ldr    x30, [x8]
+    ldp    x30, x1, [x8], #16
+    msr    SP_EL0, x1
     mov    sp, x9
     ret
 // 81E48
@@ -32,7 +34,8 @@ cpu_switch_to_first:
     ldp    x25, x26, [x8], #16
     ldp    x27, x28, [x8], #16
     ldp    x29, x9, [x8], #16
-    ldr    x30, [x8]
+    ldp    x30, x1, [x8], #16
+    msr    SP_EL0, x1
     mov    sp, x9
     ret
 
@@ -59,4 +62,5 @@ new_task_func:
     mov    x17, xzr
     mov    x18, xzr
     blr    x19         //should never return
+    bl     finalize_task
     // bl terminate_task

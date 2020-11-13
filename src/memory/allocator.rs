@@ -14,14 +14,15 @@ pub struct ChooseAllocator;
 pub static GLOBAL_ALLOCATOR: ChooseAllocator = ChooseAllocator;
 
 unsafe fn get_level() -> ExceptionLevel {
-    let level = crate::syscall::syscall0(crate::syscall::Syscalls::CheckEL as usize);
-    match level {
-        0 => ExceptionLevel::User,
-        1 => ExceptionLevel::Kernel,
-        2 => ExceptionLevel::Hypervisor,
-        3 => ExceptionLevel::Firmware,
-        _ => unreachable!(),
-    }
+    // let level = crate::syscall::syscall0(crate::syscall::Syscalls::CheckEL as usize);
+    // match level {
+    //     0 => ExceptionLevel::User,
+    //     1 => ExceptionLevel::Kernel,
+    //     2 => ExceptionLevel::Hypervisor,
+    //     3 => ExceptionLevel::Firmware,
+    //     _ => unreachable!(),
+    // }
+    ExceptionLevel::Kernel
 }
 unsafe impl GlobalAlloc for ChooseAllocator {
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
@@ -31,7 +32,10 @@ unsafe impl GlobalAlloc for ChooseAllocator {
                 let allocator = kernel_allocator::ALLOCATOR.lock();
                 allocator.alloc(layout)
             }
-            ExceptionLevel::User => user_allocator::UserAllocator::get().alloc(layout),
+            ExceptionLevel::User => {
+                let allocator = kernel_allocator::ALLOCATOR.lock();
+                allocator.alloc(layout)
+            }
             _ => null_mut(),
         }
     }
@@ -42,7 +46,10 @@ unsafe impl GlobalAlloc for ChooseAllocator {
                 let allocator = kernel_allocator::ALLOCATOR.lock();
                 allocator.dealloc(ptr, layout)
             }
-            ExceptionLevel::User => user_allocator::UserAllocator::get().dealloc(ptr, layout),
+            ExceptionLevel::User => {
+                let allocator = kernel_allocator::ALLOCATOR.lock();
+                allocator.dealloc(ptr, layout)
+            }
             _ => panic!("Global Allocator in invalid context!"),
         };
     }
