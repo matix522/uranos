@@ -79,16 +79,6 @@ fn kernel_entry() -> ! {
 
     let _controller = Rpi3InterruptController::new(INTERRUPT_CONTROLLER_BASE);
 
-    interupts::enable_irqs();
-
-    {
-        let timer = ArmTimer {};
-
-        timer.interupt_after(scheduler::get_time_quant());
-        timer.enable();
-    }
-    println!("Kernel Initialization complete.");
-
     println!("TEST mmu");
     unsafe {
         if let Err(msg) = memory::armv8::mmu::init_mmu() {
@@ -152,7 +142,7 @@ fn echo() -> ! {
         );
     }
 
-    let task1 = scheduler::task_context::TaskContext::new(userspace::task_one, false)
+    let task1 = scheduler::task_context::TaskContext::new(scheduler::first_task, false)
         .expect("Error creating task 1 context");
     // let task2 = scheduler::task_context::TaskContext::new(userspace::task_two, false)
         // .expect("Error creating task 2 context");
@@ -166,6 +156,16 @@ fn echo() -> ! {
     }
 
     // config::set_debug_alloc(true);
+
+    interupts::enable_irqs();
+    
+    {
+        let timer = ArmTimer {};
+
+        timer.interupt_after(scheduler::get_time_quant());
+        timer.enable();
+    }
+    println!("Kernel Initialization complete.");
 
     syscall::start_scheduling();
 

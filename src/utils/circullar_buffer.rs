@@ -96,7 +96,10 @@ pub struct CircullarBuffer {
 impl CircullarBuffer {
     pub fn new() -> Self {
         let mut buff = CircullarBuffer {
-            data: Box::new([0; 2 * BUFFER_SIZE]),
+            data: {
+                let zero = Box::<[u8; 2 * BUFFER_SIZE]>::new_zeroed();
+                unsafe {zero.assume_init()}
+            },
             reservation_pointer: AtomicPtr::new(&mut 0),
             write_pointer: AtomicPtr::new(&mut 0),
             read_pointer: AtomicPtr::new(&mut 0),

@@ -35,12 +35,13 @@
     mrs    x2,  SPSR_EL1
     mrs    x3,  ESR_EL1
     mrs    x4,  FAR_EL1
+    mrs    x5,  SP_EL0
 
     mov    x0,  sp
 
     stp    lr,  x1,  [sp, #16 * 15]
     stp    x2,  x3,  [sp, #16 * 16]
-    stp    x4,  x0,  [sp, #16 * 17]
+    stp    x4,  x5,  [sp, #16 * 17]
 
     // x0 is the first argument for the function called through `\handler`.
 
@@ -124,7 +125,6 @@ __exception_restore_context:
     mov    x0,       sp
 
     add    x0, x0, #16 * 18
-    msr	   SP_EL0,   x0
 
     ldp    x19, x0,  [sp, #16 * 17]
     ldp    x21, x20, [sp, #16 * 16]
@@ -133,6 +133,7 @@ __exception_restore_context:
     msr    ESR_EL1, x20
     msr    SPSR_EL1, x21
     msr    ELR_EL1,  x22
+    msr    SP_EL0, x0
     ldp    x0,  x1,  [sp, #16 * 0]
     ldp    x2,  x3,  [sp, #16 * 1]
     ldp    x4,  x5,  [sp, #16 * 2]

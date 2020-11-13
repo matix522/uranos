@@ -216,6 +216,7 @@ impl TaskManager {
                 return_structure.value = returned_value;
             }
         }
+        crate::println!("DUPPPAAAAAA");
         // #Safety: lifetime of this reference is the same as lifetime of whole TaskManager; exception_context is always properly initialized if task is in tasks vector
         unsafe {
             cpu_switch_to(
@@ -288,40 +289,43 @@ pub extern "C" fn first_task() -> u32{
     let mut str_buffer1 = [0u8; 20];
 
     let hello_pid = crate::syscall::create_task(hello);
-    // crate::println!("Created hello task with PID: {}", hello_pid);
 
-    crate::syscall::asynchronous::files::open::open("file1", true, 1, buffer)
-        .then_read(20, &mut str_buffer as *mut [u8] as *mut u8, 2, buffer)
-        .then_seek(-15, vfs::SeekType::FromCurrent, 3, buffer)
-        .then_write(b"<Added>", 4, buffer)
-        .then_seek(2, vfs::SeekType::FromBeginning, 5, buffer)
-        .then_read(20, &mut str_buffer1 as *mut [u8] as *mut u8, 6, buffer)
-        .then_close(7, buffer);
+    crate::syscall::print::print(&format!("Created hello task with PID: {}", hello_pid));
+    crate::syscall::print::print(&format!("Created hello task with PID"));
+    loop {}
+
+    // crate::syscall::asynchronous::files::open::open("file1", true, 1, buffer)
+    //     .then_read(20, &mut str_buffer as *mut [u8] as *mut u8, 2, buffer)
+    //     .then_seek(-15, vfs::SeekType::FromCurrent, 3, buffer)
+    //     .then_write(b"<Added>", 4, buffer)
+    //     .then_seek(2, vfs::SeekType::FromBeginning, 5, buffer)
+    //     .then_read(20, &mut str_buffer1 as *mut [u8] as *mut u8, 6, buffer)
+    //     .then_close(7, buffer);
 
     crate::syscall::asynchronous::async_print::async_print("Hello world!", 69, buffer);
 
-    loop {
-        match crate::syscall::asynchronous::async_syscall::get_syscall_returned_value(
-            completion_buffer,
-        ) {
-            Some(val) => {
-                crate::println!(
-                    "Received response for id: {} - {} : {}",
-                    val.id,
-                    val.value,
-                    val.value & !ONLY_MSB_OF_USIZE
-                );
-                if val.id == 7 {
-                    let string = from_utf8(&str_buffer).unwrap();
-                    crate::println!("1st Read_value: {}", string);
-                    let string = from_utf8(&str_buffer1).unwrap();
-                    crate::println!("2nd Read_value: {}", string);
-                    loop {}
-                }
-            }
-            None => crate::println!("No responses"),
-        };
-    }
+    // loop {
+    //     match crate::syscall::asynchronous::async_syscall::get_syscall_returned_value(
+    //         completion_buffer,
+    //     ) {
+    //         Some(val) => {
+    //             crate::syscall::print::print(&format!(
+    //                 "Received response for id: {} - {} : {}",
+    //                 val.id,
+    //                 val.value,
+    //                 val.value & !ONLY_MSB_OF_USIZE
+    //             ));
+    //             if val.id == 7 {
+    //                 let string = from_utf8(&str_buffer).unwrap();
+    //                 crate::syscall::print::print(&format!("1st Read_value: {}", string));
+    //                 let string = from_utf8(&str_buffer1).unwrap();
+    //                 crate::syscall::print::print(&format!("2nd Read_value: {}", string));
+    //                 loop {}
+    //             }
+    //         }
+    //         None => crate::syscall::print::print(&format!("No responses")),
+    //     };
+    // }
     return 0;
 }
 
@@ -332,14 +336,14 @@ pub extern "C" fn hello() -> u32{
         crate::syscall::print::print("SECOND task USERSPACE!!!!\n");
         // crate::syscall::yield_cpu();
     // }
-    return 3;
+    return 0x2137;
 }
 
 #[no_mangle]
 #[inline(never)]
 pub extern "C" fn hello2() {
     loop {
-        crate::println!("HELLO!2");
+        crate::syscall::print::print(&format!("HELLO!2"));
         // crate::syscall::yield_cpu();
     }
 }
@@ -349,9 +353,7 @@ pub fn handle_new_task_syscall(e: &mut ExceptionContext) {
     
     
     let function = unsafe { core::mem::transmute::<usize, extern "C" fn() -> u32>(function_address) };
-    crate::println!("DUPAAA1 {:#018x} ", function_address);
     let mut task = TaskContext::new(function, false).expect("Failed to create new task");
-    crate::println!("DUPAAA_AFTER");
     
     task.ppid = Some(get_current_task_pid());
     
@@ -367,8 +369,6 @@ pub fn handle_new_task_syscall(e: &mut ExceptionContext) {
         },
     };
 
-    crate::println!("DUPAAA");
-
 }
 
 #[no_mangle]
@@ -378,7 +378,7 @@ pub extern "C" fn schedule_tail() {
 
 #[no_mangle]
 pub extern "C" fn finalize_task(returned_value: u64){
-    crate::println!("KONIEC SMIESZKOWANIA: {}", returned_value);
+    crate::syscall::print::print(&format!("KONIEC SMIESZKOWANIA: {}", returned_value));
     crate::syscall::finish_task(returned_value);
 }
 

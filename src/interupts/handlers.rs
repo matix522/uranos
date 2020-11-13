@@ -5,6 +5,7 @@ use crate::interupts::ExceptionContext;
 use crate::scheduler;
 use crate::syscall;
 use crate::syscall::Syscalls;
+use core::sync::atomic::*;
 
 use crate::config;
 use core::convert::TryInto;
@@ -13,6 +14,8 @@ pub use num_traits::FromPrimitive;
 
 const BRK_FLAG: u64 = 0b111100;
 const SVC_FLAG: u64 = 0b010101;
+
+static counter: AtomicU64 = AtomicU64::new(0);
 
 fn handle_chcek_el(e: &mut ExceptionContext) {
     e.gpr[0] = match e.spsr_el1 & 0b1111 {
@@ -23,6 +26,7 @@ fn handle_chcek_el(e: &mut ExceptionContext) {
 }
 
 fn default_exception_handler(context: &mut ExceptionContext, source: &str) {
+    let val = counter.fetch_add(1, Ordering::SeqCst);
     crate::println!(
         "[Task Fault]\n\tReason: Unknown code '{:#018x}'\n\tProgram location:    '{:#018x}'\n\tAddress:             '{:#018x}'\n\tLinkRegister:        '{:#018x}\n\tStackPointer:        '{:#018x}\n\t SPSR: {:#064b}\n",
         context.esr_el1,
@@ -32,6 +36,7 @@ fn default_exception_handler(context: &mut ExceptionContext, source: &str) {
         context.sp,
         context.spsr_el1
     );
+    crate::println!("Exception counter: {}", val);
 
     for (i, elem) in context.gpr.iter().enumerate() {
         crate::println!("GPR[{}]: {:#018x}", i, elem);
@@ -67,9 +72,21 @@ use core::sync::atomic::*;
 
 #[no_mangle]
 unsafe extern "C" fn current_elx_synchronous(e: &mut ExceptionContext) {
+    // crate::println!(
+    //     "Reason: Unknown code '{:#018x}'\n\tProgram location:    '{:#018x}'\n\tAddress:             '{:#018x}'\n\tLinkRegister:        '{:#018x}\n\tStackPointer:        '{:#018x}\n\t SPSR: {:#064b}\n",
+    //     e.esr_el1,
+    //     e.elr_el1,
+    //     e.far_el1,
+    //     e.lr,
+    //     e.sp,
+    //     e.spsr_el1
+    // );
+    let val = counter.fetch_add(1, Ordering::SeqCst);
+    // crate::println!("Handling current_elx_sync; counter: {:#018x}", val);
     interupts::disable_irqs();
 
     let exception_type = (e.esr_el1 & (0b111111 << 26)) >> 26;
+    // crate::println!("Exception_type: {} ", exception_type);
     if exception_type == BRK_FLAG && !config::use_user_space() {
         config::set_use_user_space(true);
         e.elr_el1 = e.gpr[0] | crate::KERNEL_OFFSET as u64;
@@ -118,6 +135,8 @@ pub extern "C" fn end_scheduling() {
 
 #[no_mangle]
 unsafe extern "C" fn current_elx_irq(_e: &mut ExceptionContext) {
+    let val = counter.fetch_add(1, Ordering::SeqCst);
+    // crate::println!("Handling current_elx_irq; counter: {}", val);
     interupts::disable_irqs();
 
     let timer = ArmTimer {};
@@ -143,6 +162,8 @@ unsafe extern "C" fn current_elx_serror(e: &mut ExceptionContext) {
 
 #[no_mangle]
 unsafe extern "C" fn lower_aarch64_synchronous(e: &mut ExceptionContext) {
+    let val = counter.fetch_add(1, Ordering::SeqCst);
+    // crate::println!("Handling lower_aarch64_synchronous; counter: {}", val);
     interupts::disable_irqs();
 
     let exception_type = (e.esr_el1 & (0b111111 << 26)) >> 26;
@@ -182,6 +203,8 @@ unsafe extern "C" fn lower_aarch64_synchronous(e: &mut ExceptionContext) {
 
 #[no_mangle]
 unsafe extern "C" fn lower_aarch64_irq(_e: &mut ExceptionContext) {
+    let val = counter.fetch_add(1, Ordering::SeqCst);
+    // crate::println!("Handling lower_aarch64_irq; counter: {}", val);
     interupts::disable_irqs();
 
     let timer = ArmTimer {};
