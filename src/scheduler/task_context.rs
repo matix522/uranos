@@ -3,6 +3,7 @@ use crate::alloc::collections::BTreeMap;
 use crate::syscall::asynchronous::async_returned_values::AsyncReturnedValues;
 use crate::syscall::files::file_descriptor_map::*;
 use crate::utils::circullar_buffer::*;
+use alloc::vec::Vec;
 use core::sync::atomic::{AtomicUsize, Ordering};
 /// Stack size of task in bytes
 pub const TASK_STACK_SIZE: usize = 0x8000;
@@ -102,14 +103,18 @@ impl TaskContext {
         }
     }
 
-    pub fn new(start_function: extern "C" fn() -> u32, is_kernel: bool) -> Result<Self, TaskError> {
+    pub fn new(
+        start_function: extern "C" fn(usize, *const &[u8]) -> u32,
+        args: &[&[u8]],
+        is_kernel: bool,
+    ) -> Result<Self, TaskError> {
         let mut task: TaskContext = Self::empty();
 
         let user_address = |address: usize| (address & !crate::KERNEL_OFFSET) as u64;
 
         task.is_kernel = is_kernel;
 
-        let el0_stack = task_stack::TaskStack::new(
+        let mut el0_stack = task_stack::TaskStack::new(
             TASK_STACK_SIZE,
             Some(NEXT_STATCK_PTR.fetch_add(TASK_STACK_SIZE * 16, Ordering::SeqCst)),
             false,
@@ -125,13 +130,48 @@ impl TaskContext {
 
         task.gpr.lr = new_task_func as *const () as u64;
         task.gpr.sp = el1_stack.base() as u64;
+
+        let mut argv = Vec::<&[u8]>::new();
+        let mut remaining_size = el0_stack.size;
+
+        //copy the args onto task stack
+        for arg in args.iter() {
+            let arg_len = arg.len();
+            if remaining_size <= arg_len {
+                panic!("Given args does not fit in task stack");
+            }
+            el0_stack.ptr = unsafe { el0_stack.ptr.sub(arg_len) };
+            unsafe {
+                core::ptr::copy_nonoverlapping(arg.as_ptr() as *const u8, el0_stack.ptr, arg_len);
+            }
+            remaining_size -= arg_len;
+            let slice = unsafe { core::slice::from_raw_parts(el0_stack.ptr, arg_len) };
+            argv.push(slice);
+        }
+
+        //copy the args vector onto a stack
+        if remaining_size <= argv.len() {
+            panic!("Given args does not fit in task stack");
+        }
+        el0_stack.ptr = unsafe { el0_stack.ptr.sub(argv.len()) };
+        unsafe {
+            core::ptr::copy_nonoverlapping(
+                argv[..].as_ptr() as *const u8,
+                el0_stack.ptr,
+                argv.len(),
+            );
+        }
+
         if task.is_kernel {
             task.gpr.x19 = start_function as *const () as u64;
         } else {
             task.gpr.x19 = crate::scheduler::drop_el0 as *const () as u64;
-            task.gpr.x20 = user_address(start_function as *const () as usize);
+            task.gpr.x22 = user_address(start_function as *const () as usize);
             task.gpr.sp_el0 = el0_stack.base() as u64;
         }
+        task.gpr.x20 = argv.len() as u64;
+        task.gpr.x21 = argv[..].as_ptr() as u64;
+
         task.el0_stack = Some(el0_stack);
         task.el1_stack = Some(el1_stack);
 

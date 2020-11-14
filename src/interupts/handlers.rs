@@ -72,10 +72,10 @@ unsafe extern "C" fn current_elx_synchronous(e: &mut ExceptionContext) {
     let exception_type = (e.esr_el1 & (0b111111 << 26)) >> 26;
     if exception_type == BRK_FLAG && !config::use_user_space() {
         config::set_use_user_space(true);
-        e.elr_el1 = e.gpr[0] | crate::KERNEL_OFFSET as u64;
+        e.elr_el1 = e.gpr[2] | crate::KERNEL_OFFSET as u64;
     } else if exception_type == BRK_FLAG {
         e.spsr_el1 = 0b0;
-        e.elr_el1 = e.gpr[0] & (!crate::KERNEL_OFFSET) as u64;
+        e.elr_el1 = e.gpr[2] & (!crate::KERNEL_OFFSET) as u64;
     } else if exception_type == SVC_FLAG {
         let syscall_type = Syscalls::from_u64(e.gpr[8])
             .unwrap_or_else(|| panic!("Unknown syscall type {}", e.gpr[8]));
@@ -153,7 +153,7 @@ unsafe extern "C" fn lower_aarch64_synchronous(e: &mut ExceptionContext) {
 
     let exception_type = (e.esr_el1 & (0b111111 << 26)) >> 26;
     if exception_type == BRK_FLAG {
-        e.elr_el1 = e.gpr[0] | crate::KERNEL_OFFSET as u64;
+        e.elr_el1 = e.gpr[2] | crate::KERNEL_OFFSET as u64;
     } else if exception_type == SVC_FLAG {
         let syscall_type = Syscalls::from_u64(e.gpr[8])
             .unwrap_or_else(|| panic!("Unknown syscall type {}", e.gpr[8]));

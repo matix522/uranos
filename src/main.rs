@@ -75,7 +75,6 @@ fn kernel_entry() -> ! {
         interupts::init_exceptions(binary_info.exception_vector);
     }
 
-
     let _controller = Rpi3InterruptController::new(INTERRUPT_CONTROLLER_BASE);
 
     println!("Prepare MMU Configuration");
@@ -89,7 +88,7 @@ fn kernel_entry() -> ! {
 }
 unsafe fn jump_to_kernel_space(f: fn() -> !) -> ! {
     let address = f as *const () as u64;
-    llvm_asm!("brk 0" : : "{x0}"(address) : : "volatile");
+    llvm_asm!("brk 0" : : "{x2}"(address) : : "volatile");
 
     loop {}
 }
@@ -114,12 +113,10 @@ fn echo() -> ! {
     //     crate::println!("p_memory {:x} - {:x}", p_range.start, p_range.end);
     //     crate::println!("v_memory {:x} - {:x}", v_range.start, v_range.end);
 
-
     //     map_kernel_memory("moved_string", v_range, p_range.start, true);
 
     //     crate::println!("ORGINAL {:#018x}: {}", t_string.as_ptr() as usize, t_string);
     //     crate::println!("USER    {:#018x}: {}", user_str.as_ptr() as usize, user_str);
-
 
     //     let moved_ptr = (ptr as u64 | 0x1_0000_0000) as *const u8;
     //     let moved_str =
@@ -132,10 +129,9 @@ fn echo() -> ! {
     //     );
     // }
 
-
     // config::set_debug_alloc(true);
     // config::set_debug_mmu(true);
-    let task1 = scheduler::task_context::TaskContext::new(userspace::first_task, false)
+    let task1 = scheduler::task_context::TaskContext::new(userspace::first_task, &[], false)
         .expect("Error creating task 1 context");
     scheduler::add_task(task1).expect("Error adding task 1");
 
