@@ -108,9 +108,7 @@ fn echo() -> ! {
         crate::println!("ORGINAL {:#018x}: {}", t_string.as_ptr() as usize, t_string);
         crate::println!("USER    {:#018x}: {}", user_str.as_ptr() as usize, user_str);
 
-        use crate::memory::memory_controler::{
-            map_kernel_memory, Granule, RangeDescriptor, Translation, KERNEL_RW_,
-        };
+        use crate::memory::memory_controler::map_kernel_memory;
 
         let pages_containing = |pointer: *const u8, size: usize| {
             let start_address = pointer.add(pointer.align_offset(4096)).offset(-4096) as usize;

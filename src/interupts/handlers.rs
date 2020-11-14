@@ -8,7 +8,6 @@ use crate::syscall::Syscalls;
 use core::sync::atomic::*;
 
 use crate::config;
-use core::convert::TryInto;
 
 pub use num_traits::FromPrimitive;
 
@@ -83,11 +82,7 @@ unsafe extern "C" fn current_elx_synchronous(e: &mut ExceptionContext) {
             Syscalls::Yield => scheduler::switch_task(),
             Syscalls::StartScheduling => scheduler::start(),
             Syscalls::Print => syscall::print::handle_print_syscall(e),
-            Syscalls::FinishTask => scheduler::finish_current_task(
-                (e.gpr[0] as u32)
-                    .try_into()
-                    .unwrap_or_else(|_| scheduler::special_return_vals::WRONG_RETURN_VALUE_PASSED),
-            ),
+            Syscalls::FinishTask => scheduler::finish_current_task(e.gpr[0] as u32),
             Syscalls::CreateTask => scheduler::handle_new_task_syscall(e),
             Syscalls::CheckEL => handle_chcek_el(e),
             Syscalls::GetAsyncSubmissionBuffer => {
@@ -165,11 +160,7 @@ unsafe extern "C" fn lower_aarch64_synchronous(e: &mut ExceptionContext) {
             Syscalls::Yield => scheduler::switch_task(),
             Syscalls::StartScheduling => scheduler::start(),
             Syscalls::Print => syscall::print::handle_print_syscall(e),
-            Syscalls::FinishTask => scheduler::finish_current_task(
-                (e.gpr[0] as u32)
-                    .try_into()
-                    .unwrap_or_else(|_| scheduler::special_return_vals::WRONG_RETURN_VALUE_PASSED),
-            ),
+            Syscalls::FinishTask => scheduler::finish_current_task(e.gpr[0] as u32),
             Syscalls::CreateTask => scheduler::handle_new_task_syscall(e),
             Syscalls::CheckEL => handle_chcek_el(e),
             Syscalls::GetAsyncSubmissionBuffer => {

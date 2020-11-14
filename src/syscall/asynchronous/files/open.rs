@@ -40,7 +40,7 @@ pub fn open(
     }
 }
 
-pub fn handle_async_open(ptr: *const u8, len: usize) -> usize {
+pub(in crate::syscall::asynchronous) fn handle_async_open(ptr: *const u8, len: usize) -> usize {
     let data: &AsyncOpenSyscallData = unsafe {
         let slice = core::slice::from_raw_parts(ptr, len);
         crate::utils::struct_to_slice::u8_slice_to_any(slice)

@@ -41,7 +41,7 @@ pub fn read(
     crate::syscall::asynchronous::async_syscall::send_async_syscall(submission_buffer, a);
 }
 
-pub fn handle_async_read(
+pub(in crate::syscall::asynchronous) fn handle_async_read(
     ptr: *const u8,
     len: usize,
     returned_values: &mut AsyncReturnedValues,

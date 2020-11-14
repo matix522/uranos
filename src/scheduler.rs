@@ -213,13 +213,11 @@ impl TaskManager {
             }
         }
 
-        match self.tasks[task_pid].ppid {
-            Some(ppid) => {
-                self.tasks[ppid]
-                    .children_return_vals
-                    .insert(self.current_task, return_value);
-            }
-            None => (),
+        if let Some(ppid) = self.tasks[task_pid].ppid {
+            self.tasks[ppid]
+                .children_return_vals
+                .insert(self.current_task, return_value);
+        
         };
         self.switch_task()
     }

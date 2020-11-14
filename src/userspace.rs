@@ -15,7 +15,7 @@ pub extern "C" fn r#true() -> u32 {
 pub extern "C" fn r#false() -> u32 {
     0
 }
-
+use crate::syscall::asynchronous::*;
 #[no_mangle]
 #[inline(never)]
 pub extern "C" fn first_task() -> u32 {
@@ -24,7 +24,6 @@ pub extern "C" fn first_task() -> u32 {
 
     use crate::vfs;
     use core::str::from_utf8;
-
     let mut str_buffer = [0u8; 20];
     let mut str_buffer1 = [0u8; 20];
 
@@ -39,7 +38,7 @@ pub extern "C" fn first_task() -> u32 {
         }
     }
 
-    crate::syscall::asynchronous::files::open::open("file1", true, 1, buffer)
+    files::open::open("file1", true, 1, buffer)
         .then_read(20, &mut str_buffer as *mut [u8] as *mut u8, 2, buffer)
         .then_seek(-15, vfs::SeekType::FromCurrent, 3, buffer)
         .then_write(b"<Added>", 4, buffer)
@@ -47,31 +46,26 @@ pub extern "C" fn first_task() -> u32 {
         .then_read(20, &mut str_buffer1 as *mut [u8] as *mut u8, 6, buffer)
         .then_close(7, buffer);
 
-    crate::syscall::asynchronous::async_print::async_print("Hello world!", 69, buffer);
+    async_print::async_print("Hello world!", 69, buffer);
 
     loop {
-        match crate::syscall::asynchronous::async_syscall::get_syscall_returned_value(
-            completion_buffer,
-        ) {
-            Some(val) => {
-                crate::syscall::print::print(&format!(
-                    "Received response for id: {} - {} : {}\n",
-                    val.id,
-                    val.value,
-                    val.value & !crate::utils::ONLY_MSB_OF_USIZE
-                ));
-                if val.id == 7 {
-                    let string = from_utf8(&str_buffer).unwrap();
-                    crate::syscall::print::print(&format!("1st Read_value: {}\n", string));
-                    let string = from_utf8(&str_buffer1).unwrap();
-                    crate::syscall::print::print(&format!("2nd Read_value: {}\n", string));
-                    loop {}
-                }
+        if let Some(val) = async_syscall::get_syscall_returned_value(completion_buffer) {
+            crate::syscall::print::print(&format!(
+                "Received response for id: {} - {} : {}\n",
+                val.id,
+                val.value,
+                val.value & !crate::utils::ONLY_MSB_OF_USIZE
+            ));
+            if val.id == 7 {
+                let string = from_utf8(&str_buffer).unwrap();
+                crate::syscall::print::print(&format!("1st Read_value: {}\n", string));
+                let string = from_utf8(&str_buffer1).unwrap();
+                crate::syscall::print::print(&format!("2nd Read_value: {}\n", string));
+                loop {}
             }
-            None => {}
         };
     }
-    return 0;
+    // return 0;
 }
 
 #[no_mangle]
@@ -81,7 +75,7 @@ pub extern "C" fn hello() -> u32 {
     crate::syscall::print::print("SECOND task USERSPACE!!!!\n");
     // crate::syscall::yield_cpu();
     // }
-    return 3;
+    3
 }
 
 #[no_mangle]

@@ -23,7 +23,7 @@ pub enum AccessPermissions {
     UserReadOnly,
     UserReadWrite,
 }
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum Granule {
     Page4KiB,
     Block2MiB,
@@ -216,7 +216,7 @@ pub enum AddressSpace {
     User,
 }
 
-use super::armv8::mmu::{map_memory, unmap_memory};
+use super::armv8::mmu::map_memory;
 
 pub fn map_kernel_memory(
     memory_id: &str,
@@ -231,9 +231,9 @@ pub fn map_kernel_memory(
         Granule::Page4KiB,
     );
     let mut map = DYNAMIC_MEMORY_MAP_KERNEL.lock();
-    let remapped = map.insert(memory_id.into(), memory_range);
+    let _remapped = map.insert(memory_id.into(), memory_range);
 
-    if let Some(old_memory_range) = remapped {}
+    // if let Some(old_memory_range) = remapped {}
 
     unsafe {
         map_memory(AddressSpace::Kernel, map.get(memory_id).unwrap()).unwrap();

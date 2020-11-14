@@ -198,18 +198,43 @@ impl core::convert::From<AttributeFields>
     }
 }
 
+pub enum TableEntryType {
+    Invalid = 0b00,
+    Block = 0b01,
+    TableOrPage = 0b11,
+}
+
 impl TableRecord {
     pub fn is_valid(&self) -> bool {
         (self.0 & 0b1) == 1
     }
+    pub fn get_type(&self) -> TableEntryType {
+        match self.0 & 0b11 {
+            0b01 => TableEntryType::Block,
+            0b11 => TableEntryType::TableOrPage,
+            _ => TableEntryType::Invalid,
+        }
+    }
     /// # Safety
     /// self must be correct entry of 1,2 level describing a table of tables
-    pub unsafe fn next_table(&self) -> *mut [TableRecord; 512] {
-        (self.0 & (((1 << 36) - 1) << 12)) as *mut [TableRecord; 512]
+    #[allow(clippy::mut_from_ref)]
+    pub unsafe fn next_table(&self) -> &mut [TableRecord; 512] {
+        &mut *((self.0 & (((1 << 36) - 1) << 12)) as *mut [TableRecord; 512])
     }
     /// # Safety
     /// self must be correct entry of 1,2 level describing a table of page records
-    pub unsafe fn next_page(&self) -> *mut [PageRecord; 512] {
-        (self.0 & (((1 << 36) - 1) << 12)) as *mut [PageRecord; 512]
+    #[allow(clippy::mut_from_ref)]
+    pub unsafe fn next_page(&self) -> &mut [PageRecord; 512] {
+        &mut *((self.0 & (((1 << 36) - 1) << 12)) as *mut [PageRecord; 512])
+    }
+}
+
+impl PageRecord {
+    pub fn get_type(&self) -> TableEntryType {
+        match self.0 & 0b11 {
+            0b01 => TableEntryType::Block,
+            0b11 => TableEntryType::TableOrPage,
+            _ => TableEntryType::Invalid,
+        }
     }
 }

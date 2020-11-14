@@ -21,7 +21,7 @@ pub fn async_print(msg: &str, id: usize, submission_buffer: &mut CircullarBuffer
     crate::syscall::asynchronous::async_syscall::send_async_syscall(submission_buffer, a);
 }
 
-pub fn handle_async_print(ptr: *const u8, len: usize) -> usize {
+pub(in crate::syscall::asynchronous) fn handle_async_print(ptr: *const u8, len: usize) -> usize {
     let string = unsafe { print::construct_utf8_str(ptr, len) };
 
     if let Some(message) = string {
