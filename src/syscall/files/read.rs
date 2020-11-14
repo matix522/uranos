@@ -5,7 +5,7 @@ use num_traits::FromPrimitive;
 
 use crate::utils::ONLY_MSB_OF_USIZE;
 
-pub fn read(fd: usize, length: usize, buffer: *mut u8) -> Result<(), vfs::FileError> {
+pub fn read(fd: usize, length: usize, buffer: *mut u8) -> Result<usize, vfs::FileError> {
     let val: usize;
     unsafe {
         val = syscall3(fd, length, buffer as usize, Syscalls::ReadFile as usize);
@@ -20,7 +20,7 @@ pub fn read(fd: usize, length: usize, buffer: *mut u8) -> Result<(), vfs::FileEr
             }),
         )
     } else {
-        Ok(())
+        Ok(val)
     }
 }
 

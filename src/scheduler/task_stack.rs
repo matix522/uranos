@@ -4,9 +4,9 @@ unsafe impl Sync for TaskStack {}
 
 #[derive(Debug)]
 pub struct TaskStack {
-    ptr: *mut u8,
+    pub(super) ptr: *mut u8,
     virtual_address: Option<usize>,
-    size: usize,
+    pub(super) size: usize,
     is_kernel: bool,
 }
 
@@ -57,14 +57,24 @@ impl TaskStack {
 
     pub fn base(&self) -> usize {
         if let Some(v_address) = self.virtual_address {
-            v_address + self.size - 16 | if self.is_kernel { crate::KERNEL_OFFSET } else { 0 }
+            v_address + self.size - 16
+                | if self.is_kernel {
+                    crate::KERNEL_OFFSET
+                } else {
+                    0
+                }
         } else {
             self.ptr as usize + self.size - 16
         }
     }
     pub fn top(&self) -> usize {
         if let Some(v_address) = self.virtual_address {
-            v_address | if self.is_kernel { crate::KERNEL_OFFSET } else { 0 }
+            v_address
+                | if self.is_kernel {
+                    crate::KERNEL_OFFSET
+                } else {
+                    0
+                }
         } else {
             self.ptr as usize
         }

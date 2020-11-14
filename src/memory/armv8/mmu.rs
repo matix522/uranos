@@ -324,8 +324,8 @@ pub unsafe fn init_mmu() -> Result<(), &'static str> {
     let kernel_address = kernel_table.table_1g.as_ptr() as u64;
     let user_address = user_table.table_1g.as_ptr() as u64;
     if crate::config::debug_mmu() {
-    crate::println!("MMU BASE KERNEL TABLE: {:#018x}", kernel_address);
-    crate::println!("MMU BASE USER TABLE:   {:#018x}", user_address);
+        crate::println!("MMU BASE KERNEL TABLE: {:#018x}", kernel_address);
+        crate::println!("MMU BASE USER TABLE:   {:#018x}", user_address);
     }
     TTBR1_EL1.set_baddr(kernel_address);
     TTBR0_EL1.set_baddr(user_address);

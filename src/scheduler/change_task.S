@@ -45,7 +45,7 @@ new_task_func:
     bl    schedule_tail
     mov    x0, x20
     mov    x1, x21
-    mov    x2, xzr
+    mov    x2, x22
     mov    x3, xzr
     mov    x4, xzr
     mov    x5, xzr

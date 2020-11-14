@@ -246,10 +246,15 @@ extern "C" {
 
 pub fn handle_new_task_syscall(e: &mut ExceptionContext) {
     let function_address = e.gpr[0] as usize;
+    let ptr = e.gpr[1] as *const &[u8];
+    let len = e.gpr[2] as usize;
 
-    let function =
-        unsafe { core::mem::transmute::<usize, extern "C" fn() -> u32>(function_address) };
-    let mut task = TaskContext::new(function, false).expect("Failed to create new task");
+    let args: &[&[u8]] = unsafe { core::slice::from_raw_parts(ptr, len) };
+
+    let function = unsafe {
+        core::mem::transmute::<usize, extern "C" fn(usize, *const &[u8]) -> u32>(function_address)
+    };
+    let mut task = TaskContext::new(function, args, false).expect("Failed to create new task");
 
     task.ppid = Some(get_current_task_pid());
 
@@ -269,7 +274,6 @@ pub extern "C" fn schedule_tail() {
 
 #[no_mangle]
 pub extern "C" fn finalize_task(returned_value: u32) {
-    crate::syscall::print::print(&format!("KONIEC SMIESZKOWANIA: {}", returned_value));
     crate::syscall::finish_task(returned_value);
 }
 
