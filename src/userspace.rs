@@ -31,7 +31,12 @@ pub extern "C" fn poor_cat(argc: usize, argv: *const &[u8]) -> u32 {
         return 2;
     }
     let filename = filename.unwrap();
-    let fd = crate::syscall::files::open::open(filename, false).unwrap();
+    let fd = crate::syscall::files::open::open(filename, false);
+    if fd.is_err() {
+        crate::syscall::print::print(&format!("A file error occured: {:?}", fd.err().unwrap()));
+        return 3;
+    }
+    let fd = fd.unwrap();
     let mut buffer = [0u8; 32];
     while crate::syscall::files::read::read(fd, 32, &mut buffer as *mut [u8] as *mut u8).unwrap()
         > 0

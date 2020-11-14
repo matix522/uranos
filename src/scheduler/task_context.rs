@@ -121,7 +121,7 @@ impl TaskContext {
         )
         .ok_or(TaskError::StackAllocationFail)?;
 
-        let el1_stack = task_stack::TaskStack::new(
+        let mut el1_stack = task_stack::TaskStack::new(
             TASK_STACK_SIZE,
             Some(NEXT_STATCK_PTR.fetch_add(TASK_STACK_SIZE * 16, Ordering::SeqCst)),
             true,
@@ -131,8 +131,14 @@ impl TaskContext {
         task.gpr.lr = new_task_func as *const () as u64;
         task.gpr.sp = el1_stack.base() as u64;
 
+        let target_stack = if task.is_kernel {
+            &mut el1_stack
+        } else {
+            &mut el0_stack
+        };
+
         let mut argv = Vec::<&[u8]>::new();
-        let mut remaining_size = el0_stack.size;
+        let mut remaining_size = target_stack.size;
 
         //copy the args onto task stack
         for arg in args.iter() {
@@ -140,12 +146,16 @@ impl TaskContext {
             if remaining_size <= arg_len {
                 panic!("Given args does not fit in task stack");
             }
-            el0_stack.ptr = unsafe { el0_stack.ptr.sub(arg_len) };
+            target_stack.ptr = unsafe { target_stack.ptr.sub(arg_len) };
             unsafe {
-                core::ptr::copy_nonoverlapping(arg.as_ptr() as *const u8, el0_stack.ptr, arg_len);
+                core::ptr::copy_nonoverlapping(
+                    arg.as_ptr() as *const u8,
+                    target_stack.ptr,
+                    arg_len,
+                );
             }
             remaining_size -= arg_len;
-            let slice = unsafe { core::slice::from_raw_parts(el0_stack.ptr, arg_len) };
+            let slice = unsafe { core::slice::from_raw_parts(target_stack.ptr, arg_len) };
             argv.push(slice);
         }
 
@@ -153,11 +163,11 @@ impl TaskContext {
         if remaining_size <= argv.len() {
             panic!("Given args does not fit in task stack");
         }
-        el0_stack.ptr = unsafe { el0_stack.ptr.sub(argv.len()) };
+        target_stack.ptr = unsafe { target_stack.ptr.sub(argv.len()) };
         unsafe {
             core::ptr::copy_nonoverlapping(
                 argv[..].as_ptr() as *const u8,
-                el0_stack.ptr,
+                target_stack.ptr,
                 argv.len(),
             );
         }
