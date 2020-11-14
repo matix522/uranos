@@ -20,7 +20,7 @@ pub struct ExceptionContext {
 
     pub(super) far_el1: u64,
 
-    pub(super) sp: u64,
+    pub(super) sp_el0: u64,
 }
 ///
 /// # Safety

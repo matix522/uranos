@@ -50,7 +50,7 @@ pub extern "C" fn debug_exception_context(e: &mut ExceptionContext) {
         e.elr_el1,
         e.far_el1,
         e.lr,
-        e.sp,
+        e.sp_el0,
         e.spsr_el1
     );
     for (i, elem) in e.gpr.iter().enumerate() {

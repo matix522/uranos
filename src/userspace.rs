@@ -19,6 +19,8 @@ use crate::syscall::asynchronous::*;
 #[no_mangle]
 #[inline(never)]
 pub extern "C" fn first_task() -> u32 {
+    crate::syscall::print::print("Hello\n");
+
     let buffer = crate::syscall::get_async_submission_buffer();
     let completion_buffer = crate::syscall::get_async_completion_buffer();
 

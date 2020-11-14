@@ -13,11 +13,11 @@ impl AsyncReturnedValues {
     }
 }
 impl Default for AsyncReturnedValues {
-     fn default() -> Self {
-      Self::new()
- }
+    fn default() -> Self {
+        Self::new()
+    }
 }
-impl Default for crate::utils::circullar_buffer::CircullarBuffer { 
+impl Default for crate::utils::circullar_buffer::CircullarBuffer {
     fn default() -> Self {
         Self::new()
     }

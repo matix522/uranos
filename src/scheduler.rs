@@ -193,7 +193,7 @@ impl TaskManager {
             .expect("Error during scheduler start: task 0 not found");
 
         unsafe {
-            cpu_switch_to_first(task as *const _ as u64);
+            cpu_switch_to_first(&task.gpr as *const _ as u64);
         }
     }
 
@@ -217,7 +217,6 @@ impl TaskManager {
             self.tasks[ppid]
                 .children_return_vals
                 .insert(self.current_task, return_value);
-        
         };
         self.switch_task()
     }
@@ -230,14 +229,20 @@ impl TaskManager {
         self.current_task
     }
 }
-
-#[no_mangle]
-#[inline(never)]
-pub fn drop_el0() {
-    unsafe {
-        llvm_asm!("brk 0");
-    };
+extern "C" {
+    /// Change CPU context from prev task to next task
+    #[no_mangle]
+    fn drop_el0();
 }
+// #[no_mangle]
+// #[inline(never)]
+// pub fn drop_el0() {
+//     crate::println!("dupa");
+//     unsafe {
+//         llvm_asm!("brk 0");
+//     };
+//     loop{}
+// }
 
 pub fn handle_new_task_syscall(e: &mut ExceptionContext) {
     let function_address = e.gpr[0] as usize;

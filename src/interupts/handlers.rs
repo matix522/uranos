@@ -24,12 +24,13 @@ fn handle_chcek_el(e: &mut ExceptionContext) {
 
 fn default_exception_handler(context: &mut ExceptionContext, source: &str) {
     crate::println!(
-        "[Task Fault]\n\tReason: Unknown code '{:#018x}'\n\tProgram location:    '{:#018x}'\n\tAddress:             '{:#018x}'\n\tLinkRegister:        '{:#018x}\n\tStackPointer:        '{:#018x}\n\t SPSR: {:#064b}\n",
+        "[Task Fault]\n\tReason: Unknown code '{:#018x}'\n\tProgram location:    '{:#018x}'\n\tAddress:             '{:#018x}'\n\tLinkRegister:        '{:#018x}\n\tSP_EL0:              '{:#018x}\n\tSP_EL1:              '{:#018x}\n\t SPSR: {:#064b}\n",
         context.esr_el1,
         context.elr_el1,
         context.far_el1,
         context.lr,
-        context.sp,
+        context.sp_el0,
+        context as *const _ as u64,
         context.spsr_el1
     );
 
