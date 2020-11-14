@@ -15,6 +15,7 @@
 #![feature(new_uninit)]
 #![feature(const_fn)]
 #![feature(slice_ptr_len)]
+#![feature(option_expect_none)]
 
 #[macro_use]
 extern crate alloc;
@@ -70,16 +71,14 @@ fn kernel_entry() -> ! {
     drop(uart);
     let binary_info = binary_info::BinaryInfo::get();
     println!("{}", binary_info);
-    println!("{:?}", crate::memory::allocator::kernel_heap_range());
     unsafe {
         interupts::init_exceptions(binary_info.exception_vector);
     }
 
-    println!("Enabling ARM Timer");
 
     let _controller = Rpi3InterruptController::new(INTERRUPT_CONTROLLER_BASE);
 
-    println!("TEST mmu");
+    println!("Prepare MMU Configuration");
     unsafe {
         if let Err(msg) = memory::armv8::mmu::init_mmu() {
             panic!(msg);
@@ -95,68 +94,59 @@ unsafe fn jump_to_kernel_space(f: fn() -> !) -> ! {
     loop {}
 }
 fn echo() -> ! {
-    println!("Echoing input.");
+    // use crate::memory::memory_controler::{map_kernel_memory, unmap_kernel_memory};
+    // unsafe {
+    //     let t_string: &'static str = "Hello String";
+    //     let ptr = t_string.as_ptr();
+    //     let size = t_string.bytes().len();
 
-    unsafe {
-        let t_string: &'static str = "Hello String";
-        let ptr = t_string.as_ptr();
-        let size = t_string.bytes().len();
+    //     let user_ptr = ((!KERNEL_OFFSET) & ptr as usize) as *const u8;
+    //     let user_str = core::str::from_utf8_unchecked(core::slice::from_raw_parts(user_ptr, size));
 
-        let user_ptr = ((!KERNEL_OFFSET) & ptr as usize) as *const u8;
-        let user_str = core::str::from_utf8_unchecked(core::slice::from_raw_parts(user_ptr, size));
+    //     let pages_containing = |pointer: *const u8, size: usize| {
+    //         let start_address = pointer.add(pointer.align_offset(4096)).offset(-4096) as usize;
+    //         let end_address = pointer.add(size).add(pointer.align_offset(4096)) as usize;
+    //         start_address..end_address
+    //     };
+    //     let p_range = pages_containing(user_ptr, size);
+    //     let v_range = p_range.start | 0x1_0000_0000..p_range.end | 0x1_0000_0000;
 
-        crate::println!("ORGINAL {:#018x}: {}", t_string.as_ptr() as usize, t_string);
-        crate::println!("USER    {:#018x}: {}", user_str.as_ptr() as usize, user_str);
+    //     crate::println!("p_memory {:x} - {:x}", p_range.start, p_range.end);
+    //     crate::println!("v_memory {:x} - {:x}", v_range.start, v_range.end);
 
-        use crate::memory::memory_controler::map_kernel_memory;
 
-        let pages_containing = |pointer: *const u8, size: usize| {
-            let start_address = pointer.add(pointer.align_offset(4096)).offset(-4096) as usize;
-            let end_address = pointer.add(size).add(pointer.align_offset(4096)) as usize;
-            start_address..end_address
-        };
-        let p_range = pages_containing(user_ptr, size);
-        let v_range = p_range.start | 0x1_0000_0000..p_range.end | 0x1_0000_0000;
+    //     map_kernel_memory("moved_string", v_range, p_range.start, true);
 
-        crate::println!("memory {:x} - {:x}", p_range.start, p_range.end);
-        crate::println!("memory {:x} - {:x}", v_range.start, v_range.end);
+    //     crate::println!("ORGINAL {:#018x}: {}", t_string.as_ptr() as usize, t_string);
+    //     crate::println!("USER    {:#018x}: {}", user_str.as_ptr() as usize, user_str);
 
-        config::set_debug_mmu(true);
 
-        map_kernel_memory("moved_string", v_range, p_range.start, true);
-        // crate::memory::armv8::mmu::add_translation(
-        //     user_ptr as usize,
-        //     user_ptr as usize | 0x1_0000_0000,
-        // );
+    //     let moved_ptr = (ptr as u64 | 0x1_0000_0000) as *const u8;
+    //     let moved_str =
+    //         core::str::from_utf8_unchecked(core::slice::from_raw_parts(moved_ptr, size));
 
-        let moved_ptr = (ptr as u64 | 0x1_0000_0000) as *const u8;
-        let moved_str =
-            core::str::from_utf8_unchecked(core::slice::from_raw_parts(moved_ptr, size));
+    //     crate::println!(
+    //         "MOVED   {:#018x}: {}",
+    //         moved_str.as_ptr() as usize,
+    //         moved_str
+    //     );
+    // }
 
-        crate::println!(
-            "MOVED   {:#018x}: {}",
-            moved_str.as_ptr() as usize,
-            moved_str
-        );
-    }
 
+    // config::set_debug_alloc(true);
+    // config::set_debug_mmu(true);
     let task1 = scheduler::task_context::TaskContext::new(userspace::first_task, false)
         .expect("Error creating task 1 context");
-    // let task2 = scheduler::task_context::TaskContext::new(userspace::task_two, false)
-    // .expect("Error creating task 2 context");
     scheduler::add_task(task1).expect("Error adding task 1");
-    // scheduler::add_task(task2).expect("Error adding task 2");
 
     unsafe {
         interupts::init_exceptions(
             utils::binary_info::BinaryInfo::get().exception_vector | KERNEL_OFFSET,
         );
     }
-
-    // config::set_debug_alloc(true);
+    println!("Enabling ARM Timer");
 
     interupts::enable_irqs();
-
     {
         let timer = ArmTimer {};
 
@@ -166,6 +156,7 @@ fn echo() -> ! {
     println!("Kernel Initialization complete.");
 
     syscall::start_scheduling();
+    // scheduler::start();
 
     let mut uart = drivers::UART.lock();
     uart.move_uart();

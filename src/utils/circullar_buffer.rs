@@ -4,7 +4,7 @@ use core::sync::atomic::{AtomicPtr, Ordering};
 
 use alloc::boxed::Box;
 
-const BUFFER_SIZE: usize = 40960;
+const BUFFER_SIZE: usize = 0x1000;
 
 #[derive(Debug)]
 pub enum BufferAddValueError {

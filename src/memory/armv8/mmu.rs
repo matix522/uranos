@@ -30,8 +30,6 @@ struct Level1MemoryTable {
 
 impl Level1MemoryTable {
     unsafe fn fill(&mut self) -> Result<(), TranslationError> {
-        crate::println!("{}", MEMORY_SIZE_GIB);
-
         for memory_range in &PHYSICAL_MEMORY_LAYOUT {
             let step = match &memory_range.granule {
                 Granule::Page4KiB => 1 << 12,
@@ -54,6 +52,34 @@ impl Level1MemoryTable {
         }
         Ok(())
     }
+
+    unsafe fn translate(&mut self, address: usize) -> Result<usize, u64> {
+        let level_1 = address >> 30;
+        let level_2 = (address - (level_1 << 30)) >> 21;
+        let level_3 = (address - (level_1 << 30) - (level_2 << 21)) >> 12;
+
+        let last_bits = address & 0xfff;
+
+        let level_1_entry = &mut self.table_1g[level_1];
+
+        let table_2m = match level_1_entry.get_type() {
+            TableEntryType::Invalid => return Err(level_1_entry.0),
+            TableEntryType::Block => return Ok(level_1_entry.get_address() + last_bits),
+            TableEntryType::TableOrPage => &mut *level_1_entry.next_table(),
+        };
+        let level_2_entry = &mut table_2m[level_2];
+
+        let table_4k = match level_2_entry.get_type() {
+            TableEntryType::Invalid => return Err(level_2_entry.0),
+            TableEntryType::Block => return Ok(level_2_entry.get_address() + last_bits),
+            TableEntryType::TableOrPage => &mut *level_2_entry.next_page(),
+        };
+        let level_3_entry = &mut table_4k[level_3];
+        match level_3_entry.get_type() {
+            TableEntryType::Invalid | TableEntryType::Block => Err(level_3_entry.0),
+            TableEntryType::TableOrPage => Ok(level_3_entry.get_address() + last_bits),
+        }
+    }
     unsafe fn map_memory(
         &mut self,
         address: usize,
@@ -67,7 +93,17 @@ impl Level1MemoryTable {
         let level_1 = address >> 30;
         let level_2 = (address - (level_1 << 30)) >> 21;
         let level_3 = (address - (level_1 << 30) - (level_2 << 21)) >> 12;
-
+        if crate::config::debug_mmu() {
+            crate::println!(
+                "L1: {}, L2: {}, L3: {}, ADDR: {:x}, PADDR: {:x}, OFF: {:x}",
+                level_1,
+                level_2,
+                level_3,
+                address,
+                address + offset,
+                offset
+            );
+        }
         let level_1_entry = &mut self.table_1g[level_1];
 
         let table_2m = match level_1_entry.get_type() {
@@ -140,24 +176,6 @@ impl Level1MemoryTable {
         };
 
         let level_2_entry = &mut table_2m?[level_2];
-        // let table_4k = match level_2_entry.get_type() {
-        //     TableEntryType::Invalid if granule == Granule::Block2MiB => {
-        //         *level_2_entry =
-        //             PageRecord::new(address + offset, *memory_attributes, true).into();
-        //         return Ok(());
-        //     }
-        //     TableEntryType::Invalid => {
-        //         *level_2_entry = (alloc_zeroed(table_layout) as usize).into();
-        //         Ok(level_2_entry.next_page())
-        //     }
-        //     TableEntryType::Block => Err(TranslationError::MappedLargePage),
-
-        //     TableEntryType::TableOrPage if granule == Granule::Block2MiB => {
-        //         Err(TranslationError::MappedTableLevel2)
-        //     }
-        //     TableEntryType::TableOrPage => Ok(&mut *level_2_entry.next_page()),
-        // };
-
         let table_4k = match level_2_entry.get_type() {
             TableEntryType::Invalid => Err(TranslationError::InvalidLargePage),
             TableEntryType::Block if granule == Granule::Block2MiB => {
@@ -202,6 +220,15 @@ static mut BASE_KERNEL_MEMORY_TABLE: *mut Level1MemoryTable = null_mut();
 
 use crate::memory::memory_controler::RangeDescriptor;
 
+pub unsafe fn translate(address_space: AddressSpace, address: usize) -> Result<usize, u64> {
+    let translation = if let AddressSpace::Kernel = address_space {
+        &mut *BASE_KERNEL_MEMORY_TABLE
+    } else {
+        &mut *BASE_USER_MEMORY_TABLE
+    };
+    translation.translate(address)
+}
+
 pub unsafe fn map_memory(
     address_space: AddressSpace,
     memory_range: &RangeDescriptor,
@@ -221,7 +248,6 @@ pub unsafe fn map_memory(
     } else {
         0
     };
-    crate::println!("OFFSET {:x}", offset);
 
     let range = memory_range.virtual_range.clone();
     for address in range.step_by(step) {
@@ -237,7 +263,7 @@ pub unsafe fn map_memory(
 
 pub unsafe fn unmap_memory(
     address_space: AddressSpace,
-    memory_range: RangeDescriptor,
+    memory_range: &RangeDescriptor,
 ) -> Result<(), TranslationError> {
     let translation = if let AddressSpace::Kernel = address_space {
         &mut *BASE_KERNEL_MEMORY_TABLE
@@ -254,7 +280,6 @@ pub unsafe fn unmap_memory(
     } else {
         0
     };
-    crate::println!("OFFSET {:x}", offset);
 
     let range = memory_range.virtual_range.clone();
     for address in range.step_by(step) {
@@ -298,16 +323,14 @@ pub unsafe fn init_mmu() -> Result<(), &'static str> {
 
     let kernel_address = kernel_table.table_1g.as_ptr() as u64;
     let user_address = user_table.table_1g.as_ptr() as u64;
-
+    if crate::config::debug_mmu() {
     crate::println!("MMU BASE KERNEL TABLE: {:#018x}", kernel_address);
     crate::println!("MMU BASE USER TABLE:   {:#018x}", user_address);
-
+    }
     TTBR1_EL1.set_baddr(kernel_address);
     TTBR0_EL1.set_baddr(user_address);
 
     MEMORY_CONTROLER.configure_translation_control();
-
-    crate::println!("Start MMU");
 
     // Switch the MMU on.
     //

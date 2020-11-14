@@ -1,7 +1,7 @@
 use core::ops::Range;
 /// Translation types.
 #[allow(missing_docs)]
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub enum Translation {
     Identity,
     Offset(usize),
@@ -9,14 +9,14 @@ pub enum Translation {
 
 /// Memory attributes.
 #[allow(missing_docs)]
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub enum MemAttributes {
     CacheableDRAM,
     Device,
 }
 
 /// Access permissions.
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub enum AccessPermissions {
     KernelReadOnly,
     KernelReadWrite,
@@ -31,7 +31,7 @@ pub enum Granule {
 }
 /// Collection of memory attributes.
 #[allow(missing_docs)]
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub struct AttributeFields {
     pub mem_attributes: MemAttributes,
     pub acc_perms: AccessPermissions,
@@ -62,6 +62,7 @@ impl core::default::Default for AttributeFields {
 
 /// Static descriptor for a memory range.
 #[allow(missing_docs)]
+#[derive(Debug)]
 pub struct StaticRangeDescriptor {
     pub name: &'static str,
     pub virtual_range: fn() -> Range<usize>,
@@ -89,6 +90,7 @@ impl StaticRangeDescriptor {
 
 /// Descriptor for a memory range.
 #[allow(missing_docs)]
+#[derive(Debug)]
 pub struct RangeDescriptor {
     pub virtual_range: Range<usize>,
     pub translation: Translation,
@@ -210,13 +212,14 @@ use alloc::string::String;
 type MemoryMap = Mutex<BTreeMap<String, RangeDescriptor>>;
 
 pub static DYNAMIC_MEMORY_MAP_KERNEL: MemoryMap = Mutex::new(BTreeMap::new());
+pub static DYNAMIC_MEMORY_MAP_USER: MemoryMap = Mutex::new(BTreeMap::new());
 
 pub enum AddressSpace {
     Kernel,
     User,
 }
 
-use super::armv8::mmu::map_memory;
+use super::armv8::mmu::{map_memory, unmap_memory};
 
 pub fn map_kernel_memory(
     memory_id: &str,
@@ -231,9 +234,8 @@ pub fn map_kernel_memory(
         Granule::Page4KiB,
     );
     let mut map = DYNAMIC_MEMORY_MAP_KERNEL.lock();
-    let _remapped = map.insert(memory_id.into(), memory_range);
-
-    // if let Some(old_memory_range) = remapped {}
+    map.insert(memory_id.into(), memory_range)
+        .expect_none("The name was already mapped to another memory");
 
     unsafe {
         map_memory(AddressSpace::Kernel, map.get(memory_id).unwrap()).unwrap();
@@ -241,7 +243,45 @@ pub fn map_kernel_memory(
 }
 
 pub fn unmap_kernel_memory(memory_id: &str) {
-    let map = DYNAMIC_MEMORY_MAP_KERNEL.lock();
-    map.get(memory_id)
-        .expect("The name does not match any kernel.");
+    let mut map = DYNAMIC_MEMORY_MAP_KERNEL.lock();
+    let mapped = map
+        .remove(memory_id)
+        .expect("The name does not match any kernel mapping.");
+    unsafe {
+        unmap_memory(AddressSpace::Kernel, &mapped).unwrap();
+        llvm_asm!("tlbi vmalle1" : : : : "volatile");
+    };
+}
+
+pub fn map_user_memory(
+    memory_id: &str,
+    virtual_range: Range<usize>,
+    physical_start: usize,
+    is_writable: bool,
+) {
+    let memory_range = RangeDescriptor::new(
+        virtual_range,
+        Translation::Offset(physical_start),
+        if is_writable { USER_RW_ } else { USER_R_X },
+        Granule::Page4KiB,
+    );
+    let mut map = DYNAMIC_MEMORY_MAP_USER.lock();
+    map.insert(memory_id.into(), memory_range)
+        .expect_none("The name was already mapped to another memory");
+
+    unsafe {
+        map_memory(AddressSpace::User, map.get(memory_id).unwrap()).unwrap();
+    };
+}
+
+pub fn unmap_user_memory(memory_id: &str) {
+    let mut map = DYNAMIC_MEMORY_MAP_USER.lock();
+    let mapped = map
+        .remove(memory_id)
+        .expect("The name does not match any kernel mapping.");
+
+    unsafe {
+        unmap_memory(AddressSpace::User, &mapped).unwrap();
+        llvm_asm!("tlbi vmalle1" : : : : "volatile");
+    };
 }

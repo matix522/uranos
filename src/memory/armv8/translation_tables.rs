@@ -215,6 +215,10 @@ impl TableRecord {
             _ => TableEntryType::Invalid,
         }
     }
+    pub fn get_address(&self) -> usize {
+        const MASK: u64 = 0xffff_ffff_f000;
+        (self.0 & MASK) as usize
+    }
     /// # Safety
     /// self must be correct entry of 1,2 level describing a table of tables
     #[allow(clippy::mut_from_ref)]
@@ -236,5 +240,9 @@ impl PageRecord {
             0b11 => TableEntryType::TableOrPage,
             _ => TableEntryType::Invalid,
         }
+    }
+    pub fn get_address(&self) -> usize {
+        const MASK: u64 = 0xffff_ffff_f000;
+        (self.0 & MASK) as usize
     }
 }

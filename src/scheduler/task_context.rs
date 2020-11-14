@@ -3,7 +3,7 @@ use crate::alloc::collections::BTreeMap;
 use crate::syscall::asynchronous::async_returned_values::AsyncReturnedValues;
 use crate::syscall::files::file_descriptor_map::*;
 use crate::utils::circullar_buffer::*;
-
+use core::sync::atomic::{AtomicUsize, Ordering};
 /// Stack size of task in bytes
 pub const TASK_STACK_SIZE: usize = 0x8000;
 
@@ -83,6 +83,8 @@ pub struct TaskContext {
 unsafe impl Sync for TaskContext {}
 unsafe impl Send for TaskContext {}
 
+static NEXT_STATCK_PTR: AtomicUsize = AtomicUsize::new(0x2_0000_0000);
+
 impl TaskContext {
     fn empty() -> Self {
         TaskContext {
@@ -107,11 +109,19 @@ impl TaskContext {
 
         task.is_kernel = is_kernel;
 
-        let el0_stack =
-            task_stack::TaskStack::new(TASK_STACK_SIZE).ok_or(TaskError::StackAllocationFail)?;
+        let el0_stack = task_stack::TaskStack::new(
+            TASK_STACK_SIZE,
+            Some(NEXT_STATCK_PTR.fetch_add(TASK_STACK_SIZE * 16, Ordering::SeqCst)),
+            false,
+        )
+        .ok_or(TaskError::StackAllocationFail)?;
 
-        let el1_stack =
-            task_stack::TaskStack::new(TASK_STACK_SIZE).ok_or(TaskError::StackAllocationFail)?;
+        let el1_stack = task_stack::TaskStack::new(
+            TASK_STACK_SIZE,
+            Some(NEXT_STATCK_PTR.fetch_add(TASK_STACK_SIZE * 16, Ordering::SeqCst)),
+            true,
+        )
+        .ok_or(TaskError::StackAllocationFail)?;
 
         task.gpr.lr = new_task_func as *const () as u64;
         task.gpr.sp = el1_stack.base() as u64;

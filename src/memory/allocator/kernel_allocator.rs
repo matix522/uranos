@@ -70,7 +70,7 @@ impl ControlBlock {
         let requested_size = core::cmp::max(8, layout.size());
         let requested_align = core::cmp::max(8, layout.align());
 
-        let (mut prev_free, next_free) = ControlBlock::find(self.free_list, |next| {
+        /*let (mut prev_free, next_free) = ControlBlock::find(self.free_list, |next| {
             let next_block = &mut *next;
             let padding_size = next_block.data_ptr.align_offset(requested_align);
             let aligned_size = next_block.data_size - padding_size;
@@ -108,7 +108,7 @@ impl ControlBlock {
             (*next_free).next = next_alloc;
 
             return next_free;
-        }
+        }*/
 
         let aligned_offset = self.data_top.align_offset(requested_align);
 
@@ -193,7 +193,12 @@ unsafe impl GlobalAlloc for KernelAllocator {
                     layout.size(),
                     layout.align()
                 );
+
+                // ControlBlock::for_each(control.alloc_list, |next| {
+                //     crate::eprintln!( "ADDRESS: {:x}", next.data_ptr as usize );
+                // });
             }
+
             return (*allocated_block).data_ptr;
         }
 

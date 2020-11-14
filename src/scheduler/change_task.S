@@ -39,6 +39,7 @@ cpu_switch_to_first:
     mov    sp, x9
     ret
 
+
 .globl new_task_func
 new_task_func:
     bl    schedule_tail
@@ -64,3 +65,8 @@ new_task_func:
     blr    x19         //should never return
     bl     finalize_task
     // bl terminate_task
+
+.global drop_el0
+drop_el0:
+    brk     #0
+    bl      drop_el0
