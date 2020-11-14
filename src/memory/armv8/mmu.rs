@@ -3,13 +3,22 @@ use cortex_a::regs::*;
 use core::ptr::null_mut;
 
 use super::translation_tables::*;
+use crate::alloc::alloc::{alloc_zeroed, Layout};
 use crate::memory::memory_controler::{
     AddressSpace, AttributeFields, Granule, Translation, PHYSICAL_MEMORY_LAYOUT,
 };
+
 struct MMU {}
 const MEMORY_SIZE_BITS: usize = 36;
 const MEMORY_REGION_OFFSET: usize = 64 - MEMORY_SIZE_BITS;
 const MEMORY_SIZE_GIB: usize = 1 << (MEMORY_SIZE_BITS + 1 - 30); // 128 GIB
+
+// enum WalkResult {
+//     Level1(&mut TableRecord)
+//     Level2(&mut TableRecord)
+//     Level3(&mut TableRecord)
+//     Invalid
+// }
 
 #[repr(C, align(4096))]
 struct Level1MemoryTable {
@@ -20,7 +29,7 @@ struct Level1MemoryTable {
 }
 
 impl Level1MemoryTable {
-    fn fill(&mut self) -> Result<(), TranslationError> {
+    unsafe fn fill(&mut self) -> Result<(), TranslationError> {
         crate::println!("{}", MEMORY_SIZE_GIB);
 
         for memory_range in &PHYSICAL_MEMORY_LAYOUT {
@@ -45,65 +54,150 @@ impl Level1MemoryTable {
         }
         Ok(())
     }
-    fn map_memory(
+    unsafe fn map_memory(
         &mut self,
         address: usize,
-        offset: usize,
+        offset : usize,
         memory_attributes: &AttributeFields,
         granule: Granule,
     ) -> Result<(), TranslationError> {
         let table_layout =
-            alloc::alloc::Layout::from_size_align(4096, 4096).expect("Could not create layout.");
+            Layout::from_size_align(4096, 4096).map_err(|_| TranslationError::IncorrectLayout)?;
+
         let level_1 = address >> 30;
-        if crate::config::debug_mmu() {
-            crate::println!("L1 {:x}", level_1);
-        }
-        if let Granule::Block1GiB = granule {
-            self.table_1g[level_1] =
-                PageRecord::new(address + offset, *memory_attributes, true).into();
-            return Ok(());
-        }
-        if !self.table_1g[level_1].is_valid() {
-            self.table_1g[level_1] =
-                (unsafe { alloc::alloc::alloc_zeroed(table_layout) } as usize).into();
-        }
         let level_2 = (address - (level_1 << 30)) >> 21;
-        if crate::config::debug_mmu() {
-            crate::println!("L1 {:x}, L2 {:x}", level_1, level_2);
-        }
-        let table_2m = unsafe { &mut *self.table_1g[level_1].next_table() };
-
-        if let Granule::Block2MiB = granule {
-            table_2m[level_2] = PageRecord::new(address + offset, *memory_attributes, true).into();
-            return Ok(());
-        }
-
-        if !table_2m[level_2].is_valid() {
-            table_2m[level_2] =
-                (unsafe { alloc::alloc::alloc_zeroed(table_layout) } as usize).into();
-        }
-
         let level_3 = (address - (level_1 << 30) - (level_2 << 21)) >> 12;
-        if crate::config::debug_mmu() {
-            crate::println!("L1 {:x}, L2 {:x}, L3 {:x}", level_1, level_2, level_3);
-        }
-        if crate::config::debug_mmu() {
-            crate::println!(
-                "L1 {:x}, L2 {:x}, L3 {:x}, ADDRESS {:x} ",
-                level_1,
-                level_2,
-                level_3,
-                address + offset
-            );
-        }
-        let table_3k = unsafe { &mut *table_2m[level_2].next_page() };
 
-        table_3k[level_3] = PageRecord::new(address + offset, *memory_attributes, false);
-        Ok(())
+        let level_1_entry = &mut self.table_1g[level_1];
+
+        let table_2m = match level_1_entry.get_type() {
+            TableEntryType::Invalid if granule == Granule::Block1GiB => {
+                *level_1_entry =
+                    PageRecord::new(address + offset, *memory_attributes, true).into();
+                return Ok(());
+            }
+            TableEntryType::Invalid => {
+                *level_1_entry = (alloc_zeroed(table_layout) as usize).into();
+                Ok(level_1_entry.next_table())
+            }
+            TableEntryType::Block => Err(TranslationError::MappedHugePage),
+            TableEntryType::TableOrPage if granule == Granule::Block1GiB => {
+                Err(TranslationError::MappedTableLevel1)
+            }
+            TableEntryType::TableOrPage => Ok(&mut *level_1_entry.next_table()),
+        };
+    
+        let level_2_entry =  &mut table_2m?[level_2];
+        let table_4k = match level_2_entry.get_type() {
+            TableEntryType::Invalid if granule == Granule::Block2MiB => {
+                *level_2_entry =
+                    PageRecord::new(address + offset, *memory_attributes, true).into();
+                return Ok(());
+            }
+            TableEntryType::Invalid => {
+                *level_2_entry = (alloc_zeroed(table_layout) as usize).into();
+                Ok(level_2_entry.next_page())
+            }
+            TableEntryType::Block => Err(TranslationError::MappedLargePage),
+
+            TableEntryType::TableOrPage if granule == Granule::Block2MiB => {
+                Err(TranslationError::MappedTableLevel2)
+            }
+            TableEntryType::TableOrPage => Ok(&mut *level_2_entry.next_page()),
+        };
+
+        let level_3_entry =  &mut table_4k?[level_3];
+        match level_3_entry.get_type() {
+            TableEntryType::Invalid | TableEntryType::Block => {
+                *level_3_entry = PageRecord::new(address + offset, *memory_attributes, false);
+                Ok(())
+            }
+            TableEntryType::TableOrPage => Err(TranslationError::MappedPage),
+        }
+    }
+
+    
+    unsafe fn unmap_memory(
+        &mut self,
+        address: usize,
+        memory_attributes: &AttributeFields,
+        granule: Granule,
+    ) -> Result<(), TranslationError> {
+        let table_layout =
+            Layout::from_size_align(4096, 4096).map_err(|_| TranslationError::IncorrectLayout)?;
+
+        let level_1 = address >> 30;
+        let level_2 = (address - (level_1 << 30)) >> 21;
+        let level_3 = (address - (level_1 << 30) - (level_2 << 21)) >> 12;
+
+        let level_1_entry = &mut self.table_1g[level_1];
+
+        let table_2m = match level_1_entry.get_type() {
+            TableEntryType::Invalid => Err(TranslationError::InvalidHugePage),
+            TableEntryType::Block if granule == Granule::Block1GiB => {
+                *level_1_entry = TableRecord(0);
+                return Ok(());
+            },
+            TableEntryType::Block => Err(TranslationError::MappedHugePage),
+            TableEntryType::TableOrPage if granule == Granule::Block1GiB => Err(TranslationError::MappedTableLevel1),
+            TableEntryType::TableOrPage => Ok(level_1_entry.next_table())
+        };
+    
+        let level_2_entry =  &mut table_2m?[level_2];
+        // let table_4k = match level_2_entry.get_type() {
+        //     TableEntryType::Invalid if granule == Granule::Block2MiB => {
+        //         *level_2_entry =
+        //             PageRecord::new(address + offset, *memory_attributes, true).into();
+        //         return Ok(());
+        //     }
+        //     TableEntryType::Invalid => {
+        //         *level_2_entry = (alloc_zeroed(table_layout) as usize).into();
+        //         Ok(level_2_entry.next_page())
+        //     }
+        //     TableEntryType::Block => Err(TranslationError::MappedLargePage),
+
+        //     TableEntryType::TableOrPage if granule == Granule::Block2MiB => {
+        //         Err(TranslationError::MappedTableLevel2)
+        //     }
+        //     TableEntryType::TableOrPage => Ok(&mut *level_2_entry.next_page()),
+        // };
+
+        let table_4k = match level_2_entry.get_type() {
+            TableEntryType::Invalid => Err(TranslationError::InvalidLargePage),
+            TableEntryType::Block if granule == Granule::Block2MiB => {
+                *level_2_entry = TableRecord(0);
+                return Ok(());
+            },
+            TableEntryType::Block => Err(TranslationError::MappedLargePage),
+            TableEntryType::TableOrPage if granule == Granule::Block2MiB => Err(TranslationError::MappedTableLevel2),
+            TableEntryType::TableOrPage => Ok(level_2_entry.next_page())
+        };
+
+
+        let level_3_entry =  &mut table_4k?[level_3];
+        match level_3_entry.get_type() {
+            TableEntryType::Invalid | TableEntryType::Block => Err(TranslationError::InvalidPage),
+            TableEntryType::TableOrPage => {
+                *level_3_entry = PageRecord(0);
+                Ok(())
+            }
+        }
     }
 }
 #[derive(Debug)]
-pub enum TranslationError {}
+pub enum TranslationError {
+    IncorrectLayout,
+    HugePageFound,
+    MappedHugePage,
+    MappedLargePage,
+    MappedPage,
+    MappedTableLevel1,
+    MappedTableLevel2,
+    InvalidHugePage,
+    InvalidLargePage,
+    InvalidPage,
+
+}
 
 static MEMORY_CONTROLER: MMU = MMU::new();
 
@@ -145,7 +239,37 @@ pub unsafe fn map_memory(
     Ok(())
 }
 
-pub unsafe fn unmap_memory(address_space: AddressSpace, memory_range: RangeDescriptor) {}
+pub unsafe fn unmap_memory(
+    address_space: AddressSpace,
+    memory_range: RangeDescriptor,
+) -> Result<(), TranslationError> {
+    let translation = if let AddressSpace::Kernel = address_space {
+        &mut *BASE_KERNEL_MEMORY_TABLE
+    } else {
+        &mut *BASE_USER_MEMORY_TABLE
+    };
+    let step = match &memory_range.granule {
+        Granule::Page4KiB => 1 << 12,
+        Granule::Block2MiB => 1 << 21,
+        Granule::Block1GiB => 1 << 30,
+    };
+    let offset = if let Translation::Offset(value) = memory_range.translation {
+        value - memory_range.virtual_range.start
+    } else {
+        0
+    };
+    crate::println!("OFFSET {:x}", offset);
+
+    let range = memory_range.virtual_range.clone();
+    for address in range.step_by(step) {
+        translation.unmap_memory(
+            address,
+            &memory_range.attribute_fields,
+            memory_range.granule,
+        )?;
+    }
+    Ok(())
+}
 
 /// # Safety
 /// MMU needs to be turned off, before this function is called.
@@ -176,7 +300,7 @@ pub unsafe fn init_mmu() -> Result<(), &'static str> {
     let user_table = &mut *BASE_USER_MEMORY_TABLE;
 
     // Fill the table with initial configuration.
-    kernel_table.fill();
+    kernel_table.fill().unwrap();
 
     // Copy top level of initial configuration to user table.
     user_table.table_1g = kernel_table.table_1g;
