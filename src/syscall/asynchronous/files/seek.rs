@@ -42,7 +42,7 @@ pub fn seek(
     crate::syscall::asynchronous::async_syscall::send_async_syscall(submission_buffer, a);
 }
 
-pub fn handle_async_seek(
+pub(in crate::syscall::asynchronous) fn handle_async_seek(
     ptr: *const u8,
     len: usize,
     returned_values: &mut AsyncReturnedValues,

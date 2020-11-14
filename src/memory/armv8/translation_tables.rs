@@ -217,11 +217,13 @@ impl TableRecord {
     }
     /// # Safety
     /// self must be correct entry of 1,2 level describing a table of tables
+    #[allow(clippy::mut_from_ref)]
     pub unsafe fn next_table(&self) -> &mut [TableRecord; 512] {
         &mut *((self.0 & (((1 << 36) - 1) << 12)) as *mut [TableRecord; 512])
     }
     /// # Safety
     /// self must be correct entry of 1,2 level describing a table of page records
+    #[allow(clippy::mut_from_ref)]
     pub unsafe fn next_page(&self) -> &mut [PageRecord; 512] {
         &mut *((self.0 & (((1 << 36) - 1) << 12)) as *mut [PageRecord; 512])
     }

@@ -11,6 +11,7 @@ unsafe impl GlobalAlloc for UserAllocator {
     }
 }
 impl UserAllocator {
+    #[allow(dead_code)]
     pub const fn get() -> Self {
         UserAllocator {}
     }

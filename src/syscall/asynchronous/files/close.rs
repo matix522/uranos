@@ -31,7 +31,7 @@ pub fn close(afd: &AsyncFileDescriptor, id: usize, submission_buffer: &mut Circu
     crate::syscall::asynchronous::async_syscall::send_async_syscall(submission_buffer, a);
 }
 
-pub fn handle_async_close(
+pub(in crate::syscall::asynchronous) fn handle_async_close(
     ptr: *const u8,
     len: usize,
     returned_values: &mut AsyncReturnedValues,

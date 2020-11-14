@@ -57,7 +57,7 @@ impl Level1MemoryTable {
     unsafe fn map_memory(
         &mut self,
         address: usize,
-        offset : usize,
+        offset: usize,
         memory_attributes: &AttributeFields,
         granule: Granule,
     ) -> Result<(), TranslationError> {
@@ -72,8 +72,7 @@ impl Level1MemoryTable {
 
         let table_2m = match level_1_entry.get_type() {
             TableEntryType::Invalid if granule == Granule::Block1GiB => {
-                *level_1_entry =
-                    PageRecord::new(address + offset, *memory_attributes, true).into();
+                *level_1_entry = PageRecord::new(address + offset, *memory_attributes, true).into();
                 return Ok(());
             }
             TableEntryType::Invalid => {
@@ -86,12 +85,11 @@ impl Level1MemoryTable {
             }
             TableEntryType::TableOrPage => Ok(&mut *level_1_entry.next_table()),
         };
-    
-        let level_2_entry =  &mut table_2m?[level_2];
+
+        let level_2_entry = &mut table_2m?[level_2];
         let table_4k = match level_2_entry.get_type() {
             TableEntryType::Invalid if granule == Granule::Block2MiB => {
-                *level_2_entry =
-                    PageRecord::new(address + offset, *memory_attributes, true).into();
+                *level_2_entry = PageRecord::new(address + offset, *memory_attributes, true).into();
                 return Ok(());
             }
             TableEntryType::Invalid => {
@@ -106,7 +104,7 @@ impl Level1MemoryTable {
             TableEntryType::TableOrPage => Ok(&mut *level_2_entry.next_page()),
         };
 
-        let level_3_entry =  &mut table_4k?[level_3];
+        let level_3_entry = &mut table_4k?[level_3];
         match level_3_entry.get_type() {
             TableEntryType::Invalid | TableEntryType::Block => {
                 *level_3_entry = PageRecord::new(address + offset, *memory_attributes, false);
@@ -116,16 +114,12 @@ impl Level1MemoryTable {
         }
     }
 
-    
     unsafe fn unmap_memory(
         &mut self,
         address: usize,
-        memory_attributes: &AttributeFields,
         granule: Granule,
     ) -> Result<(), TranslationError> {
-        let table_layout =
-            Layout::from_size_align(4096, 4096).map_err(|_| TranslationError::IncorrectLayout)?;
-
+        // TODO: Fix memory leak
         let level_1 = address >> 30;
         let level_2 = (address - (level_1 << 30)) >> 21;
         let level_3 = (address - (level_1 << 30) - (level_2 << 21)) >> 12;
@@ -137,13 +131,15 @@ impl Level1MemoryTable {
             TableEntryType::Block if granule == Granule::Block1GiB => {
                 *level_1_entry = TableRecord(0);
                 return Ok(());
-            },
+            }
             TableEntryType::Block => Err(TranslationError::MappedHugePage),
-            TableEntryType::TableOrPage if granule == Granule::Block1GiB => Err(TranslationError::MappedTableLevel1),
-            TableEntryType::TableOrPage => Ok(level_1_entry.next_table())
+            TableEntryType::TableOrPage if granule == Granule::Block1GiB => {
+                Err(TranslationError::MappedTableLevel1)
+            }
+            TableEntryType::TableOrPage => Ok(level_1_entry.next_table()),
         };
-    
-        let level_2_entry =  &mut table_2m?[level_2];
+
+        let level_2_entry = &mut table_2m?[level_2];
         // let table_4k = match level_2_entry.get_type() {
         //     TableEntryType::Invalid if granule == Granule::Block2MiB => {
         //         *level_2_entry =
@@ -167,14 +163,15 @@ impl Level1MemoryTable {
             TableEntryType::Block if granule == Granule::Block2MiB => {
                 *level_2_entry = TableRecord(0);
                 return Ok(());
-            },
+            }
             TableEntryType::Block => Err(TranslationError::MappedLargePage),
-            TableEntryType::TableOrPage if granule == Granule::Block2MiB => Err(TranslationError::MappedTableLevel2),
-            TableEntryType::TableOrPage => Ok(level_2_entry.next_page())
+            TableEntryType::TableOrPage if granule == Granule::Block2MiB => {
+                Err(TranslationError::MappedTableLevel2)
+            }
+            TableEntryType::TableOrPage => Ok(level_2_entry.next_page()),
         };
 
-
-        let level_3_entry =  &mut table_4k?[level_3];
+        let level_3_entry = &mut table_4k?[level_3];
         match level_3_entry.get_type() {
             TableEntryType::Invalid | TableEntryType::Block => Err(TranslationError::InvalidPage),
             TableEntryType::TableOrPage => {
@@ -196,7 +193,6 @@ pub enum TranslationError {
     InvalidHugePage,
     InvalidLargePage,
     InvalidPage,
-
 }
 
 static MEMORY_CONTROLER: MMU = MMU::new();
@@ -262,11 +258,7 @@ pub unsafe fn unmap_memory(
 
     let range = memory_range.virtual_range.clone();
     for address in range.step_by(step) {
-        translation.unmap_memory(
-            address,
-            &memory_range.attribute_fields,
-            memory_range.granule,
-        )?;
+        translation.unmap_memory(address, memory_range.granule)?;
     }
     Ok(())
 }
@@ -284,7 +276,6 @@ pub unsafe fn init_mmu() -> Result<(), &'static str> {
     // Prepare the memory attribute indirection register.
     MEMORY_CONTROLER.setup_mair();
     {
-        use alloc::alloc::{alloc_zeroed, Layout};
         let layout = Layout::new::<Level1MemoryTable>();
 
         let alloc_table = || alloc_zeroed(layout) as *mut Level1MemoryTable;
