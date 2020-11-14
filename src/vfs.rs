@@ -1,9 +1,8 @@
-use alloc::collections::BTreeMap;
-use alloc::format;
-use alloc::string::String;
-use alloc::string::ToString;
 use crate::alloc::borrow::ToOwned;
 use crate::alloc::vec::Vec;
+use alloc::collections::BTreeMap;
+use alloc::string::String;
+use alloc::string::ToString;
 
 use crate::device_driver;
 pub use num_traits::FromPrimitive;

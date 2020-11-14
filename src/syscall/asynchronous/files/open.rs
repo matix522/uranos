@@ -51,9 +51,7 @@ pub fn handle_async_open(ptr: *const u8, len: usize) -> usize {
     let current_task = crate::scheduler::get_current_task_context();
 
     match opened_file_res {
-        Err(e) => {
-            super::ONLY_MSB_OF_USIZE | (e as usize)
-        }
+        Err(e) => super::ONLY_MSB_OF_USIZE | (e as usize),
 
         Ok(opened_file) => unsafe { (*current_task).file_descriptor_table.add_file(opened_file) },
     }

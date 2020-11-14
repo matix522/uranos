@@ -3,6 +3,8 @@ pub mod circullar_buffer;
 pub mod debug;
 pub mod struct_to_slice;
 
+pub const ONLY_MSB_OF_USIZE: usize = 1 << (core::mem::size_of::<usize>() * 8 - 1);
+
 pub fn delay(ticks: usize) {
     for _ in 0..ticks {
         crate::aarch64::asm::nop();

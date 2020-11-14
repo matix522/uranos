@@ -1,10 +1,10 @@
+use crate::utils::ONLY_MSB_OF_USIZE;
 use core::mem::size_of;
 use core::sync::atomic::{AtomicPtr, Ordering};
 
 use alloc::boxed::Box;
 
 const BUFFER_SIZE: usize = 40960;
-const ONLY_MSB_OF_USIZE: usize = 1 << (core::mem::size_of::<usize>() * 8 - 1);
 
 #[derive(Debug)]
 pub enum BufferAddValueError {
@@ -98,7 +98,7 @@ impl CircullarBuffer {
         let mut buff = CircullarBuffer {
             data: {
                 let zero = Box::<[u8; 2 * BUFFER_SIZE]>::new_zeroed();
-                unsafe {zero.assume_init()}
+                unsafe { zero.assume_init() }
             },
             reservation_pointer: AtomicPtr::new(&mut 0),
             write_pointer: AtomicPtr::new(&mut 0),

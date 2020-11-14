@@ -24,6 +24,7 @@ pub enum Syscalls {
     SeekFile,
     WriteFile,
     GetPID,
+    GetChildReturnValue,
 }
 
 #[inline(never)]
@@ -131,7 +132,7 @@ pub fn yield_cpu() {
     }
 }
 
-pub fn finish_task(return_val: u64) {
+pub fn finish_task(return_val: u32) {
     unsafe {
         syscall1(return_val as usize, Syscalls::FinishTask as usize);
     }
@@ -152,8 +153,10 @@ pub fn get_async_completion_buffer() -> &'static mut CircullarBuffer {
     unsafe { &mut *(syscall0(Syscalls::GetAsyncCompletionBuffer as usize) as *mut CircullarBuffer) }
 }
 
-pub fn get_pid() -> usize{
-    unsafe{
-        syscall0(Syscalls::GetPID as usize) as usize 
-    }
+pub fn get_pid() -> usize {
+    unsafe { syscall0(Syscalls::GetPID as usize) as usize }
+}
+
+pub fn get_child_return_value(pid: u64) -> usize {
+    unsafe { syscall1(pid as usize, Syscalls::GetChildReturnValue as usize) as usize }
 }

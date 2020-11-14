@@ -142,13 +142,13 @@ fn echo() -> ! {
         );
     }
 
-    let task1 = scheduler::task_context::TaskContext::new(scheduler::first_task, false)
+    let task1 = scheduler::task_context::TaskContext::new(userspace::first_task, false)
         .expect("Error creating task 1 context");
     // let task2 = scheduler::task_context::TaskContext::new(userspace::task_two, false)
-        // .expect("Error creating task 2 context");
+    // .expect("Error creating task 2 context");
     scheduler::add_task(task1).expect("Error adding task 1");
     // scheduler::add_task(task2).expect("Error adding task 2");
-  
+
     unsafe {
         interupts::init_exceptions(
             utils::binary_info::BinaryInfo::get().exception_vector | KERNEL_OFFSET,
@@ -158,7 +158,7 @@ fn echo() -> ! {
     // config::set_debug_alloc(true);
 
     interupts::enable_irqs();
-    
+
     {
         let timer = ArmTimer {};
 

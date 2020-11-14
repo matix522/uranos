@@ -6,7 +6,7 @@ pub mod write;
 use crate::utils::circullar_buffer::CircullarBuffer;
 use crate::vfs;
 
-pub const ONLY_MSB_OF_USIZE: usize = 1 << (core::mem::size_of::<usize>() * 8 - 1);
+const ONLY_MSB_OF_USIZE: usize = 1 << (core::mem::size_of::<usize>() * 8 - 1);
 
 pub enum AsyncFileDescriptor {
     FileDescriptor(usize),
