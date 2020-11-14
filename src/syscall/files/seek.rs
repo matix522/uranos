@@ -3,7 +3,7 @@ use crate::syscall::*;
 use crate::vfs;
 use num_traits::FromPrimitive;
 
-const ONLY_MSB_OF_USIZE: usize = 1 << (core::mem::size_of::<usize>() * 8 - 1);
+use crate::utils::ONLY_MSB_OF_USIZE;
 
 pub fn seek(fd: usize, value: isize, seek_type: vfs::SeekType) -> Result<usize, vfs::FileError> {
     let val: usize;

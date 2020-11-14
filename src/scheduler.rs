@@ -1,16 +1,12 @@
+pub mod special_return_vals;
 pub mod task_context;
 pub mod task_stack;
-pub mod special_return_vals;
 
 use crate::device_driver;
-use crate::syscall::asynchronous::async_print::*;
-use crate::syscall::asynchronous::async_syscall::*;
-use crate::syscall::asynchronous::files::*;
+use crate::interupts::ExceptionContext;
 use alloc::vec::Vec;
 use core::time::Duration;
 use task_context::*;
-use crate::alloc::collections::BTreeMap;
-use crate::interupts::ExceptionContext;
 
 pub const MAX_TASK_COUNT: usize = 2048;
 
@@ -61,6 +57,10 @@ pub fn get_current_task_pid() -> usize {
     scheduler.get_current_task_pid()
 }
 
+pub fn get_child_task_return_val(pid: usize) -> Option<u32> {
+    let mut scheduler = TASK_MANAGER.lock();
+    scheduler.get_child_task_return_val(pid)
+}
 
 pub struct TaskManager {
     tasks: Vec<TaskContext>,
@@ -107,6 +107,12 @@ impl TaskManager {
 
     pub fn get_current_task(&mut self) -> &mut TaskContext {
         &mut self.tasks[self.current_task]
+    }
+
+    pub fn get_child_task_return_val(&mut self, pid: usize) -> Option<u32> {
+        self.tasks[self.current_task]
+            .children_return_vals
+            .remove(&pid)
     }
 
     fn get_two_tasks(
@@ -170,53 +176,6 @@ impl TaskManager {
             .get_two_tasks(previous_task_pid, next_task_pid)
             .expect("Error during task switch: {:?}");
 
-        while !current_task.submission_buffer.is_empty() {
-            let syscall_ret_opt = crate::syscall::asynchronous::async_syscall::read_async_syscall(
-                &mut current_task.submission_buffer,
-            );
-            if let Some(syscall_ret) = syscall_ret_opt {
-                //ommit the syscall type value that is at the beginning of the data from buffer
-                let data = syscall_ret.get_syscall_data();
-                let ptr = data as *const _ as *const u8;
-                let length = syscall_ret.get_data_size();
-                crate::println!("Handling syscall of id: {}", syscall_ret.id);
-                let returned_value = match syscall_ret.syscall_type {
-                    AsyncSyscalls::Print => handle_async_print(ptr, length),
-                    AsyncSyscalls::OpenFile => {
-                        let ret = open::handle_async_open(ptr, length);
-                        current_task
-                            .async_returns_map
-                            .map
-                            .insert(syscall_ret.id, (syscall_ret.syscall_type, ret));
-                        ret
-                    }
-                    AsyncSyscalls::ReadFile => {
-                        read::handle_async_read(ptr, length, &mut current_task.async_returns_map)
-                    }
-                    AsyncSyscalls::SeekFile => {
-                        seek::handle_async_seek(ptr, length, &mut current_task.async_returns_map)
-                    }
-                    AsyncSyscalls::WriteFile => {
-                        write::handle_async_write(ptr, length, &mut current_task.async_returns_map)
-                    }
-                    AsyncSyscalls::CloseFile => {
-                        current_task.async_returns_map.map.remove(&syscall_ret.id);
-                        close::handle_async_close(ptr, length, &mut current_task.async_returns_map)
-                    }
-                };
-
-                let buffer_frame = current_task
-                    .completion_buffer
-                    .reserve(core::mem::size_of::<AsyncSyscallReturnedValue>())
-                    .expect("Error during sending async syscall response");
-                let return_structure: &mut AsyncSyscallReturnedValue = unsafe {
-                    crate::utils::struct_to_slice::u8_slice_to_any_mut(buffer_frame.memory)
-                };
-                return_structure.id = syscall_ret.id;
-                return_structure.value = returned_value;
-            }
-        }
-        crate::println!("DUPPPAAAAAA");
         // #Safety: lifetime of this reference is the same as lifetime of whole TaskManager; exception_context is always properly initialized if task is in tasks vector
         unsafe {
             cpu_switch_to(
@@ -240,11 +199,15 @@ impl TaskManager {
 
     pub fn finish_task(&mut self, return_value: u32, task_pid: usize) {
         self.tasks[task_pid].state = TaskStates::Dead;
-        let keys = self.tasks[task_pid].children_return_vals.keys().cloned().collect::<Vec<usize>>();
-        for pid in keys{
-            if pid < self.tasks.len(){
-                if let TaskStates::Dead = self.tasks[pid].state{}
-                else{
+        let keys = self.tasks[task_pid]
+            .children_return_vals
+            .keys()
+            .cloned()
+            .collect::<Vec<usize>>();
+        for pid in keys {
+            if pid < self.tasks.len() {
+                if let TaskStates::Dead = self.tasks[pid].state {
+                } else {
                     self.finish_task(special_return_vals::PARENT_PROCESS_ENDED, pid);
                 }
             }
@@ -252,8 +215,10 @@ impl TaskManager {
 
         match self.tasks[task_pid].ppid {
             Some(ppid) => {
-                self.tasks[ppid].children_return_vals.insert(self.current_task, Some(return_value));
-            },
+                self.tasks[ppid]
+                    .children_return_vals
+                    .insert(self.current_task, return_value);
+            }
             None => (),
         };
         self.switch_task()
@@ -276,99 +241,22 @@ pub fn drop_el0() {
     };
 }
 
-#[no_mangle]
-#[inline(never)]
-pub extern "C" fn first_task() -> u32{
-    let buffer = crate::syscall::get_async_submission_buffer();
-    let completion_buffer = crate::syscall::get_async_completion_buffer();
-
-    use crate::vfs;
-    use core::str::from_utf8;
-
-    let mut str_buffer = [0u8; 20];
-    let mut str_buffer1 = [0u8; 20];
-
-    let hello_pid = crate::syscall::create_task(hello);
-
-    crate::syscall::print::print(&format!("Created hello task with PID: {}", hello_pid));
-    crate::syscall::print::print(&format!("Created hello task with PID"));
-    loop {}
-
-    // crate::syscall::asynchronous::files::open::open("file1", true, 1, buffer)
-    //     .then_read(20, &mut str_buffer as *mut [u8] as *mut u8, 2, buffer)
-    //     .then_seek(-15, vfs::SeekType::FromCurrent, 3, buffer)
-    //     .then_write(b"<Added>", 4, buffer)
-    //     .then_seek(2, vfs::SeekType::FromBeginning, 5, buffer)
-    //     .then_read(20, &mut str_buffer1 as *mut [u8] as *mut u8, 6, buffer)
-    //     .then_close(7, buffer);
-
-    crate::syscall::asynchronous::async_print::async_print("Hello world!", 69, buffer);
-
-    // loop {
-    //     match crate::syscall::asynchronous::async_syscall::get_syscall_returned_value(
-    //         completion_buffer,
-    //     ) {
-    //         Some(val) => {
-    //             crate::syscall::print::print(&format!(
-    //                 "Received response for id: {} - {} : {}",
-    //                 val.id,
-    //                 val.value,
-    //                 val.value & !ONLY_MSB_OF_USIZE
-    //             ));
-    //             if val.id == 7 {
-    //                 let string = from_utf8(&str_buffer).unwrap();
-    //                 crate::syscall::print::print(&format!("1st Read_value: {}", string));
-    //                 let string = from_utf8(&str_buffer1).unwrap();
-    //                 crate::syscall::print::print(&format!("2nd Read_value: {}", string));
-    //                 loop {}
-    //             }
-    //         }
-    //         None => crate::syscall::print::print(&format!("No responses")),
-    //     };
-    // }
-    return 0;
-}
-
-#[no_mangle]
-#[inline(never)]
-pub extern "C" fn hello() -> u32{
-    // loop {
-        crate::syscall::print::print("SECOND task USERSPACE!!!!\n");
-        // crate::syscall::yield_cpu();
-    // }
-    return 0x2137;
-}
-
-#[no_mangle]
-#[inline(never)]
-pub extern "C" fn hello2() {
-    loop {
-        crate::syscall::print::print(&format!("HELLO!2"));
-        // crate::syscall::yield_cpu();
-    }
-}
-
 pub fn handle_new_task_syscall(e: &mut ExceptionContext) {
     let function_address = e.gpr[0] as usize;
-    
-    
-    let function = unsafe { core::mem::transmute::<usize, extern "C" fn() -> u32>(function_address) };
-    let mut task = TaskContext::new(function, false).expect("Failed to create new task");
-    
-    task.ppid = Some(get_current_task_pid());
-    
-    let current_task: &mut TaskContext = unsafe {&mut *(get_current_task_context())};
-    current_task.children_return_vals.insert(get_current_task_pid(), None);
 
-    
+    let function =
+        unsafe { core::mem::transmute::<usize, extern "C" fn() -> u32>(function_address) };
+    let mut task = TaskContext::new(function, false).expect("Failed to create new task");
+
+    task.ppid = Some(get_current_task_pid());
+
     e.gpr[0] = match add_task(task) {
-        Ok((pid)) => pid,
+        Ok(pid) => pid,
         Err(error) => {
             crate::println!("Error when creating new task: {:?}", error);
             !0u64
-        },
+        }
     };
-
 }
 
 #[no_mangle]
@@ -377,10 +265,9 @@ pub extern "C" fn schedule_tail() {
 }
 
 #[no_mangle]
-pub extern "C" fn finalize_task(returned_value: u64){
+pub extern "C" fn finalize_task(returned_value: u32) {
     crate::syscall::print::print(&format!("KONIEC SMIESZKOWANIA: {}", returned_value));
     crate::syscall::finish_task(returned_value);
 }
-
 
 global_asm!(include_str!("scheduler/change_task.S"));

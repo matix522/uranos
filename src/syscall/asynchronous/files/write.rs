@@ -6,7 +6,7 @@ use crate::vfs;
 
 pub struct AsyncWriteSyscallData {
     pub afd: usize,
-    pub message: &'static[u8],
+    pub message: &'static [u8],
 }
 
 impl AsyncWriteSyscallData {

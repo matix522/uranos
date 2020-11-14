@@ -15,8 +15,6 @@ pub use num_traits::FromPrimitive;
 const BRK_FLAG: u64 = 0b111100;
 const SVC_FLAG: u64 = 0b010101;
 
-static counter: AtomicU64 = AtomicU64::new(0);
-
 fn handle_chcek_el(e: &mut ExceptionContext) {
     e.gpr[0] = match e.spsr_el1 & 0b1111 {
         0b0000 => 0,
@@ -26,7 +24,6 @@ fn handle_chcek_el(e: &mut ExceptionContext) {
 }
 
 fn default_exception_handler(context: &mut ExceptionContext, source: &str) {
-    let val = counter.fetch_add(1, Ordering::SeqCst);
     crate::println!(
         "[Task Fault]\n\tReason: Unknown code '{:#018x}'\n\tProgram location:    '{:#018x}'\n\tAddress:             '{:#018x}'\n\tLinkRegister:        '{:#018x}\n\tStackPointer:        '{:#018x}\n\t SPSR: {:#064b}\n",
         context.esr_el1,
@@ -36,7 +33,6 @@ fn default_exception_handler(context: &mut ExceptionContext, source: &str) {
         context.sp,
         context.spsr_el1
     );
-    crate::println!("Exception counter: {}", val);
 
     for (i, elem) in context.gpr.iter().enumerate() {
         crate::println!("GPR[{}]: {:#018x}", i, elem);
@@ -68,25 +64,12 @@ unsafe extern "C" fn current_el0_serror(e: &mut ExceptionContext) {
 //------------------------------------------------------------------------------
 // Current, ELx
 //------------------------------------------------------------------------------
-use core::sync::atomic::*;
 
 #[no_mangle]
 unsafe extern "C" fn current_elx_synchronous(e: &mut ExceptionContext) {
-    // crate::println!(
-    //     "Reason: Unknown code '{:#018x}'\n\tProgram location:    '{:#018x}'\n\tAddress:             '{:#018x}'\n\tLinkRegister:        '{:#018x}\n\tStackPointer:        '{:#018x}\n\t SPSR: {:#064b}\n",
-    //     e.esr_el1,
-    //     e.elr_el1,
-    //     e.far_el1,
-    //     e.lr,
-    //     e.sp,
-    //     e.spsr_el1
-    // );
-    let val = counter.fetch_add(1, Ordering::SeqCst);
-    // crate::println!("Handling current_elx_sync; counter: {:#018x}", val);
     interupts::disable_irqs();
 
     let exception_type = (e.esr_el1 & (0b111111 << 26)) >> 26;
-    // crate::println!("Exception_type: {} ", exception_type);
     if exception_type == BRK_FLAG && !config::use_user_space() {
         config::set_use_user_space(true);
         e.elr_el1 = e.gpr[0] | crate::KERNEL_OFFSET as u64;
@@ -100,7 +83,11 @@ unsafe extern "C" fn current_elx_synchronous(e: &mut ExceptionContext) {
             Syscalls::Yield => scheduler::switch_task(),
             Syscalls::StartScheduling => scheduler::start(),
             Syscalls::Print => syscall::print::handle_print_syscall(e),
-            Syscalls::FinishTask => scheduler::finish_current_task((e.gpr[0] as u32).try_into().unwrap_or_else(|_| scheduler::special_return_vals::WRONG_RETURN_VALUE_PASSED)),
+            Syscalls::FinishTask => scheduler::finish_current_task(
+                (e.gpr[0] as u32)
+                    .try_into()
+                    .unwrap_or_else(|_| scheduler::special_return_vals::WRONG_RETURN_VALUE_PASSED),
+            ),
             Syscalls::CreateTask => scheduler::handle_new_task_syscall(e),
             Syscalls::CheckEL => handle_chcek_el(e),
             Syscalls::GetAsyncSubmissionBuffer => {
@@ -116,6 +103,12 @@ unsafe extern "C" fn current_elx_synchronous(e: &mut ExceptionContext) {
             Syscalls::WriteFile => syscall::files::write::handle_write(e),
             Syscalls::GetPID => {
                 e.gpr[0] = scheduler::get_current_task_pid() as u64;
+            }
+            Syscalls::GetChildReturnValue => {
+                e.gpr[0] = match scheduler::get_child_task_return_val(e.gpr[0] as usize) {
+                    Some(value) => value as u64,
+                    None => crate::utils::ONLY_MSB_OF_USIZE as u64,
+                }
             }
         }
     } else {
@@ -135,8 +128,6 @@ pub extern "C" fn end_scheduling() {
 
 #[no_mangle]
 unsafe extern "C" fn current_elx_irq(_e: &mut ExceptionContext) {
-    let val = counter.fetch_add(1, Ordering::SeqCst);
-    // crate::println!("Handling current_elx_irq; counter: {}", val);
     interupts::disable_irqs();
 
     let timer = ArmTimer {};
@@ -162,8 +153,6 @@ unsafe extern "C" fn current_elx_serror(e: &mut ExceptionContext) {
 
 #[no_mangle]
 unsafe extern "C" fn lower_aarch64_synchronous(e: &mut ExceptionContext) {
-    let val = counter.fetch_add(1, Ordering::SeqCst);
-    // crate::println!("Handling lower_aarch64_synchronous; counter: {}", val);
     interupts::disable_irqs();
 
     let exception_type = (e.esr_el1 & (0b111111 << 26)) >> 26;
@@ -176,7 +165,11 @@ unsafe extern "C" fn lower_aarch64_synchronous(e: &mut ExceptionContext) {
             Syscalls::Yield => scheduler::switch_task(),
             Syscalls::StartScheduling => scheduler::start(),
             Syscalls::Print => syscall::print::handle_print_syscall(e),
-            Syscalls::FinishTask => scheduler::finish_current_task((e.gpr[0] as u32).try_into().unwrap_or_else(|_| scheduler::special_return_vals::WRONG_RETURN_VALUE_PASSED)),
+            Syscalls::FinishTask => scheduler::finish_current_task(
+                (e.gpr[0] as u32)
+                    .try_into()
+                    .unwrap_or_else(|_| scheduler::special_return_vals::WRONG_RETURN_VALUE_PASSED),
+            ),
             Syscalls::CreateTask => scheduler::handle_new_task_syscall(e),
             Syscalls::CheckEL => handle_chcek_el(e),
             Syscalls::GetAsyncSubmissionBuffer => {
@@ -193,6 +186,12 @@ unsafe extern "C" fn lower_aarch64_synchronous(e: &mut ExceptionContext) {
             Syscalls::GetPID => {
                 e.gpr[0] = scheduler::get_current_task_pid() as u64;
             }
+            Syscalls::GetChildReturnValue => {
+                e.gpr[0] = match scheduler::get_child_task_return_val(e.gpr[0] as usize) {
+                    Some(value) => value as u64,
+                    None => crate::utils::ONLY_MSB_OF_USIZE as u64,
+                }
+            }
         }
     } else {
         default_exception_handler(e, "lower_aarch64_synchronous");
@@ -203,8 +202,6 @@ unsafe extern "C" fn lower_aarch64_synchronous(e: &mut ExceptionContext) {
 
 #[no_mangle]
 unsafe extern "C" fn lower_aarch64_irq(_e: &mut ExceptionContext) {
-    let val = counter.fetch_add(1, Ordering::SeqCst);
-    // crate::println!("Handling lower_aarch64_irq; counter: {}", val);
     interupts::disable_irqs();
 
     let timer = ArmTimer {};
@@ -215,6 +212,9 @@ unsafe extern "C" fn lower_aarch64_irq(_e: &mut ExceptionContext) {
         return;
     }
     IS_SCHEDULING.store(true, core::sync::atomic::Ordering::Relaxed);
+
+    crate::syscall::asynchronous::handle_async_syscalls::handle_async_syscalls();
+
     scheduler::switch_task();
     IS_SCHEDULING.store(false, core::sync::atomic::Ordering::Relaxed);
 }

@@ -1,8 +1,8 @@
 use super::task_stack;
+use crate::alloc::collections::BTreeMap;
 use crate::syscall::asynchronous::async_returned_values::AsyncReturnedValues;
 use crate::syscall::files::file_descriptor_map::*;
 use crate::utils::circullar_buffer::*;
-use crate::alloc::collections::BTreeMap;
 
 /// Stack size of task in bytes
 pub const TASK_STACK_SIZE: usize = 0x8000;
@@ -75,7 +75,7 @@ pub struct TaskContext {
     pub completion_buffer: CircullarBuffer,
     pub file_descriptor_table: FileDescriptiorMap,
     pub async_returns_map: AsyncReturnedValues,
-    pub children_return_vals: BTreeMap<usize, Option<u32>>,
+    pub children_return_vals: BTreeMap<usize, u32>,
     pub ppid: Option<usize>,
 }
 
@@ -95,7 +95,7 @@ impl TaskContext {
             completion_buffer: CircullarBuffer::new(),
             file_descriptor_table: FileDescriptiorMap::new(),
             async_returns_map: AsyncReturnedValues::new(),
-            children_return_vals: BTreeMap::<usize, Option<u32>>::new(),
+            children_return_vals: BTreeMap::<usize, u32>::new(),
             ppid: None,
         }
     }
