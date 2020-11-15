@@ -16,6 +16,8 @@
 #![feature(const_fn)]
 #![feature(slice_ptr_len)]
 #![feature(option_expect_none)]
+#![feature(const_fn_fn_ptr_basics)]
+#![feature(const_mut_refs)]
 
 #[macro_use]
 extern crate alloc;
@@ -51,7 +53,6 @@ const MMIO_BASE: usize = 0x3F00_0000;
 #[cfg(feature = "raspi4")]
 const MMIO_BASE: usize = 0xFE00_0000;
 
-const INTERRUPT_CONTROLLER_BASE: usize = MMIO_BASE + 0xB200;
 const KERNEL_OFFSET: usize = !((1usize << 36) - 1);
 
 use drivers::traits::console::*;
@@ -69,13 +70,12 @@ fn kernel_entry() -> ! {
         Err(_) => halt(), // If UART fails, abort early
     }
     drop(uart);
+
     let binary_info = binary_info::BinaryInfo::get();
-    println!("{}", binary_info);
     unsafe {
         interupts::init_exceptions(binary_info.exception_vector);
     }
-
-    let _controller = Rpi3InterruptController::new(INTERRUPT_CONTROLLER_BASE);
+    println!("{}", binary_info);
 
     println!("Prepare MMU Configuration");
     unsafe {
@@ -133,7 +133,11 @@ fn echo() -> ! {
     // config::set_debug_mmu(true);
     let task1 = scheduler::task_context::TaskContext::new(userspace::first_task, &[], false)
         .expect("Error creating task 1 context");
+
+    let _loop = scheduler::task_context::TaskContext::new(userspace::_loop, &[], false)
+        .expect("Error creating task 1 context");
     scheduler::add_task(task1).expect("Error adding task 1");
+    scheduler::add_task(_loop).expect("Error adding task 1");
 
     unsafe {
         interupts::init_exceptions(

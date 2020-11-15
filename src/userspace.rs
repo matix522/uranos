@@ -177,7 +177,7 @@ pub extern "C" fn simple_wc(argc: usize, argv: *const &[u8]) -> u32 {
 }
 
 #[link_section = ".task_local"]
-static MY_PID : AtomicU64 = AtomicU64::new(0);
+static MY_PID: AtomicU64 = AtomicU64::new(0);
 #[no_mangle]
 #[inline(never)]
 pub extern "C" fn first_task(_argc: usize, _argv: *const &[u8]) -> u32 {
@@ -205,11 +205,6 @@ pub extern "C" fn first_task(_argc: usize, _argv: *const &[u8]) -> u32 {
     print::print(&format!(
         "Created hello tasks with PIDs: {}, {}\n",
         cat_pid, wc_pid
-    MY_PID.store(hello_pid, Ordering::SeqCst);
-
-    crate::syscall::print::print(&format!(
-        "Created hello task with PID: {}\n",
-        MY_PID.load(Ordering::SeqCst)
     ));
     loop {
         let ret_val = get_child_return_value(wc_pid);
@@ -296,4 +291,10 @@ pub extern "C" fn test_async_files(_argc: usize, _argv: *const &[u8]) -> u32 {
             None => (),
         };
     }
+}
+
+#[no_mangle]
+#[inline(never)]
+pub extern "C" fn _loop(_: usize, _: *const &[u8]) -> u32 {
+    loop {}
 }

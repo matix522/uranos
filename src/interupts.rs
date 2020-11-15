@@ -41,9 +41,17 @@ pub enum InterruptError {
 }
 pub type InterruptResult = Result<(), InterruptError>;
 
+impl core::convert::From<InterruptError> for &'static str {
+    fn from(err: InterruptError) -> &'static str {
+        match err {
+            InterruptError::IncorrectIrqNumber => "IncorrectIrqNumber",
+        }
+    }
+}
+
 pub struct IRQDescriptor {
     pub name: &'static str,
-    pub handler: Option<fn(context: ExceptionContext)>,
+    pub handler: Option<fn(context: &mut ExceptionContext)>,
 }
 
 #[inline(always)]

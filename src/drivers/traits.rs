@@ -18,7 +18,15 @@ pub mod time {
 pub mod console {
     pub trait Read {
         /// read byte character
-        fn getb(&self) -> u8;
+        fn try_getb(&self) -> Option<u8>;
+
+        fn getb(&self) -> u8 {
+            loop {
+                if let Some(t) = self.try_getb() {
+                    return t;
+                }
+            }
+        }
         /// read byte UTF-8 character
         fn getc(&self) -> Result<char, &'static str> {
             let first_byte = self.getb();

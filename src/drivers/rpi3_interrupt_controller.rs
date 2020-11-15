@@ -1,7 +1,7 @@
 use crate::interupts::*;
+use alloc::collections::BTreeMap;
 use core::ops;
 use register::{mmio::*, register_bitfields};
-
 register_bitfields! {
     u32,
     /// The basic pending register shows which interrupt are pending
@@ -10,10 +10,12 @@ register_bitfields! {
         ONE_OR_MORE_PENDING_1 OFFSET(8) NUMBITS(1) [],
         ONE_OR_MORE_PENDING_2 OFFSET(9) NUMBITS(1) [],
 
-        ARM_UART_IRQ_PENDING OFFSET(19) NUMBITS(1) [],
         ARM_TIMER_IRQ_PENDING OFFSET(0) NUMBITS(1) [],
         ARM_MAILBOX_IRQ_PENDING OFFSET(1) NUMBITS(1) [],
         ARM_GPU0_HALTED_PENDING OFFSET(4) NUMBITS(1) []
+    ],
+    IRQ_PENDING_2 [
+        ARM_UART_IRQ_PENDING OFFSET(25) NUMBITS(1) []
     ],
     ENABLE_IRQs_2 [
         UART_ENABLE OFFSET(25) NUMBITS(1) []
@@ -38,7 +40,7 @@ register_bitfields! {
 pub struct RegisterBlock {
     pub IRQ_BASIC_PENDING: ReadOnly<u32, IRQ_BASIC_PENDING::Register>,
     pub IRQ_PENDING_1: ReadOnly<u32>,
-    pub IRQ_PENDING_2: ReadOnly<u32>,
+    pub IRQ_PENDING_2: ReadOnly<u32, IRQ_PENDING_2::Register>,
     pub FIQ_CONTROL: ReadWrite<u32>,
     pub ENABLE_IRQS_1: WriteOnly<u32>,
     pub ENABLE_IRQS_2: WriteOnly<u32, ENABLE_IRQs_2::Register>,
@@ -47,7 +49,7 @@ pub struct RegisterBlock {
     pub DISABLE_IRQS_2: WriteOnly<u32, DISABLE_IRQs_2::Register>,
     pub DISABLE_BASIC_IRQS: WriteOnly<u32, DISABLE_BASIC_IRQs::Register>,
 }
-
+#[derive(Debug, Ord, PartialOrd, Eq, PartialEq)]
 pub enum IRQType {
     ArmTimer,
     ArmMailbox,
@@ -57,6 +59,7 @@ pub enum IRQType {
 
 pub struct Rpi3InterruptController {
     base_address: usize,
+    irq_handler_map: BTreeMap<IRQType, fn(context: &mut ExceptionContext)>,
 }
 
 /// Deref to RegisterBlock
@@ -79,7 +82,10 @@ impl ops::Deref for Rpi3InterruptController {
 
 impl Rpi3InterruptController {
     pub const fn new(base_address: usize) -> Rpi3InterruptController {
-        Rpi3InterruptController { base_address }
+        Rpi3InterruptController {
+            base_address,
+            irq_handler_map: BTreeMap::new(),
+        }
     }
     /// Returns a pointer to the register block
     fn ptr(&self) -> *const RegisterBlock {
@@ -90,7 +96,7 @@ impl Rpi3InterruptController {
 impl interrupt_controller::InterruptController for Rpi3InterruptController {
     type IRQNumberType = IRQType;
 
-    fn enable_irq(&self, irq_number: Self::IRQNumberType) -> InterruptResult {
+    fn enable_irq(&mut self, irq_number: Self::IRQNumberType) -> InterruptResult {
         match irq_number {
             IRQType::ArmGpioHalted => self
                 .ENABLE_BASIC_IRQS
@@ -105,7 +111,7 @@ impl interrupt_controller::InterruptController for Rpi3InterruptController {
         }
         Ok(())
     }
-    fn disable_irq(&self, irq_number: Self::IRQNumberType) -> InterruptResult {
+    fn disable_irq(&mut self, irq_number: Self::IRQNumberType) -> InterruptResult {
         match irq_number {
             IRQType::ArmGpioHalted => self
                 .DISABLE_BASIC_IRQS
@@ -120,11 +126,33 @@ impl interrupt_controller::InterruptController for Rpi3InterruptController {
         }
         Ok(())
     }
+    fn is_pending_irq(&mut self, irq_number: Self::IRQNumberType) -> bool {
+        match irq_number {
+            IRQType::ArmGpioHalted => {
+                self.IRQ_BASIC_PENDING
+                    .read(IRQ_BASIC_PENDING::ARM_GPU0_HALTED_PENDING)
+                    == 1
+            }
+            IRQType::ArmMailbox => {
+                self.IRQ_BASIC_PENDING
+                    .read(IRQ_BASIC_PENDING::ARM_MAILBOX_IRQ_PENDING)
+                    == 1
+            }
+            IRQType::ArmTimer => {
+                self.IRQ_BASIC_PENDING
+                    .read(IRQ_BASIC_PENDING::ARM_TIMER_IRQ_PENDING)
+                    == 1
+            }
+            IRQType::Uart => self.IRQ_PENDING_2.read(IRQ_PENDING_2::ARM_UART_IRQ_PENDING) == 1,
+        }
+    }
     fn connect_irq(
-        &self,
+        &mut self,
         _irq_number: Self::IRQNumberType,
         _irq_descriptor: IRQDescriptor,
     ) -> InterruptResult {
+        self.irq_handler_map
+            .insert(_irq_number, _irq_descriptor.handler.unwrap());
         Ok(())
     }
 }

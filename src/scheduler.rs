@@ -163,6 +163,9 @@ impl TaskManager {
     }
 
     pub fn switch_task(&mut self) {
+        // if !self.tasks.iter().all(|t| if let TaskStates::Dead = t.state  { true } else { false } ) {
+        //     return;
+        // }
         if !self.started {
             return;
         }
@@ -256,7 +259,6 @@ impl TaskManager {
 }
 extern "C" {
     /// Change CPU context from prev task to next task
-    #[no_mangle]
     fn drop_el0();
 }
 // #[no_mangle]

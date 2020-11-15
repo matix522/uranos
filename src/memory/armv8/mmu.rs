@@ -400,9 +400,6 @@ pub unsafe extern "C" fn switch_user_space_translation(
     prev_table.table_1g[LEVEL_1] = main_table.table_1g[LEVEL_1];
     main_table.table_1g[LEVEL_1] = next_table.table_1g[LEVEL_1];
 
-
-
-
     llvm_asm!("tlbi vmalle1" : : : : "volatile");
 }
 

@@ -21,7 +21,8 @@ impl Default for TaskMemoryManager {
             ((PROCESS_OFFSET | range.start) & (!crate::KERNEL_OFFSET))
                 ..((PROCESS_OFFSET | range.end) & (!crate::KERNEL_OFFSET))
         };
-        let get_offset = |range: &Range<usize>| Translation::Offset(range.start & (!crate::KERNEL_OFFSET));
+        let get_offset =
+            |range: &Range<usize>| Translation::Offset(range.start & (!crate::KERNEL_OFFSET));
 
         memory_map.insert(
             "Static Task Data and Code".into(),
@@ -77,9 +78,7 @@ impl Default for TaskMemoryManager {
             "Mutable Task Local Data".into(),
             RangeDescriptor {
                 virtual_range: make_virtual(&binary_info.task_local),
-                translation: Translation::Offset(
-                    page_address,
-                ),
+                translation: Translation::Offset(page_address),
                 attribute_fields: USER_RW_,
                 granule: Granule::Page4KiB,
             },
@@ -90,7 +89,7 @@ impl Default for TaskMemoryManager {
             additional_table_hack: unsafe { Box::new_zeroed().assume_init() },
         };
 
-        for (name, memory) in my_memory_manager.memory_descriptors.iter() {
+        for (_, memory) in my_memory_manager.memory_descriptors.iter() {
             let step = match &memory.granule {
                 Granule::Page4KiB => 1 << 12,
                 Granule::Block2MiB => 1 << 21,
@@ -118,7 +117,7 @@ impl Default for TaskMemoryManager {
                 .translate(0x1_0009_d030)
             {
                 Ok(t) => crate::println!("Prev {:x} -> {:x}", 0x1_0009_d030u64, t as u64),
-                Err(t) => crate::println!("Prev {:x} -> None", 0x1_0009_d030u64,),
+                Err(_t) => crate::println!("Prev {:x} -> None", 0x1_0009_d030u64,),
             }
         }
 

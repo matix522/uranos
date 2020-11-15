@@ -196,18 +196,20 @@ impl traits::console::Write for MiniUart {
 }
 impl traits::console::Read for MiniUart {
     /// Receive a byte character
-    fn getb(&self) -> u8 {
+    fn try_getb(&self) -> Option<u8> {
         // wait until something is in the buffer
-        while !self.AUX_MU_LSR.is_set(AUX_MU_LSR::DATA_READY) {}
+        if !self.AUX_MU_LSR.is_set(AUX_MU_LSR::DATA_READY) {
+            return None;
+        }
 
         // read it
-        let mut ret = self.AUX_MU_IO.get() as u8;
+        let ret = self.AUX_MU_IO.get() as u8;
 
         // convert carrige return to newline
         if ret == b'\r' {
-            ret = b'\n'
+            return Some(b'\n');
         }
 
-        ret
+        Some(ret)
     }
 }
