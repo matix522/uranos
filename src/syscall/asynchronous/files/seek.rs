@@ -1,6 +1,7 @@
 use super::*;
 use crate::syscall::asynchronous::async_returned_values::*;
 use crate::syscall::asynchronous::async_syscall::*;
+use crate::syscall::files::seek::vfs_seek_handler;
 use crate::utils::circullar_buffer::*;
 use crate::vfs;
 use num_traits::FromPrimitive;
@@ -71,22 +72,12 @@ pub(in crate::syscall::asynchronous) fn handle_async_seek(
         },
     };
 
-    
     if fd < 4 {
         return ONLY_MSB_OF_USIZE | vfs::FileError::CannotSeekSpecialFile as usize;
     }
 
-    let current_task = crate::scheduler::get_current_task_context();
-    let fd_table = unsafe { &mut (*current_task).file_descriptor_table };
-
-    if !fd_table.exists(fd) {
-        return ONLY_MSB_OF_USIZE | vfs::FileError::ReadOnClosedFile as usize;
-    }
-    let opened_file = fd_table.get_file_mut(fd).unwrap();
     let seek_type = vfs::SeekType::from_usize(syscall_data.seek_type)
         .unwrap_or_else(|| panic!("Wrong type of SeekType sent: {}", syscall_data.seek_type));
-    match vfs::seek(opened_file, syscall_data.value, seek_type) {
-        Ok(val) => val,
-        Err(err) => ONLY_MSB_OF_USIZE | err as usize,
-    }
+
+    vfs_seek_handler(fd, syscall_data.value, seek_type) as usize
 }

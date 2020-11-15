@@ -21,46 +21,63 @@ pub extern "C" fn r#false() -> u32 {
 pub extern "C" fn simple_cat(argc: usize, argv: *const &[u8]) -> u32 {
     use crate::syscall::*;
     use core::convert::TryInto;
-    use alloc::vec::Vec;
+    use core::str::from_utf8;
+
     if argc != 1 && argc != 2 {
-        crate::syscall::print::print("Invalid number of arguments\n");
+        print::print("Invalid number of arguments\n");
         return 1;
     }
+
     let args = unsafe { core::slice::from_raw_parts(argv, argc) };
-    let filename = core::str::from_utf8(args[0]);
-    if filename.is_err() {
-        crate::syscall::print::print("Expected valid utf8 string\n");
-        return 2;
-    }
-    let filename = filename.unwrap();
+
+    let filename = match from_utf8(args[0]) {
+        Ok(val) => val,
+        Err(_) => {
+            print::print("Expected valid utf8 string\n");
+            return 2;
+        }
+    };
 
     let out_fd = if argc == 2 {
-        let bytes: &[u8; 8] = args[1].try_into().unwrap();
+        let bytes: &[u8; 8] = match args[1].try_into() {
+            Ok(val) => val,
+            Err(_) => {
+                print::print("Invalid out type flag value");
+                return 3;
+            }
+        };
         if u64::from_le_bytes(*bytes) > 0 {
             files::PIPEOUT
-        } else{
+        } else {
             files::STDOUT
         }
-    } else { 
+    } else {
         files::STDOUT
     };
 
+    let fd = match files::open::open(filename, false) {
+        Ok(fd) => fd,
+        Err(e) => {
+            print::print(&format!("A file error occured during open: {:?}\n", e));
+            return 3;
+        }
+    };
 
-    let fd = files::open::open(filename, false);
-    if fd.is_err() {
-        crate::syscall::print::print(&format!("A file error occured: {:?}\n", fd.err().unwrap()));
-        return 3;
-    }
-    let fd = fd.unwrap();
     let mut buffer = [0u8; 64];
-    loop 
-    {
-        let count = files::read::read(fd, 64, &mut buffer as *mut [u8] as *mut u8).unwrap();
-        if count == 0{
+    loop {
+        let count = match files::read::read(fd, 64, &mut buffer as *mut [u8] as *mut u8) {
+            Ok(val) => val,
+            Err(e) => {
+                print::print(&format!("A file error occured during read: {:?}\n", e));
+                return 4;
+            }
+        };
+        if count == 0 {
             break;
         }
         files::write::write(out_fd, &buffer[0..count]);
     }
+    files::close::close(fd);
     0
 }
 
@@ -68,11 +85,11 @@ pub extern "C" fn simple_cat(argc: usize, argv: *const &[u8]) -> u32 {
 
 #[no_mangle]
 #[inline(never)]
-pub extern "C" fn simple_wc(argc: usize, argv: *const &[u8]) -> u32{
+pub extern "C" fn simple_wc(argc: usize, argv: *const &[u8]) -> u32 {
     use crate::syscall::*;
-    use core::convert::TryInto;
     use alloc::vec::Vec;
-
+    use core::convert::TryInto;
+    use core::str::from_utf8;
 
     if argc != 2 && argc != 3 {
         crate::syscall::print::print("Invalid number of arguments\n");
@@ -81,17 +98,24 @@ pub extern "C" fn simple_wc(argc: usize, argv: *const &[u8]) -> u32{
 
     let args = unsafe { core::slice::from_raw_parts(argv, argc) };
 
-    let option = core::str::from_utf8(args[0]);
-    if  option.is_err() {
-        crate::syscall::print::print("Valid options are: -c \n");
-        return 2;
-    }
-    let option = option.unwrap();
+    let option = match core::str::from_utf8(args[0]) {
+        Ok(val) => val,
+        Err(_) => {
+            crate::syscall::print::print("Valid options are: -c \n");
+            return 2;
+        }
+    };
 
-    let fd = if argc == 0{
-        files::STDIN    
-    } else{
-        let bytes: &[u8; 8] = args[1].try_into().unwrap();
+    let fd = if argc == 0 {
+        files::STDIN
+    } else {
+        let bytes: &[u8; 8] = match args[1].try_into() {
+            Ok(val) => val,
+            Err(_) => {
+                print::print("Invalid out type pipe source val");
+                return 3;
+            }
+        };
         let pid = u64::from_le_bytes(*bytes);
         print::print(&format!("PID of the beginning of pipe: {}\n", pid));
         set_pipe_read_on_pid(pid);
@@ -100,105 +124,163 @@ pub extern "C" fn simple_wc(argc: usize, argv: *const &[u8]) -> u32{
 
     let out_fd = if argc == 0 {
         files::STDOUT
-    } else{
-        let bytes: &[u8; 8] = args[2].try_into().unwrap();
+    } else {
+        let bytes: &[u8; 8] = match args[2].try_into() {
+            Ok(val) => val,
+            Err(_) => {
+                print::print("Invalid out type flag value");
+                return 4;
+            }
+        };
         if u64::from_le_bytes(*bytes) > 0 {
             files::PIPEOUT
-        } else{
+        } else {
             files::STDOUT
         }
     };
 
     let mut buffer = [0u8; 32];
     let mut result = Vec::<u8>::new();
-    loop{
-        let res = crate::syscall::files::read::read(fd, 32, &mut buffer as *mut [u8] as *mut u8);
-        if res.is_err(){
-            break;
-        } else{
-            let res = res.unwrap();
-            if res > 0{
-                result.extend_from_slice(&buffer);
-            }else{
-                yield_cpu();
+    loop {
+        match crate::syscall::files::read::read(fd, 32, &mut buffer as *mut [u8] as *mut u8) {
+            Ok(res) => {
+                if res > 0 {
+                    result.extend_from_slice(&buffer);
+                } else {
+                    yield_cpu();
+                }
             }
-        }
+            Err(_) => break,
+        };
     }
-    let string = core::str::from_utf8(&result[..]).unwrap().trim_matches(char::from(0));
+    files::close::close(fd);
+    let string = from_utf8(&result[..]).unwrap().trim_matches(char::from(0));
 
-    let char_count = string.chars().count();
+    let res = match option {
+        "-c" => string.chars().count(),
+        "-w" => {
+            print::print("not implemented yet");
+            return 10;
+        }
+        &_ => {
+            print::print("not implemented yet");
+            return 10;
+        }
+    };
 
-    files::write::write(out_fd, &format!("Char count: {}\n", char_count).as_bytes());
-    
+    files::write::write(out_fd, &format!("{}", res).as_bytes());
     0
 }
 
 #[no_mangle]
 #[inline(never)]
 pub extern "C" fn first_task(_argc: usize, _argv: *const &[u8]) -> u32 {
-    use core::convert::TryInto;
+    use crate::syscall::asynchronous::files::AsyncFileDescriptor;
     use crate::syscall::*;
-    
+    use core::str::from_utf8;
+
+    let filename = "file1";
     let cat_to_pipe = 1usize.to_le_bytes();
-    let cat_args = ["file1".as_bytes(), (&cat_to_pipe) as &[u8]];
-    
-    let cat_pid = crate::syscall::create_task(simple_cat, &cat_args);
-    yield_cpu();
-    yield_cpu();
-    yield_cpu();
-    yield_cpu();
+    let cat_args = [filename.as_bytes(), (&cat_to_pipe) as &[u8]];
+
+    let cat_pid = create_task(simple_cat, &cat_args);
+
+    for _i in 1..10 {
+        yield_cpu();
+    }
+
     let pid = cat_pid.to_le_bytes();
-    let to_pipe = 0usize.to_le_bytes();
-    let wc_args = ["-c".as_bytes() ,(&pid) as &[u8], (&to_pipe) as &[u8]];
+    let to_pipe = 1usize.to_le_bytes();
+    let wc_args = ["-c".as_bytes(), (&pid) as &[u8], (&to_pipe) as &[u8]];
 
-    let wc_pid = crate::syscall::create_task(simple_wc, &wc_args);
+    let wc_pid = create_task(simple_wc, &wc_args);
 
-
-    files::write::write(files::PIPEOUT, b"No elo");
-
-    print::print(&format!("Created hello tasks with PIDs: {}, {}\n", cat_pid, wc_pid));
+    print::print(&format!(
+        "Created hello tasks with PIDs: {}, {}\n",
+        cat_pid, wc_pid
+    ));
     loop {
-        let ret_val = crate::syscall::get_child_return_value(wc_pid);
-        if ret_val & crate::utils::ONLY_MSB_OF_USIZE == 0 {
-            print::print(&format!("Returned value from wc: {}\n", ret_val));
+        let ret_val = get_child_return_value(wc_pid);
+        if let Some(ret) = ret_val {
+            print::print(&format!("Returned value from wc: {}\n", ret));
             break;
         }
+        yield_cpu();
     }
+
+    set_pipe_read_on_pid(wc_pid);
+
+    let mut buff = [0u8; 32];
+    let ret = files::read::read(files::PIPEIN, 32, &mut buff as *mut [u8] as *mut u8);
+    if ret.is_err() {
+        print::print(&format!(
+            "An error occured during the cat {} | wc -c execution",
+            filename
+        ));
+    };
+    let string = from_utf8(&buff[..]).unwrap().trim_matches(char::from(0));
+    print::print(&format!(
+        "The file {} has {} characters\n",
+        filename, string
+    ));
+
+    create_task(test_async_files, &[]);
+
+    loop {}
 
     0
 }
 
-#[no_mangle]
-#[inline(never)]
-pub extern "C" fn pipe_end(argc: usize, argv: *const &[u8]) -> u32 {
-    use core::convert::TryInto;
-    use core::str::from_utf8;
+pub extern "C" fn test_async_files(_argc: usize, _argv: *const &[u8]) -> u32 {
     use crate::syscall::*;
+    use crate::utils::ONLY_MSB_OF_USIZE;
+    use crate::vfs;
+    use core::str::from_utf8;
 
+    let submission_buffer = get_async_submission_buffer();
+    let completion_buffer = get_async_completion_buffer();
 
-    if argc != 1 {
-        crate::syscall::print::print("Wrong number of args");
-    }
-    let args = unsafe { core::slice::from_raw_parts(argv, argc) };
-    let bytes: &[u8; 8] = args[0].try_into().unwrap();
-    let pid = u64::from_le_bytes(*bytes);
-    print::print(&format!("PID of the beginning of pipe: {}\n", pid));
-    set_pipe_read_on_pid(pid);
+    let mut str_buffer = [0u8; 20];
+    let mut str_buffer1 = [0u8; 20];
 
+    asynchronous::files::open::open("file1", true, 1, submission_buffer)
+        .then_read(
+            20,
+            &mut str_buffer as *mut [u8] as *mut u8,
+            2,
+            submission_buffer,
+        )
+        .then_seek(-15, vfs::SeekType::FromCurrent, 3, submission_buffer)
+        .then_write(b"<Added>", 4, submission_buffer)
+        .then_seek(2, vfs::SeekType::FromBeginning, 5, submission_buffer)
+        .then_read(
+            20,
+            &mut str_buffer1 as *mut [u8] as *mut u8,
+            6,
+            submission_buffer,
+        )
+        .then_close(7, submission_buffer);
 
-    let mut read_buffer = [0u8;32];
-    files::read::read(files::PIPEIN, 32, &mut read_buffer as *mut [u8] as *mut u8);
-    let string = from_utf8(&read_buffer).unwrap();
-    print::print(string);
-    // print::print(&format!("{:?}", read_buffer));
-    0
-}
+    asynchronous::async_print::async_print("Hello world!\n", 69, submission_buffer);
 
-#[no_mangle]
-#[inline(never)]
-pub extern "C" fn hello2() {
     loop {
-        crate::syscall::print::print("HELLO!2");
-        // crate::syscall::yield_cpu();
+        match asynchronous::async_syscall::get_syscall_returned_value(completion_buffer) {
+            Some(val) => {
+                print::print(&format!(
+                    "Received response for id: {} - {} : {}\n",
+                    val.id,
+                    val.value,
+                    val.value & !ONLY_MSB_OF_USIZE
+                ));
+                if val.id == 7 {
+                    let string = from_utf8(&str_buffer).unwrap();
+                    print::print(&format!("1st Read_value: {}\n", string));
+                    let string = from_utf8(&str_buffer1).unwrap();
+                    print::print(&format!("2nd Read_value: {}\n", string));
+                    loop {}
+                }
+            }
+            None => (),
+        };
     }
 }

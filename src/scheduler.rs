@@ -4,7 +4,6 @@ pub mod task_stack;
 
 use crate::device_driver;
 use crate::interupts::ExceptionContext;
-use alloc::collections::VecDeque;
 use alloc::vec::Vec;
 use core::time::Duration;
 use task_context::*;
@@ -46,7 +45,7 @@ pub fn get_task_context(pid: usize) -> Result<*mut TaskContext, TaskError> {
     let mut scheduler = TASK_MANAGER.lock();
     match scheduler.get_task(pid) {
         Ok(task_context) => Ok(task_context as *mut TaskContext),
-        Err(e)  => Err(e)
+        Err(e) => Err(e),
     }
 }
 
@@ -206,9 +205,8 @@ impl TaskManager {
     }
 
     pub fn finish_task(&mut self, return_value: u32, task_pid: usize) {
-        if self.tasks[task_pid].is_pipe_queue_empty(){
+        if self.tasks[task_pid].is_pipe_queue_empty() {
             self.tasks[task_pid].state = TaskStates::Dead;
-
         } else {
             self.tasks[task_pid].state = TaskStates::Zombie;
         }

@@ -109,29 +109,28 @@ impl TaskContext {
         }
     }
 
-    pub fn get_item_from_pipe_queue(&mut self) -> Option<Vec<u8>>{
+    pub fn get_item_from_pipe_queue(&mut self) -> Option<Vec<u8>> {
         let val = self.pipe_queue.pop_front();
-        if let TaskStates::Zombie = self.state{
-            if self.pipe_queue.is_empty(){
+        if let TaskStates::Zombie = self.state {
+            if self.pipe_queue.is_empty() {
                 self.state = TaskStates::Dead;
             }
         }
         val
     }
 
-    pub fn push_back_item_to_pipe_queue(&mut self, element: Vec<u8>){
+    pub fn push_back_item_to_pipe_queue(&mut self, element: Vec<u8>) {
         self.pipe_queue.push_back(element)
     }
 
-
-    pub fn push_front_item_to_pipe_queue(&mut self, element: Vec<u8>){
+    pub fn push_front_item_to_pipe_queue(&mut self, element: Vec<u8>) {
         self.pipe_queue.push_front(element)
     }
 
-    pub fn is_pipe_queue_empty(&self) -> bool{
+    pub fn is_pipe_queue_empty(&self) -> bool {
         self.pipe_queue.is_empty()
     }
-    pub fn get_state(&self) -> &TaskStates{
+    pub fn get_state(&self) -> &TaskStates {
         &self.state
     }
 

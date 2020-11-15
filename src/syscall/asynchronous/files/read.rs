@@ -1,6 +1,7 @@
 use super::*;
 use crate::syscall::asynchronous::async_returned_values::*;
 use crate::syscall::asynchronous::async_syscall::*;
+use crate::syscall::files::read::{read_from_pipe_handler, read_from_vfs_handler};
 use crate::utils::circullar_buffer::*;
 use crate::vfs;
 
@@ -70,20 +71,13 @@ pub(in crate::syscall::asynchronous) fn handle_async_read(
         },
     };
 
-    let current_task = crate::scheduler::get_current_task_context();
-    let fd_table = unsafe { &mut (*current_task).file_descriptor_table };
-
-    if !fd_table.exists(fd) {
-        return ONLY_MSB_OF_USIZE | vfs::FileError::ReadOnClosedFile as usize;
-    }
-    let opened_file = fd_table.get_file_mut(fd).unwrap();
-    match vfs::read(opened_file, syscall_data.length) {
-        Ok(data) => {
-            unsafe {
-                core::ptr::copy_nonoverlapping(data.data, syscall_data.buffer, data.len);
-            }
-            data.len
+    match fd {
+        0 => {
+            panic!("Not implemented yet");
         }
-        Err(err) => ONLY_MSB_OF_USIZE | err as usize,
+        1 => ONLY_MSB_OF_USIZE | vfs::FileError::CannotReadWriteOnlyFile as usize,
+        2 => read_from_pipe_handler(syscall_data.length, syscall_data.buffer) as usize,
+        3 => ONLY_MSB_OF_USIZE | vfs::FileError::CannotReadWriteOnlyFile as usize,
+        _ => read_from_vfs_handler(fd, syscall_data.length, syscall_data.buffer) as usize,
     }
 }
