@@ -137,6 +137,8 @@ unsafe extern "C" fn current_elx_irq(_e: &mut ExceptionContext) {
         return;
     }
     IS_SCHEDULING.store(true, core::sync::atomic::Ordering::Relaxed);
+    crate::syscall::asynchronous::handle_async_syscalls::handle_async_syscalls();
+
     scheduler::switch_task();
     IS_SCHEDULING.store(false, core::sync::atomic::Ordering::Relaxed);
 }

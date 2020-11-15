@@ -4,6 +4,7 @@ pub mod task_stack;
 
 use crate::device_driver;
 use crate::interupts::ExceptionContext;
+use crate::syscall::asynchronous::handle_async_syscalls::handle_async_syscalls;
 use alloc::vec::Vec;
 use core::time::Duration;
 use task_context::*;
@@ -167,9 +168,11 @@ impl TaskManager {
             if next_task_pid >= self.tasks.len() {
                 next_task_pid = 0;
             }
-            if let TaskStates::Running = self.tasks[next_task_pid].state {
-                break;
-            }
+            match self.tasks[next_task_pid].state {
+                TaskStates::Zombie => handle_async_syscalls(),
+                TaskStates::Running => break,
+                _ => (),
+            };
             next_task_pid += 1;
         }
 

@@ -19,6 +19,7 @@ pub extern "C" fn r#false() -> u32 {
 #[no_mangle]
 #[inline(never)]
 pub extern "C" fn simple_cat(argc: usize, argv: *const &[u8]) -> u32 {
+    use crate::syscall::files::File;
     use crate::syscall::*;
     use core::convert::TryInto;
     use core::str::from_utf8;
@@ -38,7 +39,7 @@ pub extern "C" fn simple_cat(argc: usize, argv: *const &[u8]) -> u32 {
         }
     };
 
-    let out_fd = if argc == 2 {
+    let out_file = if argc == 2 {
         let bytes: &[u8; 8] = match args[1].try_into() {
             Ok(val) => val,
             Err(_) => {
@@ -47,16 +48,16 @@ pub extern "C" fn simple_cat(argc: usize, argv: *const &[u8]) -> u32 {
             }
         };
         if u64::from_le_bytes(*bytes) > 0 {
-            files::PIPEOUT
+            File::get_pipeout()
         } else {
-            files::STDOUT
+            File::get_stdout()
         }
     } else {
-        files::STDOUT
+        File::get_stdout()
     };
 
-    let fd = match files::open::open(filename, false) {
-        Ok(fd) => fd,
+    let f = match File::open(filename, false) {
+        Ok(f) => f,
         Err(e) => {
             print::print(&format!("A file error occured during open: {:?}\n", e));
             return 3;
@@ -65,7 +66,7 @@ pub extern "C" fn simple_cat(argc: usize, argv: *const &[u8]) -> u32 {
 
     let mut buffer = [0u8; 64];
     loop {
-        let count = match files::read::read(fd, 64, &mut buffer as *mut [u8] as *mut u8) {
+        let count = match f.read(64, &mut buffer) {
             Ok(val) => val,
             Err(e) => {
                 print::print(&format!("A file error occured during read: {:?}\n", e));
@@ -75,9 +76,9 @@ pub extern "C" fn simple_cat(argc: usize, argv: *const &[u8]) -> u32 {
         if count == 0 {
             break;
         }
-        files::write::write(out_fd, &buffer[0..count]);
+        out_file.write(&buffer[0..count]);
     }
-    files::close::close(fd);
+    f.close();
     0
 }
 
@@ -86,13 +87,14 @@ pub extern "C" fn simple_cat(argc: usize, argv: *const &[u8]) -> u32 {
 #[no_mangle]
 #[inline(never)]
 pub extern "C" fn simple_wc(argc: usize, argv: *const &[u8]) -> u32 {
+    use crate::syscall::files::File;
     use crate::syscall::*;
     use alloc::vec::Vec;
     use core::convert::TryInto;
     use core::str::from_utf8;
 
     if argc != 2 && argc != 3 {
-        crate::syscall::print::print("Invalid number of arguments\n");
+        print::print("Invalid number of arguments\n");
         return 1;
     }
 
@@ -101,13 +103,13 @@ pub extern "C" fn simple_wc(argc: usize, argv: *const &[u8]) -> u32 {
     let option = match core::str::from_utf8(args[0]) {
         Ok(val) => val,
         Err(_) => {
-            crate::syscall::print::print("Valid options are: -c \n");
+            print::print("Valid options are: -c \n");
             return 2;
         }
     };
 
-    let fd = if argc == 0 {
-        files::STDIN
+    let in_file = if argc == 0 {
+        File::get_stdin()
     } else {
         let bytes: &[u8; 8] = match args[1].try_into() {
             Ok(val) => val,
@@ -119,11 +121,11 @@ pub extern "C" fn simple_wc(argc: usize, argv: *const &[u8]) -> u32 {
         let pid = u64::from_le_bytes(*bytes);
         print::print(&format!("PID of the beginning of pipe: {}\n", pid));
         set_pipe_read_on_pid(pid);
-        files::PIPEIN
+        File::get_pipein()
     };
 
-    let out_fd = if argc == 0 {
-        files::STDOUT
+    let out_file = if argc == 0 {
+        File::get_stdout()
     } else {
         let bytes: &[u8; 8] = match args[2].try_into() {
             Ok(val) => val,
@@ -133,16 +135,16 @@ pub extern "C" fn simple_wc(argc: usize, argv: *const &[u8]) -> u32 {
             }
         };
         if u64::from_le_bytes(*bytes) > 0 {
-            files::PIPEOUT
+            File::get_pipeout()
         } else {
-            files::STDOUT
+            File::get_stdout()
         }
     };
 
     let mut buffer = [0u8; 32];
     let mut result = Vec::<u8>::new();
     loop {
-        match crate::syscall::files::read::read(fd, 32, &mut buffer as *mut [u8] as *mut u8) {
+        match in_file.read(32, &mut buffer) {
             Ok(res) => {
                 if res > 0 {
                     result.extend_from_slice(&buffer);
@@ -153,7 +155,8 @@ pub extern "C" fn simple_wc(argc: usize, argv: *const &[u8]) -> u32 {
             Err(_) => break,
         };
     }
-    files::close::close(fd);
+    in_file.close();
+
     let string = from_utf8(&result[..]).unwrap().trim_matches(char::from(0));
 
     let res = match option {
@@ -168,7 +171,7 @@ pub extern "C" fn simple_wc(argc: usize, argv: *const &[u8]) -> u32 {
         }
     };
 
-    files::write::write(out_fd, &format!("{}", res).as_bytes());
+    out_file.write(&format!("{}", res).as_bytes());
     0
 }
 
@@ -176,6 +179,7 @@ pub extern "C" fn simple_wc(argc: usize, argv: *const &[u8]) -> u32 {
 #[inline(never)]
 pub extern "C" fn first_task(_argc: usize, _argv: *const &[u8]) -> u32 {
     use crate::syscall::asynchronous::files::AsyncFileDescriptor;
+    use crate::syscall::files::File;
     use crate::syscall::*;
     use core::str::from_utf8;
 
@@ -211,7 +215,7 @@ pub extern "C" fn first_task(_argc: usize, _argv: *const &[u8]) -> u32 {
     set_pipe_read_on_pid(wc_pid);
 
     let mut buff = [0u8; 32];
-    let ret = files::read::read(files::PIPEIN, 32, &mut buff as *mut [u8] as *mut u8);
+    let ret = File::get_pipein().read(32, &mut buff);
     if ret.is_err() {
         print::print(&format!(
             "An error occured during the cat {} | wc -c execution",
@@ -232,6 +236,7 @@ pub extern "C" fn first_task(_argc: usize, _argv: *const &[u8]) -> u32 {
 }
 
 pub extern "C" fn test_async_files(_argc: usize, _argv: *const &[u8]) -> u32 {
+    use crate::syscall::files::File;
     use crate::syscall::*;
     use crate::utils::ONLY_MSB_OF_USIZE;
     use crate::vfs;
@@ -243,7 +248,7 @@ pub extern "C" fn test_async_files(_argc: usize, _argv: *const &[u8]) -> u32 {
     let mut str_buffer = [0u8; 20];
     let mut str_buffer1 = [0u8; 20];
 
-    asynchronous::files::open::open("file1", true, 1, submission_buffer)
+    File::async_open("file1", true, 1, submission_buffer)
         .then_read(
             20,
             &mut str_buffer as *mut [u8] as *mut u8,
