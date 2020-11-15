@@ -4,6 +4,7 @@ pub mod task_memory_manager;
 pub mod task_stack;
 use crate::device_driver;
 use crate::interupts::ExceptionContext;
+use crate::syscall::asynchronous::handle_async_syscalls::handle_async_syscalls;
 use alloc::vec::Vec;
 use core::time::Duration;
 use task_context::*;
@@ -45,6 +46,13 @@ pub fn start() {
 pub fn get_current_task_context() -> *mut TaskContext {
     let mut scheduler = TASK_MANAGER.lock();
     scheduler.get_current_task() as *mut TaskContext
+}
+pub fn get_task_context(pid: usize) -> Result<*mut TaskContext, TaskError> {
+    let mut scheduler = TASK_MANAGER.lock();
+    match scheduler.get_task(pid) {
+        Ok(task_context) => Ok(task_context as *mut TaskContext),
+        Err(e) => Err(e),
+    }
 }
 
 pub fn get_time_quant() -> Duration {
@@ -165,9 +173,11 @@ impl TaskManager {
             if next_task_pid >= self.tasks.len() {
                 next_task_pid = 0;
             }
-            if let TaskStates::Running = self.tasks[next_task_pid].state {
-                break;
-            }
+            match self.tasks[next_task_pid].state {
+                TaskStates::Zombie => handle_async_syscalls(),
+                TaskStates::Running => break,
+                _ => (),
+            };
             next_task_pid += 1;
         }
 
@@ -208,7 +218,11 @@ impl TaskManager {
     }
 
     pub fn finish_task(&mut self, return_value: u32, task_pid: usize) {
-        self.tasks[task_pid].state = TaskStates::Dead;
+        if self.tasks[task_pid].is_pipe_queue_empty() {
+            self.tasks[task_pid].state = TaskStates::Dead;
+        } else {
+            self.tasks[task_pid].state = TaskStates::Zombie;
+        }
         let keys = self.tasks[task_pid]
             .children_return_vals
             .keys()
@@ -217,6 +231,7 @@ impl TaskManager {
         for pid in keys {
             if pid < self.tasks.len() {
                 if let TaskStates::Dead = self.tasks[pid].state {
+                } else if let TaskStates::Zombie = self.tasks[pid].state {
                 } else {
                     self.finish_task(special_return_vals::PARENT_PROCESS_ENDED, pid);
                 }

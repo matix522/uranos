@@ -16,7 +16,7 @@ impl FileDescriptiorMap {
     pub fn new() -> Self {
         FileDescriptiorMap {
             map: BTreeMap::new(),
-            next_fd: 1,
+            next_fd: 4,
         }
     }
 
@@ -25,7 +25,7 @@ impl FileDescriptiorMap {
         self.map.insert(ret, file);
         self.next_fd = match self.map.keys().max() {
             Some(val) => val + 1,
-            None => 1,
+            None => 4,
         };
         ret
     }

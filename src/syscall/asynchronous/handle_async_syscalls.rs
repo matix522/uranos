@@ -49,4 +49,5 @@ pub fn handle_async_syscalls() {
             return_structure.value = returned_value;
         }
     }
+    current_task.update_zombie();
 }

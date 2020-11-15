@@ -6,6 +6,8 @@ pub mod print;
 pub mod asynchronous;
 
 use crate::utils::circullar_buffer::*;
+use crate::utils::ONLY_MSB_OF_USIZE;
+use core::convert::TryFrom;
 
 #[repr(usize)]
 #[derive(FromPrimitive, ToPrimitive, Debug)]
@@ -25,6 +27,9 @@ pub enum Syscalls {
     WriteFile,
     GetPID,
     GetChildReturnValue,
+    CreateFile,
+    DeleteFile,
+    SetPipeReadOnPID,
 }
 
 #[inline(never)]
@@ -159,6 +164,17 @@ pub fn get_pid() -> usize {
     unsafe { syscall0(Syscalls::GetPID as usize) as usize }
 }
 
-pub fn get_child_return_value(pid: u64) -> usize {
-    unsafe { syscall1(pid as usize, Syscalls::GetChildReturnValue as usize) as usize }
+pub fn get_child_return_value(pid: u64) -> Option<u32> {
+    let val = unsafe { syscall1(pid as usize, Syscalls::GetChildReturnValue as usize) as usize };
+    if val & !ONLY_MSB_OF_USIZE > 0 {
+        None
+    } else {
+        u32::try_from(val).ok()
+    }
+}
+
+pub fn set_pipe_read_on_pid(pid: u64) {
+    unsafe {
+        syscall1(pid as usize, Syscalls::SetPipeReadOnPID as usize);
+    }
 }

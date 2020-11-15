@@ -97,6 +97,8 @@ unsafe extern "C" fn current_elx_synchronous(e: &mut ExceptionContext) {
             Syscalls::ReadFile => syscall::files::read::handle_read(e),
             Syscalls::SeekFile => syscall::files::seek::handle_seek(e),
             Syscalls::WriteFile => syscall::files::write::handle_write(e),
+            Syscalls::CreateFile => syscall::files::create::handle_create(e),
+            Syscalls::DeleteFile => syscall::files::delete::handle_delete(e),
             Syscalls::GetPID => {
                 e.gpr[0] = scheduler::get_current_task_pid() as u64;
             }
@@ -106,6 +108,7 @@ unsafe extern "C" fn current_elx_synchronous(e: &mut ExceptionContext) {
                     None => crate::utils::ONLY_MSB_OF_USIZE as u64,
                 }
             }
+            Syscalls::SetPipeReadOnPID => syscall::files::handle_set_pipe_read_on_pid(e),
         }
     } else {
         default_exception_handler(e, "current_elx_synchronous");
@@ -134,6 +137,8 @@ unsafe extern "C" fn current_elx_irq(_e: &mut ExceptionContext) {
         return;
     }
     IS_SCHEDULING.store(true, core::sync::atomic::Ordering::Relaxed);
+    crate::syscall::asynchronous::handle_async_syscalls::handle_async_syscalls();
+
     scheduler::switch_task();
     IS_SCHEDULING.store(false, core::sync::atomic::Ordering::Relaxed);
 }
@@ -174,6 +179,8 @@ unsafe extern "C" fn lower_aarch64_synchronous(e: &mut ExceptionContext) {
             Syscalls::ReadFile => syscall::files::read::handle_read(e),
             Syscalls::SeekFile => syscall::files::seek::handle_seek(e),
             Syscalls::WriteFile => syscall::files::write::handle_write(e),
+            Syscalls::CreateFile => syscall::files::create::handle_create(e),
+            Syscalls::DeleteFile => syscall::files::delete::handle_delete(e),
             Syscalls::GetPID => {
                 e.gpr[0] = scheduler::get_current_task_pid() as u64;
             }
@@ -183,6 +190,7 @@ unsafe extern "C" fn lower_aarch64_synchronous(e: &mut ExceptionContext) {
                     None => crate::utils::ONLY_MSB_OF_USIZE as u64,
                 }
             }
+            Syscalls::SetPipeReadOnPID => syscall::files::handle_set_pipe_read_on_pid(e),
         }
     } else {
         default_exception_handler(e, "lower_aarch64_synchronous");
