@@ -35,6 +35,11 @@ pub fn handle_seek(context: &mut ExceptionContext) {
     let seek_type = vfs::SeekType::from_u64(context.gpr[2])
         .unwrap_or_else(|| panic!("Wrong type of SeekType sent: {}", context.gpr[2]));
 
+    if fd < 4 {
+        context.gpr[0] = (ONLY_MSB_OF_USIZE | vfs::FileError::CannotSeekSpecialFile as usize) as u64;
+        return;
+    }
+
     let current_task = crate::scheduler::get_current_task_context();
     let fd_table = unsafe { &mut (*current_task).file_descriptor_table };
 

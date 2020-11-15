@@ -27,6 +27,11 @@ pub fn close(fd: usize) -> Result<(), vfs::FileError> {
 pub fn handle_close(context: &mut ExceptionContext) {
     let fd = context.gpr[0] as usize;
 
+    if fd < 4 {
+        context.gpr[0] = (ONLY_MSB_OF_USIZE | vfs::FileError::CannotCloseSpecialFile as usize) as u64;
+        return;
+    }
+
     unsafe {
         let current_task = crate::scheduler::get_current_task_context();
         let fd_table = &mut (*current_task).file_descriptor_table;

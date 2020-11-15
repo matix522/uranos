@@ -22,7 +22,7 @@ pub fn read(
     buffer: *mut u8,
     id: usize,
     submission_buffer: &mut CircullarBuffer,
-) {
+) -> AsyncOpenedFile {
     let data = AsyncReadSyscallData {
         afd: afd.to_usize(),
         length,
@@ -39,6 +39,7 @@ pub fn read(
     };
 
     crate::syscall::asynchronous::async_syscall::send_async_syscall(submission_buffer, a);
+    AsyncOpenedFile { afd: *afd }
 }
 
 pub(in crate::syscall::asynchronous) fn handle_async_read(

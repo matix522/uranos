@@ -20,7 +20,7 @@ pub fn write(
     message: &'static [u8],
     id: usize,
     submission_buffer: &mut CircullarBuffer,
-) {
+) -> AsyncOpenedFile {
     let data = AsyncWriteSyscallData {
         afd: afd.to_usize(),
         message,
@@ -36,6 +36,7 @@ pub fn write(
     };
 
     crate::syscall::asynchronous::async_syscall::send_async_syscall(submission_buffer, a);
+    AsyncOpenedFile { afd: *afd }
 }
 
 pub(in crate::syscall::asynchronous) fn handle_async_write(

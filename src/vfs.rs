@@ -26,6 +26,16 @@ pub fn write(of: &OpenedFile, message: &[u8]) -> Result<(), FileError> {
     fs.write(of, message)
 }
 
+pub fn create_file(filename: &str) -> Result<(), FileError> {
+    let mut fs = VIRTUAL_FILE_SYSTEM.lock();
+    fs.create_file(filename)
+}
+
+pub fn delete_file(filename: &str) -> Result<(), FileError> {
+    let mut fs = VIRTUAL_FILE_SYSTEM.lock();
+    fs.delete_file(filename)
+}
+
 pub fn seek(
     of: &mut OpenedFile,
     difference: isize,
@@ -67,6 +77,10 @@ pub enum FileError {
     ReadOnClosedFile,
     FileAlreadyOpenedForWrite,
     FileAlreadyOpenedForRead,
+    CannotDeleteOpenedFile,
+    CannotReadWriteOnlyFile,
+    CannotSeekSpecialFile,
+    CannotCloseSpecialFile,
 }
 
 #[repr(usize)]
@@ -143,13 +157,26 @@ impl VFS {
     //     self.file_map.keys().copied().collect()
     // }
 
-    pub fn add_file(&mut self, filename: &str) -> Result<(), FileError> {
+    pub fn create_file(&mut self, filename: &str) -> Result<(), FileError> {
         match self.file_map.get(filename) {
             None => {
                 self.file_map.insert(filename.to_string(), File::empty());
                 Ok(())
             }
             Some(_) => Err(FileError::FileNameAlreadyExists),
+        }
+    }
+
+    pub fn delete_file(&mut self, filename: &str) -> Result<(), FileError> {
+        match self.file_map.get(filename) {
+            Some(f) => {
+                if f.is_opened_for_write || f.is_opened_for_read > 0 {
+                    return Err(FileError::CannotDeleteOpenedFile);
+                }
+                self.file_map.remove(filename);
+                Ok(())
+            }
+            None => Err(FileError::FileDoesNotExist),
         }
     }
 

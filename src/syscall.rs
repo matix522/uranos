@@ -25,6 +25,9 @@ pub enum Syscalls {
     WriteFile,
     GetPID,
     GetChildReturnValue,
+    CreateFile,
+    DeleteFile,
+    SetPipeReadOnPID,
 }
 
 #[inline(never)]
@@ -161,4 +164,10 @@ pub fn get_pid() -> usize {
 
 pub fn get_child_return_value(pid: u64) -> usize {
     unsafe { syscall1(pid as usize, Syscalls::GetChildReturnValue as usize) as usize }
+}
+
+pub fn set_pipe_read_on_pid(pid: u64) {
+    unsafe {
+        syscall1(pid as usize, Syscalls::SetPipeReadOnPID as usize);
+    }
 }

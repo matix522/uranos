@@ -3,11 +3,11 @@ use crate::alloc::collections::BTreeMap;
 use crate::syscall::asynchronous::async_returned_values::AsyncReturnedValues;
 use crate::syscall::files::file_descriptor_map::*;
 use crate::utils::circullar_buffer::*;
+use alloc::collections::VecDeque;
 use alloc::vec::Vec;
 use core::sync::atomic::{AtomicUsize, Ordering};
 /// Stack size of task in bytes
 pub const TASK_STACK_SIZE: usize = 0x8000;
-
 extern "C" {
     /// Signal end of scheduling, zero x0 - x18 and jump to x19
     fn new_task_func();
@@ -37,8 +37,10 @@ pub enum TaskStates {
     Running = 1,
     /// Task is suspended and skipped by scheduler
     Suspended = 2,
+    /// Task was ended but has data to be retrieved from pipe
+    Zombie = 3,
     /// Task is dead and waiting to clean after it
-    Dead = 3,
+    Dead = 4,
 }
 
 #[repr(C)]
@@ -77,6 +79,8 @@ pub struct TaskContext {
     pub file_descriptor_table: FileDescriptiorMap,
     pub async_returns_map: AsyncReturnedValues,
     pub children_return_vals: BTreeMap<usize, u32>,
+    pub pipe_from: Option<usize>,
+    pipe_queue: VecDeque<Vec<u8>>,
     pub ppid: Option<usize>,
 }
 
@@ -99,8 +103,36 @@ impl TaskContext {
             file_descriptor_table: FileDescriptiorMap::new(),
             async_returns_map: AsyncReturnedValues::new(),
             children_return_vals: BTreeMap::<usize, u32>::new(),
+            pipe_queue: VecDeque::<Vec<u8>>::new(),
             ppid: None,
+            pipe_from: None,
         }
+    }
+
+    pub fn get_item_from_pipe_queue(&mut self) -> Option<Vec<u8>>{
+        let val = self.pipe_queue.pop_front();
+        if let TaskStates::Zombie = self.state{
+            if self.pipe_queue.is_empty(){
+                self.state = TaskStates::Dead;
+            }
+        }
+        val
+    }
+
+    pub fn push_back_item_to_pipe_queue(&mut self, element: Vec<u8>){
+        self.pipe_queue.push_back(element)
+    }
+
+
+    pub fn push_front_item_to_pipe_queue(&mut self, element: Vec<u8>){
+        self.pipe_queue.push_front(element)
+    }
+
+    pub fn is_pipe_queue_empty(&self) -> bool{
+        self.pipe_queue.is_empty()
+    }
+    pub fn get_state(&self) -> &TaskStates{
+        &self.state
     }
 
     pub fn new(

@@ -23,7 +23,7 @@ pub fn seek(
     seek_type: vfs::SeekType,
     id: usize,
     submission_buffer: &mut CircullarBuffer,
-) {
+) -> AsyncOpenedFile {
     let data = AsyncSeekSyscallData {
         afd: afd.to_usize(),
         value,
@@ -40,6 +40,7 @@ pub fn seek(
     };
 
     crate::syscall::asynchronous::async_syscall::send_async_syscall(submission_buffer, a);
+    AsyncOpenedFile { afd: *afd }
 }
 
 pub(in crate::syscall::asynchronous) fn handle_async_seek(
@@ -69,6 +70,11 @@ pub(in crate::syscall::asynchronous) fn handle_async_seek(
             }
         },
     };
+
+    
+    if fd < 4 {
+        return ONLY_MSB_OF_USIZE | vfs::FileError::CannotSeekSpecialFile as usize;
+    }
 
     let current_task = crate::scheduler::get_current_task_context();
     let fd_table = unsafe { &mut (*current_task).file_descriptor_table };
