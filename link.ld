@@ -44,7 +44,12 @@ SECTIONS
     }
     . = ALIGN(4096);
     __read_only_end = .;
-
+    .task_local ALIGN(4096):
+    {
+        __task_local_start = .;
+        *(.task_local .task_local.*)
+        __task_local_end = .;
+    }
     .data ALIGN(4096):
     {
         __read_write_start = .;
