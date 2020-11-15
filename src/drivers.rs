@@ -70,3 +70,8 @@ device_driver!(
 device_driver!(
     unsynchronized CHAR_BUFFER: charbuffer::CharBuffer = charbuffer::CharBuffer::new()
 );
+
+const INTERRUPT_CONTROLLER_BASE: usize = crate::MMIO_BASE + 0xB200;
+device_driver!(
+    unsynchronized INTERRUPT_CONTROLLER: rpi3_interrupt_controller::Rpi3InterruptController = rpi3_interrupt_controller::Rpi3InterruptController::new(INTERRUPT_CONTROLLER_BASE)
+);

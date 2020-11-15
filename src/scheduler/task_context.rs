@@ -148,7 +148,8 @@ impl TaskContext {
     ) -> Result<Self, TaskError> {
         let mut task: TaskContext = Self::empty();
 
-        let user_address = |address: usize| ((address & !crate::KERNEL_OFFSET) | 0x1_0000_0000) as u64;
+        let user_address =
+            |address: usize| ((address & !crate::KERNEL_OFFSET) | 0x1_0000_0000) as u64;
 
         task.is_kernel = is_kernel;
 

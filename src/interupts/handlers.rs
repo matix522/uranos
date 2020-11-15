@@ -68,8 +68,21 @@ unsafe extern "C" fn current_el0_serror(e: &mut ExceptionContext) {
 #[no_mangle]
 unsafe extern "C" fn current_elx_synchronous(e: &mut ExceptionContext) {
     interupts::disable_irqs();
+    // crate::utils::debug::debug_exception_context(e);
 
     let exception_type = (e.esr_el1 & (0b111111 << 26)) >> 26;
+
+    if exception_type == SVC_FLAG {
+        let syscall_type = Syscalls::from_u64(e.gpr[8])
+            .unwrap_or_else(|| panic!("Unknown syscall type {}", e.gpr[8]));
+        match syscall_type {
+            Syscalls::CheckEL => {}
+            _ => crate::io::input_to_buffer(),
+        }
+    } else {
+        crate::io::input_to_buffer();
+    }
+
     if exception_type == BRK_FLAG && !config::use_user_space() {
         config::set_use_user_space(true);
         e.elr_el1 = e.gpr[2] | crate::KERNEL_OFFSET as u64;
@@ -128,6 +141,7 @@ pub extern "C" fn end_scheduling() {
 #[no_mangle]
 unsafe extern "C" fn current_elx_irq(_e: &mut ExceptionContext) {
     interupts::disable_irqs();
+    crate::io::input_to_buffer();
 
     let timer = ArmTimer {};
     timer.interupt_after(scheduler::get_time_quant());
@@ -155,7 +169,20 @@ unsafe extern "C" fn current_elx_serror(e: &mut ExceptionContext) {
 #[no_mangle]
 unsafe extern "C" fn lower_aarch64_synchronous(e: &mut ExceptionContext) {
     interupts::disable_irqs();
+
     let exception_type = (e.esr_el1 & (0b111111 << 26)) >> 26;
+
+    if exception_type == SVC_FLAG {
+        let syscall_type = Syscalls::from_u64(e.gpr[8])
+            .unwrap_or_else(|| panic!("Unknown syscall type {}", e.gpr[8]));
+        match syscall_type {
+            Syscalls::CheckEL => {}
+            _ => crate::io::input_to_buffer(),
+        }
+    } else {
+        crate::io::input_to_buffer();
+    }
+
     if exception_type == BRK_FLAG {
         e.elr_el1 = e.gpr[2] | crate::KERNEL_OFFSET as u64;
     } else if exception_type == SVC_FLAG {
@@ -203,6 +230,16 @@ unsafe extern "C" fn lower_aarch64_synchronous(e: &mut ExceptionContext) {
 unsafe extern "C" fn lower_aarch64_irq(_e: &mut ExceptionContext) {
     interupts::disable_irqs();
 
+    crate::io::input_to_buffer();
+    use crate::drivers::rpi3_interrupt_controller::IRQType;
+    use crate::interupts::interrupt_controller::InterruptController;
+
+    let mut controler = crate::drivers::INTERRUPT_CONTROLLER.lock();
+    if controler.is_pending_irq(IRQType::Uart) {
+        crate::eprintln!("UART");
+        return;
+    }
+
     let timer = ArmTimer {};
     timer.interupt_after(scheduler::get_time_quant());
     timer.enable();
@@ -239,5 +276,11 @@ unsafe extern "C" fn lower_aarch32_irq(e: &mut ExceptionContext) {
 
 #[no_mangle]
 unsafe extern "C" fn lower_aarch32_serror(e: &mut ExceptionContext) {
+    default_exception_handler(e, "lower_aarch32_serror");
+}
+
+#[no_mangle]
+pub fn uart_fn(e: &mut ExceptionContext) {
+    crate::eprintln!("HELLO UART");
     default_exception_handler(e, "lower_aarch32_serror");
 }
