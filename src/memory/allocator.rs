@@ -14,15 +14,14 @@ pub struct ChooseAllocator;
 pub static GLOBAL_ALLOCATOR: ChooseAllocator = ChooseAllocator;
 
 unsafe fn get_level() -> ExceptionLevel {
-    // let level = crate::syscall::syscall0(crate::syscall::Syscalls::CheckEL as usize);
-    // match level {
-    //     0 => ExceptionLevel::User,
-    //     1 => ExceptionLevel::Kernel,
-    //     2 => ExceptionLevel::Hypervisor,
-    //     3 => ExceptionLevel::Firmware,
-    //     _ => unreachable!(),
-    // }
-    ExceptionLevel::Kernel
+    let level = crate::syscall::syscall0(crate::syscall::Syscalls::CheckEL as usize);
+    match level {
+        0 => ExceptionLevel::User,
+        1 => ExceptionLevel::Kernel,
+        2 => ExceptionLevel::Hypervisor,
+        3 => ExceptionLevel::Firmware,
+        _ => unreachable!(),
+    }
 }
 unsafe impl GlobalAlloc for ChooseAllocator {
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {

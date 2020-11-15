@@ -1,5 +1,6 @@
-use crate::alloc::collections::BTreeMap;
-use crate::alloc::string::String;
+use alloc::collections::BTreeMap;
+use alloc::string::String;
+use core::sync::atomic::{AtomicU64, Ordering};
 
 pub static mut PROGRAMS: BTreeMap<String, extern "C" fn() -> u32> =
     BTreeMap::<String, extern "C" fn() -> u32>::new();
@@ -175,6 +176,8 @@ pub extern "C" fn simple_wc(argc: usize, argv: *const &[u8]) -> u32 {
     0
 }
 
+#[link_section = ".task_local"]
+static MY_PID : AtomicU64 = AtomicU64::new(0);
 #[no_mangle]
 #[inline(never)]
 pub extern "C" fn first_task(_argc: usize, _argv: *const &[u8]) -> u32 {
@@ -202,6 +205,11 @@ pub extern "C" fn first_task(_argc: usize, _argv: *const &[u8]) -> u32 {
     print::print(&format!(
         "Created hello tasks with PIDs: {}, {}\n",
         cat_pid, wc_pid
+    MY_PID.store(hello_pid, Ordering::SeqCst);
+
+    crate::syscall::print::print(&format!(
+        "Created hello task with PID: {}\n",
+        MY_PID.load(Ordering::SeqCst)
     ));
     loop {
         let ret_val = get_child_return_value(wc_pid);

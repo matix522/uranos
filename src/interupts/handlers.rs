@@ -155,7 +155,6 @@ unsafe extern "C" fn current_elx_serror(e: &mut ExceptionContext) {
 #[no_mangle]
 unsafe extern "C" fn lower_aarch64_synchronous(e: &mut ExceptionContext) {
     interupts::disable_irqs();
-
     let exception_type = (e.esr_el1 & (0b111111 << 26)) >> 26;
     if exception_type == BRK_FLAG {
         e.elr_el1 = e.gpr[2] | crate::KERNEL_OFFSET as u64;
