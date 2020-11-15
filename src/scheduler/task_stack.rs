@@ -4,7 +4,7 @@ unsafe impl Sync for TaskStack {}
 
 #[derive(Debug)]
 pub struct TaskStack {
-    pub(super) ptr: *mut u8,
+    ptr: *mut u8,
     virtual_address: Option<usize>,
     pub(super) size: usize,
     is_kernel: bool,

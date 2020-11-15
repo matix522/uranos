@@ -159,9 +159,6 @@ impl TaskContext {
         )
         .ok_or(TaskError::StackAllocationFail)?;
 
-        task.gpr.lr = new_task_func as *const () as u64;
-        task.gpr.sp = el1_stack.base() as u64;
-
         let target_stack = if task.is_kernel {
             &mut el1_stack
         } else {
@@ -171,22 +168,24 @@ impl TaskContext {
         let mut argv = Vec::<&[u8]>::new();
         let mut remaining_size = target_stack.size;
 
+        let mut target_stack_pointer = target_stack.base() as *mut u8;
         //copy the args onto task stack
         for arg in args.iter() {
             let arg_len = arg.len();
             if remaining_size <= arg_len {
                 panic!("Given args does not fit in task stack");
             }
-            target_stack.ptr = unsafe { target_stack.ptr.sub(arg_len) };
+            target_stack_pointer = unsafe { target_stack_pointer.sub(arg_len) };
+
             unsafe {
                 core::ptr::copy_nonoverlapping(
                     arg.as_ptr() as *const u8,
-                    target_stack.ptr,
+                    target_stack_pointer,
                     arg_len,
                 );
             }
             remaining_size -= arg_len;
-            let slice = unsafe { core::slice::from_raw_parts(target_stack.ptr, arg_len) };
+            let slice = unsafe { core::slice::from_raw_parts(target_stack_pointer, arg_len) };
             argv.push(slice);
         }
 
@@ -194,21 +193,33 @@ impl TaskContext {
         if remaining_size <= argv.len() {
             panic!("Given args does not fit in task stack");
         }
-        target_stack.ptr = unsafe { target_stack.ptr.sub(argv.len()) };
+        target_stack_pointer = unsafe { target_stack_pointer.sub(argv.len()) };
+
         unsafe {
             core::ptr::copy_nonoverlapping(
                 argv[..].as_ptr() as *const u8,
-                target_stack.ptr,
+                target_stack_pointer,
                 argv.len(),
             );
         }
+
+        task.gpr.lr = new_task_func as *const () as u64;
+        task.gpr.sp = if task.is_kernel {
+            target_stack_pointer as u64
+        } else {
+            el1_stack.base() as u64
+        };
 
         if task.is_kernel {
             task.gpr.x19 = start_function as *const () as u64;
         } else {
             task.gpr.x19 = crate::scheduler::drop_el0 as *const () as u64;
             task.gpr.x22 = user_address(start_function as *const () as usize);
-            task.gpr.sp_el0 = el0_stack.base() as u64;
+            task.gpr.sp_el0 = if task.is_kernel {
+                el0_stack.base() as u64
+            } else {
+                target_stack_pointer as u64
+            };
         }
         task.gpr.x20 = argv.len() as u64;
         task.gpr.x21 = argv[..].as_ptr() as u64;
