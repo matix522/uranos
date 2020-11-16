@@ -36,7 +36,6 @@ pub unsafe extern "C" fn reset() -> ! {
 
     // Zeroes the .bss section
     r0::zero_bss(&mut __bss_start, &mut __bss_end);
-    crate::memory::allocator::init_kernel();
 
     extern "Rust" {
         fn main() -> !;

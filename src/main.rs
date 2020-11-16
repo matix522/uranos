@@ -75,6 +75,10 @@ fn kernel_entry() -> ! {
     unsafe {
         interupts::init_exceptions(binary_info.exception_vector);
     }
+
+    unsafe {
+        crate::memory::allocator::init_kernel();
+    }
     println!("{}", binary_info);
 
     println!("Prepare MMU Configuration");
