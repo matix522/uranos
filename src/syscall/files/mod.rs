@@ -16,6 +16,7 @@ pub const PIPEOUT: usize = 3;
 
 use crate::interupts::ExceptionContext;
 use crate::scheduler;
+use crate::scheduler::task_context::TaskContext;
 use crate::syscall::asynchronous;
 use crate::syscall::asynchronous::files::{AsyncFileDescriptor, AsyncOpenedFile};
 use crate::utils::circullar_buffer::CircullarBuffer;
@@ -26,6 +27,14 @@ pub fn handle_set_pipe_read_on_pid(e: &mut ExceptionContext) {
     let current_task = scheduler::get_current_task_context();
     unsafe {
         (*current_task).pipe_from = Some(pid);
+    }
+}
+
+pub fn resolve_fd(fd: usize) -> usize {
+    let current_task: &mut TaskContext = unsafe { &mut *(scheduler::get_current_task_context()) };
+    match current_task.mapped_fds.get(&fd) {
+        Some(mapped_fd) => *mapped_fd,
+        None => fd,
     }
 }
 

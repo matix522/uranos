@@ -1,3 +1,4 @@
+use super::resolve_fd;
 use crate::interupts::ExceptionContext;
 use crate::syscall::*;
 use crate::vfs;
@@ -25,7 +26,7 @@ pub fn close(fd: usize) -> Result<(), vfs::FileError> {
 }
 
 pub fn handle_close(context: &mut ExceptionContext) {
-    let fd = context.gpr[0] as usize;
+    let fd = resolve_fd(context.gpr[0] as usize);
 
     if fd < 4 {
         context.gpr[0] =

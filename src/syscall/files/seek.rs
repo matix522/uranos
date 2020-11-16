@@ -1,3 +1,4 @@
+use super::resolve_fd;
 use crate::interupts::ExceptionContext;
 use crate::syscall::*;
 use crate::vfs;
@@ -44,7 +45,7 @@ pub fn vfs_seek_handler(fd: usize, difference: isize, seek_type: vfs::SeekType) 
 }
 
 pub fn handle_seek(context: &mut ExceptionContext) {
-    let fd = context.gpr[0] as usize;
+    let fd = resolve_fd(context.gpr[0] as usize);
     let difference = context.gpr[1] as isize;
     let seek_type = vfs::SeekType::from_u64(context.gpr[2])
         .unwrap_or_else(|| panic!("Wrong type of SeekType sent: {}", context.gpr[2]));

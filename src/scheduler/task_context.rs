@@ -80,7 +80,9 @@ pub struct TaskContext {
     pub file_descriptor_table: FileDescriptiorMap,
     pub async_returns_map: AsyncReturnedValues,
     pub children_return_vals: BTreeMap<usize, u32>,
+    pub was_returned_value_read: bool,
     pub pipe_from: Option<usize>,
+    pub mapped_fds: BTreeMap<usize, usize>,
     pipe_queue: VecDeque<Vec<u8>>,
     pub memory_manager: task_memory_manager::TaskMemoryManager,
     pub ppid: Option<usize>,
@@ -105,6 +107,8 @@ impl TaskContext {
             file_descriptor_table: FileDescriptiorMap::new(),
             async_returns_map: AsyncReturnedValues::new(),
             children_return_vals: BTreeMap::<usize, u32>::new(),
+            was_returned_value_read: false,
+            mapped_fds: BTreeMap::<usize, usize>::new(),
             pipe_queue: VecDeque::<Vec<u8>>::new(),
             memory_manager: Default::default(),
             ppid: None,
@@ -114,7 +118,10 @@ impl TaskContext {
 
     pub fn update_zombie(&mut self) {
         if let TaskStates::Zombie = self.state {
-            if self.pipe_queue.is_empty() && self.submission_buffer.is_empty() {
+            if self.pipe_queue.is_empty()
+                && self.submission_buffer.is_empty()
+                && self.was_returned_value_read
+            {
                 self.state = TaskStates::Dead;
             }
         }

@@ -128,9 +128,9 @@ unsafe extern "C" fn current_elx_synchronous(e: &mut ExceptionContext) {
             }
             Syscalls::OpenFile => syscall::files::open::handle_open(e),
             Syscalls::CloseFile => syscall::files::close::handle_close(e),
-            Syscalls::ReadFile => syscall::files::read::handle_read(e),
+            Syscalls::ReadFile => syscall::files::read::handle_read_syscall(e),
             Syscalls::SeekFile => syscall::files::seek::handle_seek(e),
-            Syscalls::WriteFile => syscall::files::write::handle_write(e),
+            Syscalls::WriteFile => syscall::files::write::handle_write_syscall(e),
             Syscalls::CreateFile => syscall::files::create::handle_create(e),
             Syscalls::DeleteFile => syscall::files::delete::handle_delete(e),
             Syscalls::GetPID => {
@@ -237,9 +237,9 @@ unsafe extern "C" fn lower_aarch64_synchronous(e: &mut ExceptionContext) {
             }
             Syscalls::OpenFile => syscall::files::open::handle_open(e),
             Syscalls::CloseFile => syscall::files::close::handle_close(e),
-            Syscalls::ReadFile => syscall::files::read::handle_read(e),
+            Syscalls::ReadFile => syscall::files::read::handle_read_syscall(e),
             Syscalls::SeekFile => syscall::files::seek::handle_seek(e),
-            Syscalls::WriteFile => syscall::files::write::handle_write(e),
+            Syscalls::WriteFile => syscall::files::write::handle_write_syscall(e),
             Syscalls::CreateFile => syscall::files::create::handle_create(e),
             Syscalls::DeleteFile => syscall::files::delete::handle_delete(e),
             Syscalls::GetPID => {

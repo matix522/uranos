@@ -197,6 +197,7 @@ impl TaskManager {
             .get_two_tasks(previous_task_pid, next_task_pid)
             .expect("Error during task switch: {:?}");
 
+        // crate::println!("=================Teraz task {}", next_task_pid);
         // #Safety: lifetime of this reference is the same as lifetime of whole TaskManager; exception_context is always properly initialized if task is in tasks vector
         unsafe {
             cpu_switch_to(
@@ -277,6 +278,8 @@ pub fn handle_new_task_syscall(e: &mut ExceptionContext) {
     let function_address = e.gpr[0] as usize;
     let ptr = e.gpr[1] as *const &[u8];
     let len = e.gpr[2] as usize;
+    let stdout_to_pipe = e.gpr[3] != 0;
+    let stdin_to_pipe = e.gpr[4] as usize;
 
     let args: &[&[u8]] = unsafe { core::slice::from_raw_parts(ptr, len) };
 
@@ -284,6 +287,16 @@ pub fn handle_new_task_syscall(e: &mut ExceptionContext) {
         core::mem::transmute::<usize, extern "C" fn(usize, *const &[u8]) -> u32>(function_address)
     };
     let mut task = TaskContext::new(function, args, false).expect("Failed to create new task");
+
+    use crate::syscall::files::*;
+    if stdout_to_pipe {
+        task.mapped_fds.insert(STDOUT, PIPEOUT);
+    }
+
+    if stdin_to_pipe != !0usize {
+        task.mapped_fds.insert(STDIN, PIPEIN);
+        task.pipe_from = Some(stdin_to_pipe);
+    }
 
     task.ppid = Some(get_current_task_pid());
 

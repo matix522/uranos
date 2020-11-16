@@ -1,3 +1,4 @@
+use super::resolve_fd;
 use crate::interupts::ExceptionContext;
 use crate::scheduler;
 use crate::scheduler::task_context::*;
@@ -102,8 +103,9 @@ pub fn read_from_stdin_handler(length: usize, buffer: *mut u8) -> u64 {
     size as u64
 }
 
-pub fn handle_read(context: &mut ExceptionContext) {
-    let fd = context.gpr[0] as usize;
+
+pub fn handle_read_syscall(context: &mut ExceptionContext) {
+    let fd = resolve_fd(context.gpr[0] as usize);
     let length = context.gpr[1] as usize;
     let mut buffer = context.gpr[2] as *mut u8;
     // Special file descriptors:
@@ -111,11 +113,20 @@ pub fn handle_read(context: &mut ExceptionContext) {
     // 1: STDOUT (UART)
     // 2: PIPEIN
     // 3: PIPEOUT
-    context.gpr[0] = match fd {
-        0 => read_from_stdin_handler(length, buffer),
+    context.gpr[0] = handle_read(fd, length, buffer);
+}
+
+pub fn handle_read(fd: usize, length: usize, buffer: *mut u8) -> u64 {
+    // Special file descriptors:
+    // 0: STDIN (UART)
+    // 1: STDOUT (UART)
+    // 2: PIPEIN
+    // 3: PIPEOUT
+    match resolve_fd(fd) {
+        0 =>  read_from_stdin_handler(length,buffer) as u64,
         1 => (ONLY_MSB_OF_USIZE | vfs::FileError::CannotReadWriteOnlyFile as usize) as u64,
         2 => read_from_pipe_handler(length, buffer),
         3 => (ONLY_MSB_OF_USIZE | vfs::FileError::CannotReadWriteOnlyFile as usize) as u64,
         _ => read_from_vfs_handler(fd, length, buffer),
-    };
+    }
 }
