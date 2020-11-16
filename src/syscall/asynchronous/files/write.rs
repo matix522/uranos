@@ -1,7 +1,7 @@
 use super::*;
 use crate::syscall::asynchronous::async_returned_values::*;
 use crate::syscall::asynchronous::async_syscall::*;
-use crate::syscall::files::write::{pipe_write_handler, vfs_write_handler};
+use crate::syscall::files::write::handle_write;
 use crate::utils::circullar_buffer::*;
 use crate::vfs;
 
@@ -68,20 +68,5 @@ pub(in crate::syscall::asynchronous) fn handle_async_write(
         },
     };
 
-    // Special file descriptors:
-    // 0: STDIN (UART)
-    // 1: STDOUT (UART)
-    // 2: PIPEIN
-    // 3: PIPEOUT
-    match fd {
-        0 => ONLY_MSB_OF_USIZE | vfs::FileError::ModifyingWithoutWritePermission as usize,
-        1 => {
-            let string = unsafe { core::str::from_utf8_unchecked(syscall_data.message) };
-            crate::print!("{}", string);
-            0
-        }
-        2 => ONLY_MSB_OF_USIZE | vfs::FileError::ModifyingWithoutWritePermission as usize,
-        3 => pipe_write_handler(syscall_data.message) as usize,
-        _ => vfs_write_handler(syscall_data.message, fd) as usize,
-    }
+    handle_write(fd, syscall_data.message) as usize
 }

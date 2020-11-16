@@ -24,7 +24,7 @@ pub extern "C" fn simple_cat(argc: usize, argv: *const &[u8]) -> u32 {
     use core::convert::TryInto;
     use core::str::from_utf8;
 
-    if argc != 1 && argc != 2 {
+    if argc != 1 {
         print::print("Invalid number of arguments\n");
         return 1;
     }
@@ -37,22 +37,6 @@ pub extern "C" fn simple_cat(argc: usize, argv: *const &[u8]) -> u32 {
             print::print("Expected valid utf8 string as 1st argument\n");
             return 2;
         }
-    };
-
-    let out_file = if argc == 2 {
-        let pipe_flag = match from_utf8(args[1]) {
-            Ok(val) => val,
-            Err(_) => {
-                print::print("Expected valid utf8 string as 2nd argument\n");
-                return 2;
-            }
-        };
-        match pipe_flag {
-            "1" => File::get_pipeout(),
-            &_ => File::get_stdout(),
-        }
-    } else {
-        File::get_stdout()
     };
 
     let f = match File::open(filename, false) {
@@ -69,13 +53,14 @@ pub extern "C" fn simple_cat(argc: usize, argv: *const &[u8]) -> u32 {
             Ok(val) => val,
             Err(e) => {
                 print::print(&format!("A file error occured during read: {:?}\n", e));
+                f.close();
                 return 4;
             }
         };
         if count == 0 {
             break;
         }
-        out_file.write(&buffer[0..count]);
+        File::get_stdout().write(&buffer[0..count]);
     }
     f.close();
     0
@@ -92,7 +77,7 @@ pub extern "C" fn simple_wc(argc: usize, argv: *const &[u8]) -> u32 {
     use core::convert::TryInto;
     use core::str::from_utf8;
 
-    if argc != 2 && argc != 3 {
+    if argc != 1 {
         print::print("Invalid number of arguments\n");
         return 1;
     }
@@ -107,53 +92,10 @@ pub extern "C" fn simple_wc(argc: usize, argv: *const &[u8]) -> u32 {
         }
     };
 
-    let in_file = {
-        let in_file_str = match from_utf8(args[1]) {
-            Ok(val) => val,
-            Err(_) => {
-                print::print("Invalid pipe source value \n");
-                return 2;
-            }
-        };
-        let pid = match in_file_str.parse::<u64>() {
-            Ok(val) => val,
-            Err(_) => {
-                print::print("Invalid pipe source value \n");
-                return 2;
-            }
-        };
-        set_pipe_read_on_pid(pid);
-        File::get_pipein()
-    };
-
-    let out_file = if argc == 2 {
-        File::get_stdout()
-    } else {
-        let in_file_str = match from_utf8(args[2]) {
-            Ok(val) => val,
-            Err(_) => {
-                print::print("Invalid pipe source value \n");
-                return 2;
-            }
-        };
-        let flag = match in_file_str.parse::<usize>() {
-            Ok(val) => val,
-            Err(_) => {
-                print::print("Invalid pipe source value \n");
-                return 2;
-            }
-        };
-        if flag > 0 {
-            File::get_pipeout()
-        } else {
-            File::get_stdout()
-        }
-    };
-
     let mut buffer = [0u8; 32];
     let mut result = Vec::<u8>::new();
     loop {
-        match in_file.read(32, &mut buffer) {
+        match File::get_stdin().read(32, &mut buffer) {
             Ok(res) => {
                 if res > 0 {
                     result.extend_from_slice(&buffer);
@@ -164,10 +106,10 @@ pub extern "C" fn simple_wc(argc: usize, argv: *const &[u8]) -> u32 {
             Err(_) => break,
         };
     }
-    in_file.close();
 
     let string = from_utf8(&result[..]).unwrap().trim_matches(char::from(0));
 
+    // print::print(&format!("HANDLING STRING: {}\n", string));
     let res = match option {
         "-c" => string.chars().count(),
         "-w" => {
@@ -179,8 +121,9 @@ pub extern "C" fn simple_wc(argc: usize, argv: *const &[u8]) -> u32 {
             return 10;
         }
     };
+    print::print(&format!("RESULT: {}\n", res));
 
-    out_file.write(&format!("{}", res).as_bytes());
+    File::get_stdout().write(&format!("{}", res).as_bytes());
     0
 }
 
@@ -194,29 +137,28 @@ pub extern "C" fn first_task(_argc: usize, _argv: *const &[u8]) -> u32 {
     use core::str::from_utf8;
 
     let filename = "file1";
-    let cat_pid = create_task(simple_cat, &[filename, "1"]);
+    let cat_pid = create_task(simple_cat, &[filename], true, None);
 
     for _i in 1..10 {
         yield_cpu();
     }
-    let cat_pid_str = cat_pid.to_string();
 
-    let wc_pid = create_task(simple_wc, &["-c", cat_pid_str.as_str(), "1"]);
+    let wc_pid = create_task(simple_wc, &["-c"], true, Some(cat_pid));
+    let wc2_pid = create_task(simple_wc, &["-c"], true, Some(wc_pid));
 
     print::print(&format!(
         "Created hello tasks with PIDs: {}, {}\n",
         cat_pid, wc_pid
     ));
     loop {
-        let ret_val = get_child_return_value(wc_pid);
+        let ret_val = get_child_return_value(wc2_pid);
         if let Some(ret) = ret_val {
             print::print(&format!("Returned value from wc: {}\n", ret));
             break;
         }
         yield_cpu();
     }
-
-    set_pipe_read_on_pid(wc_pid);
+    set_pipe_read_on_pid(wc2_pid);
 
     let mut buff = [0u8; 32];
     let ret = File::get_pipein().read(32, &mut buff);
@@ -232,7 +174,7 @@ pub extern "C" fn first_task(_argc: usize, _argv: *const &[u8]) -> u32 {
         filename, string
     ));
 
-    create_task(test_async_files, &[]);
+    create_task(test_async_files, &[], false, None);
 
     loop {}
 
