@@ -166,7 +166,7 @@ pub fn get_pid() -> usize {
 
 pub fn get_child_return_value(pid: u64) -> Option<u32> {
     let val = unsafe { syscall1(pid as usize, Syscalls::GetChildReturnValue as usize) as usize };
-    if val & !ONLY_MSB_OF_USIZE > 0 {
+    if val & ONLY_MSB_OF_USIZE > 0 {
         None
     } else {
         u32::try_from(val).ok()

@@ -235,7 +235,6 @@ impl TaskContext {
         task.el0_stack = Some(el0_stack);
         task.el1_stack = Some(el1_stack);
 
-        crate::println!("START_F {:#018x}", task.gpr.x20);
         Ok(task)
     }
 }
