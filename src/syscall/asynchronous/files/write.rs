@@ -1,6 +1,7 @@
 use super::*;
 use crate::syscall::asynchronous::async_returned_values::*;
 use crate::syscall::asynchronous::async_syscall::*;
+use crate::syscall::files::write::{pipe_write_handler, vfs_write_handler};
 use crate::utils::circullar_buffer::*;
 use crate::vfs;
 
@@ -20,7 +21,7 @@ pub fn write(
     message: &'static [u8],
     id: usize,
     submission_buffer: &mut CircullarBuffer,
-) {
+) -> AsyncOpenedFile {
     let data = AsyncWriteSyscallData {
         afd: afd.to_usize(),
         message,
@@ -36,6 +37,7 @@ pub fn write(
     };
 
     crate::syscall::asynchronous::async_syscall::send_async_syscall(submission_buffer, a);
+    AsyncOpenedFile { afd: *afd }
 }
 
 pub(in crate::syscall::asynchronous) fn handle_async_write(
@@ -66,11 +68,20 @@ pub(in crate::syscall::asynchronous) fn handle_async_write(
         },
     };
 
-    let current_task = crate::scheduler::get_current_task_context();
-    let fd_table = unsafe { &mut (*current_task).file_descriptor_table };
-    let opened_file = fd_table.get_file_mut(fd).unwrap();
-    match vfs::write(opened_file, syscall_data.message) {
-        Ok(_) => 0,
-        Err(err) => ONLY_MSB_OF_USIZE | err as usize,
+    // Special file descriptors:
+    // 0: STDIN (UART)
+    // 1: STDOUT (UART)
+    // 2: PIPEIN
+    // 3: PIPEOUT
+    match fd {
+        0 => ONLY_MSB_OF_USIZE | vfs::FileError::ModifyingWithoutWritePermission as usize,
+        1 => {
+            let string = unsafe { core::str::from_utf8_unchecked(syscall_data.message) };
+            crate::print!("{}", string);
+            0
+        }
+        2 => ONLY_MSB_OF_USIZE | vfs::FileError::ModifyingWithoutWritePermission as usize,
+        3 => pipe_write_handler(syscall_data.message) as usize,
+        _ => vfs_write_handler(syscall_data.message, fd) as usize,
     }
 }

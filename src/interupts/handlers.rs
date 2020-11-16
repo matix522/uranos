@@ -68,8 +68,21 @@ unsafe extern "C" fn current_el0_serror(e: &mut ExceptionContext) {
 #[no_mangle]
 unsafe extern "C" fn current_elx_synchronous(e: &mut ExceptionContext) {
     interupts::disable_irqs();
+    // crate::utils::debug::debug_exception_context(e);
 
     let exception_type = (e.esr_el1 & (0b111111 << 26)) >> 26;
+
+    if exception_type == SVC_FLAG {
+        let syscall_type = Syscalls::from_u64(e.gpr[8])
+            .unwrap_or_else(|| panic!("Unknown syscall type {}", e.gpr[8]));
+        match syscall_type {
+            Syscalls::CheckEL => {}
+            _ => crate::io::input_to_buffer(),
+        }
+    } else {
+        crate::io::input_to_buffer();
+    }
+
     if exception_type == BRK_FLAG && !config::use_user_space() {
         config::set_use_user_space(true);
         e.elr_el1 = e.gpr[2] | crate::KERNEL_OFFSET as u64;
@@ -97,6 +110,8 @@ unsafe extern "C" fn current_elx_synchronous(e: &mut ExceptionContext) {
             Syscalls::ReadFile => syscall::files::read::handle_read(e),
             Syscalls::SeekFile => syscall::files::seek::handle_seek(e),
             Syscalls::WriteFile => syscall::files::write::handle_write(e),
+            Syscalls::CreateFile => syscall::files::create::handle_create(e),
+            Syscalls::DeleteFile => syscall::files::delete::handle_delete(e),
             Syscalls::GetPID => {
                 e.gpr[0] = scheduler::get_current_task_pid() as u64;
             }
@@ -106,6 +121,7 @@ unsafe extern "C" fn current_elx_synchronous(e: &mut ExceptionContext) {
                     None => crate::utils::ONLY_MSB_OF_USIZE as u64,
                 }
             }
+            Syscalls::SetPipeReadOnPID => syscall::files::handle_set_pipe_read_on_pid(e),
         }
     } else {
         default_exception_handler(e, "current_elx_synchronous");
@@ -125,6 +141,7 @@ pub extern "C" fn end_scheduling() {
 #[no_mangle]
 unsafe extern "C" fn current_elx_irq(_e: &mut ExceptionContext) {
     interupts::disable_irqs();
+    crate::io::input_to_buffer();
 
     let timer = ArmTimer {};
     timer.interupt_after(scheduler::get_time_quant());
@@ -134,6 +151,8 @@ unsafe extern "C" fn current_elx_irq(_e: &mut ExceptionContext) {
         return;
     }
     IS_SCHEDULING.store(true, core::sync::atomic::Ordering::Relaxed);
+    crate::syscall::asynchronous::handle_async_syscalls::handle_async_syscalls();
+
     scheduler::switch_task();
     IS_SCHEDULING.store(false, core::sync::atomic::Ordering::Relaxed);
 }
@@ -152,6 +171,18 @@ unsafe extern "C" fn lower_aarch64_synchronous(e: &mut ExceptionContext) {
     interupts::disable_irqs();
 
     let exception_type = (e.esr_el1 & (0b111111 << 26)) >> 26;
+
+    if exception_type == SVC_FLAG {
+        let syscall_type = Syscalls::from_u64(e.gpr[8])
+            .unwrap_or_else(|| panic!("Unknown syscall type {}", e.gpr[8]));
+        match syscall_type {
+            Syscalls::CheckEL => {}
+            _ => crate::io::input_to_buffer(),
+        }
+    } else {
+        crate::io::input_to_buffer();
+    }
+
     if exception_type == BRK_FLAG {
         e.elr_el1 = e.gpr[2] | crate::KERNEL_OFFSET as u64;
     } else if exception_type == SVC_FLAG {
@@ -175,6 +206,8 @@ unsafe extern "C" fn lower_aarch64_synchronous(e: &mut ExceptionContext) {
             Syscalls::ReadFile => syscall::files::read::handle_read(e),
             Syscalls::SeekFile => syscall::files::seek::handle_seek(e),
             Syscalls::WriteFile => syscall::files::write::handle_write(e),
+            Syscalls::CreateFile => syscall::files::create::handle_create(e),
+            Syscalls::DeleteFile => syscall::files::delete::handle_delete(e),
             Syscalls::GetPID => {
                 e.gpr[0] = scheduler::get_current_task_pid() as u64;
             }
@@ -184,6 +217,7 @@ unsafe extern "C" fn lower_aarch64_synchronous(e: &mut ExceptionContext) {
                     None => crate::utils::ONLY_MSB_OF_USIZE as u64,
                 }
             }
+            Syscalls::SetPipeReadOnPID => syscall::files::handle_set_pipe_read_on_pid(e),
         }
     } else {
         default_exception_handler(e, "lower_aarch64_synchronous");
@@ -195,6 +229,16 @@ unsafe extern "C" fn lower_aarch64_synchronous(e: &mut ExceptionContext) {
 #[no_mangle]
 unsafe extern "C" fn lower_aarch64_irq(_e: &mut ExceptionContext) {
     interupts::disable_irqs();
+
+    crate::io::input_to_buffer();
+    use crate::drivers::rpi3_interrupt_controller::IRQType;
+    use crate::interupts::interrupt_controller::InterruptController;
+
+    let mut controler = crate::drivers::INTERRUPT_CONTROLLER.lock();
+    if controler.is_pending_irq(IRQType::Uart) {
+        crate::eprintln!("UART");
+        return;
+    }
 
     let timer = ArmTimer {};
     timer.interupt_after(scheduler::get_time_quant());
@@ -232,5 +276,11 @@ unsafe extern "C" fn lower_aarch32_irq(e: &mut ExceptionContext) {
 
 #[no_mangle]
 unsafe extern "C" fn lower_aarch32_serror(e: &mut ExceptionContext) {
+    default_exception_handler(e, "lower_aarch32_serror");
+}
+
+#[no_mangle]
+pub fn uart_fn(e: &mut ExceptionContext) {
+    crate::eprintln!("HELLO UART");
     default_exception_handler(e, "lower_aarch32_serror");
 }

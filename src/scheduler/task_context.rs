@@ -1,13 +1,14 @@
+use super::task_memory_manager;
 use super::task_stack;
 use crate::alloc::collections::BTreeMap;
 use crate::syscall::asynchronous::async_returned_values::AsyncReturnedValues;
 use crate::syscall::files::file_descriptor_map::*;
 use crate::utils::circullar_buffer::*;
+use alloc::collections::VecDeque;
 use alloc::vec::Vec;
 use core::sync::atomic::{AtomicUsize, Ordering};
 /// Stack size of task in bytes
 pub const TASK_STACK_SIZE: usize = 0x8000;
-
 extern "C" {
     /// Signal end of scheduling, zero x0 - x18 and jump to x19
     fn new_task_func();
@@ -37,8 +38,10 @@ pub enum TaskStates {
     Running = 1,
     /// Task is suspended and skipped by scheduler
     Suspended = 2,
+    /// Task was ended but has data to be retrieved from pipe
+    Zombie = 3,
     /// Task is dead and waiting to clean after it
-    Dead = 3,
+    Dead = 4,
 }
 
 #[repr(C)]
@@ -77,6 +80,9 @@ pub struct TaskContext {
     pub file_descriptor_table: FileDescriptiorMap,
     pub async_returns_map: AsyncReturnedValues,
     pub children_return_vals: BTreeMap<usize, u32>,
+    pub pipe_from: Option<usize>,
+    pipe_queue: VecDeque<Vec<u8>>,
+    pub memory_manager: task_memory_manager::TaskMemoryManager,
     pub ppid: Option<usize>,
 }
 
@@ -99,8 +105,40 @@ impl TaskContext {
             file_descriptor_table: FileDescriptiorMap::new(),
             async_returns_map: AsyncReturnedValues::new(),
             children_return_vals: BTreeMap::<usize, u32>::new(),
+            pipe_queue: VecDeque::<Vec<u8>>::new(),
+            memory_manager: Default::default(),
             ppid: None,
+            pipe_from: None,
         }
+    }
+
+    pub fn update_zombie(&mut self) {
+        if let TaskStates::Zombie = self.state {
+            if self.pipe_queue.is_empty() && self.submission_buffer.is_empty() {
+                self.state = TaskStates::Dead;
+            }
+        }
+    }
+
+    pub fn get_item_from_pipe_queue(&mut self) -> Option<Vec<u8>> {
+        let val = self.pipe_queue.pop_front();
+        self.update_zombie();
+        val
+    }
+
+    pub fn push_back_item_to_pipe_queue(&mut self, element: Vec<u8>) {
+        self.pipe_queue.push_back(element)
+    }
+
+    pub fn push_front_item_to_pipe_queue(&mut self, element: Vec<u8>) {
+        self.pipe_queue.push_front(element)
+    }
+
+    pub fn is_pipe_queue_empty(&self) -> bool {
+        self.pipe_queue.is_empty()
+    }
+    pub fn get_state(&self) -> &TaskStates {
+        &self.state
     }
 
     pub fn new(
@@ -110,7 +148,8 @@ impl TaskContext {
     ) -> Result<Self, TaskError> {
         let mut task: TaskContext = Self::empty();
 
-        let user_address = |address: usize| (address & !crate::KERNEL_OFFSET) as u64;
+        let user_address =
+            |address: usize| ((address & !crate::KERNEL_OFFSET) | 0x1_0000_0000) as u64;
 
         task.is_kernel = is_kernel;
 
@@ -128,9 +167,6 @@ impl TaskContext {
         )
         .ok_or(TaskError::StackAllocationFail)?;
 
-        task.gpr.lr = new_task_func as *const () as u64;
-        task.gpr.sp = el1_stack.base() as u64;
-
         let target_stack = if task.is_kernel {
             &mut el1_stack
         } else {
@@ -140,22 +176,24 @@ impl TaskContext {
         let mut argv = Vec::<&[u8]>::new();
         let mut remaining_size = target_stack.size;
 
+        let mut target_stack_pointer = target_stack.base() as *mut u8;
         //copy the args onto task stack
         for arg in args.iter() {
             let arg_len = arg.len();
             if remaining_size <= arg_len {
                 panic!("Given args does not fit in task stack");
             }
-            target_stack.ptr = unsafe { target_stack.ptr.sub(arg_len) };
+            target_stack_pointer = unsafe { target_stack_pointer.sub(arg_len) };
+
             unsafe {
                 core::ptr::copy_nonoverlapping(
                     arg.as_ptr() as *const u8,
-                    target_stack.ptr,
+                    target_stack_pointer,
                     arg_len,
                 );
             }
             remaining_size -= arg_len;
-            let slice = unsafe { core::slice::from_raw_parts(target_stack.ptr, arg_len) };
+            let slice = unsafe { core::slice::from_raw_parts(target_stack_pointer, arg_len) };
             argv.push(slice);
         }
 
@@ -163,21 +201,33 @@ impl TaskContext {
         if remaining_size <= argv.len() {
             panic!("Given args does not fit in task stack");
         }
-        target_stack.ptr = unsafe { target_stack.ptr.sub(argv.len()) };
+        target_stack_pointer = unsafe { target_stack_pointer.sub(argv.len()) };
+
         unsafe {
             core::ptr::copy_nonoverlapping(
                 argv[..].as_ptr() as *const u8,
-                target_stack.ptr,
+                target_stack_pointer,
                 argv.len(),
             );
         }
+
+        task.gpr.lr = new_task_func as *const () as u64;
+        task.gpr.sp = if task.is_kernel {
+            target_stack_pointer as u64
+        } else {
+            el1_stack.base() as u64
+        };
 
         if task.is_kernel {
             task.gpr.x19 = start_function as *const () as u64;
         } else {
             task.gpr.x19 = crate::scheduler::drop_el0 as *const () as u64;
             task.gpr.x22 = user_address(start_function as *const () as usize);
-            task.gpr.sp_el0 = el0_stack.base() as u64;
+            task.gpr.sp_el0 = if task.is_kernel {
+                el0_stack.base() as u64
+            } else {
+                target_stack_pointer as u64
+            };
         }
         task.gpr.x20 = argv.len() as u64;
         task.gpr.x21 = argv[..].as_ptr() as u64;
@@ -185,7 +235,7 @@ impl TaskContext {
         task.el0_stack = Some(el0_stack);
         task.el1_stack = Some(el1_stack);
 
-        // crate::println!("{:#018x}", &task.submission_buffer as *const _ as u64);
+        crate::println!("START_F {:#018x}", task.gpr.x20);
         Ok(task)
     }
 }

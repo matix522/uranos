@@ -118,31 +118,30 @@ pub const KERNEL_RW_: AttributeFields = AttributeFields::new(
     AccessPermissions::KernelReadWrite,
     false,
 );
-#[allow(dead_code)]
-const KERNEL_R_X: AttributeFields = AttributeFields::new(
+pub const KERNEL_R_X: AttributeFields = AttributeFields::new(
     MemAttributes::CacheableDRAM,
     AccessPermissions::KernelReadOnly,
     true,
 );
-const USER_RW_: AttributeFields = AttributeFields::new(
+pub const USER_RW_: AttributeFields = AttributeFields::new(
     MemAttributes::CacheableDRAM,
     AccessPermissions::UserReadWrite,
     false,
 );
-const USER_R_X: AttributeFields = AttributeFields::new(
+pub const USER_R_X: AttributeFields = AttributeFields::new(
     MemAttributes::CacheableDRAM,
     AccessPermissions::UserReadOnly,
     true,
 );
-const DEVICE: AttributeFields = AttributeFields::new(
+pub const DEVICE: AttributeFields = AttributeFields::new(
     MemAttributes::Device,
-    AccessPermissions::UserReadWrite,
+    AccessPermissions::KernelReadWrite,
     false,
 );
 
 use crate::utils::binary_info::BinaryInfo;
 
-pub const PHYSICAL_MEMORY_LAYOUT: [StaticRangeDescriptor; 6] = [
+pub const PHYSICAL_MEMORY_LAYOUT: [StaticRangeDescriptor; 7] = [
     StaticRangeDescriptor::new(
         "Init Stack",
         || {
@@ -161,6 +160,16 @@ pub const PHYSICAL_MEMORY_LAYOUT: [StaticRangeDescriptor; 6] = [
         },
         Translation::Identity,
         USER_R_X,
+        Granule::Page4KiB,
+    ),
+    StaticRangeDescriptor::new(
+        "Mutable Init Task Data",
+        || {
+            let binary_info = BinaryInfo::get();
+            binary_info.task_local
+        },
+        Translation::Identity,
+        USER_RW_,
         Granule::Page4KiB,
     ),
     StaticRangeDescriptor::new(
@@ -209,10 +218,10 @@ use crate::sync::mutex::Mutex;
 use alloc::collections::BTreeMap;
 use alloc::string::String;
 
-type MemoryMap = Mutex<BTreeMap<String, RangeDescriptor>>;
+pub type MemoryMap = BTreeMap<String, RangeDescriptor>;
 
-pub static DYNAMIC_MEMORY_MAP_KERNEL: MemoryMap = Mutex::new(BTreeMap::new());
-pub static DYNAMIC_MEMORY_MAP_USER: MemoryMap = Mutex::new(BTreeMap::new());
+pub static DYNAMIC_MEMORY_MAP_KERNEL: Mutex<MemoryMap> = Mutex::new(BTreeMap::new());
+pub static DYNAMIC_MEMORY_MAP_USER: Mutex<MemoryMap> = Mutex::new(BTreeMap::new());
 
 pub enum AddressSpace {
     Kernel,

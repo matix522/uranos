@@ -9,9 +9,9 @@ use crate::memory::memory_controler::{
 };
 
 struct MMU {}
-const MEMORY_SIZE_BITS: usize = 36;
-const MEMORY_REGION_OFFSET: usize = 64 - MEMORY_SIZE_BITS;
-const MEMORY_SIZE_GIB: usize = 1 << (MEMORY_SIZE_BITS + 1 - 30); // 128 GIB
+pub const MEMORY_SIZE_BITS: usize = 36;
+pub const MEMORY_REGION_OFFSET: usize = 64 - MEMORY_SIZE_BITS;
+pub const MEMORY_SIZE_GIB: usize = 1 << (MEMORY_SIZE_BITS + 1 - 30); // 128 GIB
 
 // enum WalkResult {
 //     Level1(&mut TableRecord)
@@ -21,11 +21,11 @@ const MEMORY_SIZE_GIB: usize = 1 << (MEMORY_SIZE_BITS + 1 - 30); // 128 GIB
 // }
 
 #[repr(C, align(4096))]
-struct Level1MemoryTable {
-    table_1g: [TableRecord; MEMORY_SIZE_GIB], // EACH 1GB
-                                              //     reserved: [u64; 512 - MEMORY_SIZE_GIB],
-                                              //     tables_2m: [[TableRecord; 512]; MEMORY_SIZE_GIB],      // EACH 2MB
-                                              //     pages_4k: [[[PageRecord; 512]; 512]; MEMORY_SIZE_GIB], // EACH 4KB
+pub struct Level1MemoryTable {
+    pub table_1g: [TableRecord; MEMORY_SIZE_GIB], // EACH 1GB
+                                                  //     reserved: [u64; 512 - MEMORY_SIZE_GIB],
+                                                  //     tables_2m: [[TableRecord; 512]; MEMORY_SIZE_GIB],      // EACH 2MB
+                                                  //     pages_4k: [[[PageRecord; 512]; 512]; MEMORY_SIZE_GIB], // EACH 4KB
 }
 
 impl Level1MemoryTable {
@@ -53,7 +53,7 @@ impl Level1MemoryTable {
         Ok(())
     }
 
-    unsafe fn translate(&mut self, address: usize) -> Result<usize, u64> {
+    pub unsafe fn translate(&mut self, address: usize) -> Result<usize, u64> {
         let level_1 = address >> 30;
         let level_2 = (address - (level_1 << 30)) >> 21;
         let level_3 = (address - (level_1 << 30) - (level_2 << 21)) >> 12;
@@ -80,7 +80,7 @@ impl Level1MemoryTable {
             TableEntryType::TableOrPage => Ok(level_3_entry.get_address() + last_bits),
         }
     }
-    unsafe fn map_memory(
+    pub unsafe fn map_memory(
         &mut self,
         address: usize,
         offset: usize,
@@ -150,7 +150,7 @@ impl Level1MemoryTable {
         }
     }
 
-    unsafe fn unmap_memory(
+    pub unsafe fn unmap_memory(
         &mut self,
         address: usize,
         granule: Granule,
@@ -275,11 +275,6 @@ pub unsafe fn unmap_memory(
         Granule::Block2MiB => 1 << 21,
         Granule::Block1GiB => 1 << 30,
     };
-    let offset = if let Translation::Offset(value) = memory_range.translation {
-        value - memory_range.virtual_range.start
-    } else {
-        0
-    };
 
     let range = memory_range.virtual_range.clone();
     for address in range.step_by(step) {
@@ -389,4 +384,33 @@ impl MMU {
 pub enum Mair {
     Device = 0,
     NormalCachableDRAM = 1,
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn switch_user_space_translation(
+    prev_t: *mut Level1MemoryTable,
+    next_t: *mut Level1MemoryTable,
+) {
+    const LEVEL_1: usize = 0x1_0000_0000 >> 30;
+
+    let main_table = &mut *BASE_USER_MEMORY_TABLE;
+    let prev_table = &mut *prev_t;
+    let next_table = &mut *next_t;
+
+    prev_table.table_1g[LEVEL_1] = main_table.table_1g[LEVEL_1];
+    main_table.table_1g[LEVEL_1] = next_table.table_1g[LEVEL_1];
+
+    llvm_asm!("tlbi vmalle1" : : : : "volatile");
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn switch_user_space_translation_first(next_t: *mut Level1MemoryTable) {
+    const LEVEL_1: usize = 0x1_0000_0000 >> 30;
+
+    let main_table = &mut *BASE_USER_MEMORY_TABLE;
+    let next_table = &mut *next_t;
+
+    main_table.table_1g[LEVEL_1] = next_table.table_1g[LEVEL_1];
+
+    llvm_asm!("tlbi vmalle1" : : : : "volatile");
 }

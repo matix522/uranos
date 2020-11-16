@@ -1,5 +1,6 @@
 use crate::drivers::uart::*;
 use crate::drivers::UART;
+use alloc::collections::VecDeque;
 use core::fmt;
 
 impl fmt::Write for PL011Uart {
@@ -48,4 +49,31 @@ macro_rules! scanln {
         let mut iter = string.split_ascii_whitespace();
         ($(iter.next().and_then(|word| word.parse::<$x>().ok()),)*)
     }}
+}
+use crate::sync::nulllock::NullLock;
+
+device_driver!(
+    unsynchronized INPUT_BUFFER: VecDeque<u8> = VecDeque::new()
+);
+
+pub fn input_to_buffer() {
+    use crate::drivers::traits::console::Read;
+    let mut buffer = INPUT_BUFFER.lock();
+    let uart = UART.lock();
+    // crate::println!("AAA");
+    // crate::println!("Buffer: {:x}", &*buffer as *const VecDeque<u8> as u64);
+
+    while let Some(b) = uart.try_getb() {
+        buffer.push_back(b);
+    }
+}
+
+pub fn read_input(my_buffer: &mut [u8]) -> usize {
+    let mut buffer = INPUT_BUFFER.lock();
+
+    let count = core::cmp::min(buffer.len(), my_buffer.len());
+    for i in 0..count {
+        my_buffer[i] = buffer.pop_front().expect("should not happen");
+    }
+    count
 }

@@ -8,6 +8,7 @@ use crate::vfs;
 
 const ONLY_MSB_OF_USIZE: usize = 1 << (core::mem::size_of::<usize>() * 8 - 1);
 
+#[derive(Clone, Copy)]
 pub enum AsyncFileDescriptor {
     FileDescriptor(usize),
     AsyncSyscallReturnValue(usize),
