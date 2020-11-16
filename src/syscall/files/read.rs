@@ -90,6 +90,17 @@ pub fn read_from_vfs_handler(fd: usize, length: usize, mut buffer: *mut u8) -> u
     }
 }
 
+pub fn read_from_stdin_handler(length: usize, mut buffer: *mut u8) -> u64 {
+    let buffer = unsafe { core::slice::from_raw_parts_mut(buffer, length) };
+    let stdin = crate::io::INPUT_BUFFER.lock();
+
+    let size = core::cmp::min(buffer.len(), stdin.len());
+    for (i, byte) in stdin.iter().take(size).enumerate() {
+        buffer[i] = *byte;
+    }
+    size as u64
+}
+
 pub fn handle_read(context: &mut ExceptionContext) {
     let fd = context.gpr[0] as usize;
     let length = context.gpr[1] as usize;
@@ -100,9 +111,7 @@ pub fn handle_read(context: &mut ExceptionContext) {
     // 2: PIPEIN
     // 3: PIPEOUT
     context.gpr[0] = match fd {
-        0 => {
-            panic!("Not implemented yet");
-        }
+        0 => read_from_stdin_handler(length, buffer),
         1 => (ONLY_MSB_OF_USIZE | vfs::FileError::CannotReadWriteOnlyFile as usize) as u64,
         2 => read_from_pipe_handler(length, buffer),
         3 => (ONLY_MSB_OF_USIZE | vfs::FileError::CannotReadWriteOnlyFile as usize) as u64,
