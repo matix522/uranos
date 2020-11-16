@@ -1,5 +1,5 @@
 use crate::syscall::files::File;
-use crate::syscall::print::print;
+use crate::{uprintln,uprint};
 use crate::syscall::{create_task, get_child_return_value, yield_cpu};
 use alloc::string::String;
 use alloc::vec::Vec;
@@ -66,11 +66,11 @@ fn add_new_input(command_line: &mut String, new_input: &str) {
             }
         }
         if new_deletions > 0 {
-            print(&format!("\x1B[{}D\x1B[0K", new_deletions));
+            uprint!("\x1B[{}D\x1B[0K", new_deletions);
         }
-        print(&new_input);
+        uprint!("{}", &new_input);
     } else {
-        print(&new_input);
+        uprint!("{}", &new_input);
     }
 }
 
@@ -148,8 +148,8 @@ fn run_commands(command_line: &str) -> Result<ErrorCode, ParseError> {
         let indivdual_comands = base_cmd.shell_split("\'\"".chars(), "|".chars())?;
         for command in indivdual_comands {
             match run_command(command) {
-                Ok(return_code) => print(&format!("Program exited with code {}\n", return_code)),
-                Err(parse_error) => print(&format!("Shell Error: {:?}\n", parse_error)),
+                Ok(return_code) => uprintln!("Program exited with code {}", return_code),
+                Err(parse_error) => uprintln!("Shell Error: {:?}", parse_error),
             }
         }
 
@@ -185,5 +185,5 @@ fn await_child(child_pid: u64) -> u32 {
 }
 
 fn print_prompt() {
-    print("\u{1FA90} default@uranos | \u{1F5C1}  / > ");
+    uprint!("\u{1FA90} default@uranos | \u{1F5C1}  / > ");
 }
