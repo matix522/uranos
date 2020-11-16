@@ -1,6 +1,7 @@
 use super::*;
 use crate::syscall::asynchronous::async_returned_values::*;
 use crate::syscall::asynchronous::async_syscall::*;
+use crate::syscall::files::resolve_fd;
 use crate::syscall::files::seek::vfs_seek_handler;
 use crate::utils::circullar_buffer::*;
 use crate::vfs;
@@ -71,6 +72,8 @@ pub(in crate::syscall::asynchronous) fn handle_async_seek(
             }
         },
     };
+
+    let fd = resolve_fd(fd);
 
     if fd < 4 {
         return ONLY_MSB_OF_USIZE | vfs::FileError::CannotSeekSpecialFile as usize;

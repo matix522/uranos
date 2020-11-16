@@ -162,11 +162,11 @@ fn run_command(command: &str) -> Result<ErrorCode, ParseError> {
     let (head, tail) = words.split_at(1);
     let command_name = head[0];
 
-    let bytes: Vec<&[u8]> = tail.iter().map(|string| string.as_bytes()).collect();
+    // let bytes: Vec<&[u8]> = tail.iter().map(|string| string.as_bytes()).collect();
 
     for &(name, function) in super::PROGRAMS.iter() {
         if name == command_name {
-            let child_pid = create_task(function, &bytes[..]);
+            let child_pid = create_task(function, tail, false, None);
             let return_val = await_child(child_pid);
             return Ok(return_val);
         }

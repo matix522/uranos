@@ -96,7 +96,7 @@ pub unsafe fn syscall4(p1: usize, p2: usize, p3: usize, p4: usize, syscall_type:
     let ret: usize;
     llvm_asm!("svc   0"
           : "={x0}"(ret)
-          : "{x8}"(p1), "{x0}"(p2), "{x1}"(p3), "{x2}"(p4), "{x3}"(syscall_type)
+          : "{x0}"(p1), "{x1}"(p2), "{x2}"(p3), "{x3}"(p4), "{x8}"(syscall_type)
           : "x0", "x1", "x2", "x3", "x8"
           : "volatile");
 
@@ -143,12 +143,28 @@ pub fn finish_task(return_val: u32) {
     }
 }
 
-pub fn create_task(function: extern "C" fn(usize, *const &[u8]) -> u32, args: &[&[u8]]) -> u64 {
+pub fn create_task(
+    function: extern "C" fn(usize, *const &[u8]) -> u32,
+    args: &[&str],
+    stdout_to_pipe: bool,
+    pid_pipe_to_stdin: Option<u64>,
+) -> u64 {
+    let stdin_val = match pid_pipe_to_stdin {
+        Some(val) => {
+            if val == !0u64 {
+                return ONLY_MSB_OF_USIZE as u64;
+            }
+            val as usize
+        }
+        None => !0usize,
+    };
     unsafe {
-        syscall3(
+        syscall5(
             function as *const () as usize,
-            args as *const [&[u8]] as *const () as usize,
+            args as *const [&str] as *const () as usize,
             args.len(),
+            stdout_to_pipe as usize,
+            stdin_val,
             Syscalls::CreateTask as usize,
         ) as u64
     }

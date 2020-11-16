@@ -73,7 +73,9 @@ pub fn get_current_task_pid() -> usize {
 
 pub fn get_child_task_return_val(pid: usize) -> Option<u32> {
     let mut scheduler = TASK_MANAGER.lock();
-    scheduler.get_child_task_return_val(pid)
+    let ret = scheduler.get_child_task_return_val(pid);
+    // crate::println!("CHILD RETURN VALUE: {:?}", ret);
+    ret
 }
 
 pub struct TaskManager {
@@ -197,6 +199,7 @@ impl TaskManager {
             .get_two_tasks(previous_task_pid, next_task_pid)
             .expect("Error during task switch: {:?}");
 
+        // crate::println!("=================Teraz task {}", next_task_pid);
         // #Safety: lifetime of this reference is the same as lifetime of whole TaskManager; exception_context is always properly initialized if task is in tasks vector
         unsafe {
             cpu_switch_to(
@@ -224,11 +227,7 @@ impl TaskManager {
     }
 
     pub fn finish_task(&mut self, return_value: u32, task_pid: usize) {
-        if self.tasks[task_pid].is_pipe_queue_empty() {
-            self.tasks[task_pid].state = TaskStates::Dead;
-        } else {
-            self.tasks[task_pid].state = TaskStates::Zombie;
-        }
+        self.tasks[task_pid].state = TaskStates::Zombie;
         let keys = self.tasks[task_pid]
             .children_return_vals
             .keys()
@@ -248,6 +247,7 @@ impl TaskManager {
                 .children_return_vals
                 .insert(task_pid, return_value);
         };
+        crate::println!("FINISHING TASK NO. {}", task_pid);
         self.switch_task()
     }
 
@@ -277,6 +277,8 @@ pub fn handle_new_task_syscall(e: &mut ExceptionContext) {
     let function_address = e.gpr[0] as usize;
     let ptr = e.gpr[1] as *const &[u8];
     let len = e.gpr[2] as usize;
+    let stdout_to_pipe = e.gpr[3] != 0;
+    let stdin_to_pipe = e.gpr[4] as usize;
 
     let args: &[&[u8]] = unsafe { core::slice::from_raw_parts(ptr, len) };
 
@@ -284,6 +286,16 @@ pub fn handle_new_task_syscall(e: &mut ExceptionContext) {
         core::mem::transmute::<usize, extern "C" fn(usize, *const &[u8]) -> u32>(function_address)
     };
     let mut task = TaskContext::new(function, args, false).expect("Failed to create new task");
+
+    use crate::syscall::files::*;
+    if stdout_to_pipe {
+        task.mapped_fds.insert(STDOUT, PIPEOUT);
+    }
+
+    if stdin_to_pipe != !0usize {
+        task.mapped_fds.insert(STDIN, PIPEIN);
+        task.pipe_from = Some(stdin_to_pipe);
+    }
 
     task.ppid = Some(get_current_task_pid());
 

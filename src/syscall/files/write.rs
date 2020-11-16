@@ -1,3 +1,4 @@
+use super::resolve_fd;
 use crate::interupts::ExceptionContext;
 use crate::syscall::*;
 use crate::vfs;
@@ -66,19 +67,23 @@ pub fn vfs_write_handler(data: &[u8], fd: usize) -> u64 {
     }
 }
 
-pub fn handle_write(context: &mut ExceptionContext) {
-    let fd = context.gpr[0] as usize;
+pub fn handle_write_syscall(context: &mut ExceptionContext) {
+    let fd = resolve_fd(context.gpr[0] as usize);
     let ptr = context.gpr[1] as *const u8;
     let len = context.gpr[2] as usize;
 
     let data = unsafe { slice::from_raw_parts(ptr, len) };
 
+    context.gpr[0] = handle_write(fd, data);
+}
+
+pub fn handle_write(fd: usize, data: &[u8]) -> u64 {
     // Special file descriptors:
     // 0: STDIN (UART)
     // 1: STDOUT (UART)
     // 2: PIPEIN
     // 3: PIPEOUT
-    context.gpr[0] = match fd {
+    match resolve_fd(fd) {
         0 => (ONLY_MSB_OF_USIZE | vfs::FileError::ModifyingWithoutWritePermission as usize) as u64,
         1 => {
             let string = unsafe { core::str::from_utf8_unchecked(data) };
@@ -88,5 +93,5 @@ pub fn handle_write(context: &mut ExceptionContext) {
         2 => (ONLY_MSB_OF_USIZE | vfs::FileError::ModifyingWithoutWritePermission as usize) as u64,
         3 => pipe_write_handler(data),
         _ => vfs_write_handler(data, fd),
-    };
+    }
 }

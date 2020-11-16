@@ -24,7 +24,8 @@ pub extern "C" fn simple_cat(argc: usize, argv: *const &[u8]) -> u32 {
     use core::convert::TryInto;
     use core::str::from_utf8;
 
-    if argc != 1 && argc != 2 {
+
+    if argc != 1 {
         uprintln!("Invalid number of arguments");
         return 1;
     }
@@ -37,23 +38,6 @@ pub extern "C" fn simple_cat(argc: usize, argv: *const &[u8]) -> u32 {
             uprintln!("Expected valid utf8 string");
             return 2;
         }
-    };
-
-    let out_file = if argc == 2 {
-        let bytes: &[u8; 8] = match args[1].try_into() {
-            Ok(val) => val,
-            Err(_) => {
-                uprintln!("Invalid out type flag value");
-                return 3;
-            }
-        };
-        if u64::from_le_bytes(*bytes) > 0 {
-            File::get_pipeout()
-        } else {
-            File::get_stdout()
-        }
-    } else {
-        File::get_stdout()
     };
 
     let f = match File::open(filename, false) {
@@ -76,8 +60,9 @@ pub extern "C" fn simple_cat(argc: usize, argv: *const &[u8]) -> u32 {
         if count == 0 {
             break;
         }
-        out_file.write(&buffer[0..count]);
+        File::get_stdout().write(&buffer[0..count]);
     }
+
     f.close();
     0
 }
@@ -93,14 +78,14 @@ pub extern "C" fn simple_wc(argc: usize, argv: *const &[u8]) -> u32 {
     use core::convert::TryInto;
     use core::str::from_utf8;
 
-    if argc != 2 && argc != 3 {
+    if argc != 1 {
         uprintln!("Invalid number of arguments");
         return 1;
     }
 
     let args = unsafe { core::slice::from_raw_parts(argv, argc) };
 
-    let option = match core::str::from_utf8(args[0]) {
+    let option = match from_utf8(args[0]) {
         Ok(val) => val,
         Err(_) => {
             uprintln!("Valid options are: -c ");
@@ -108,43 +93,10 @@ pub extern "C" fn simple_wc(argc: usize, argv: *const &[u8]) -> u32 {
         }
     };
 
-    let in_file = if argc == 0 {
-        File::get_stdin()
-    } else {
-        let bytes: &[u8; 8] = match args[1].try_into() {
-            Ok(val) => val,
-            Err(_) => {
-                uprintln!("Invalid out type pipe source val");
-                return 3;
-            }
-        };
-        let pid = u64::from_le_bytes(*bytes);
-        uprintln!("PID of the beginning of pipe: {}", pid);
-        set_pipe_read_on_pid(pid);
-        File::get_pipein()
-    };
-
-    let out_file = if argc == 0 {
-        File::get_stdout()
-    } else {
-        let bytes: &[u8; 8] = match args[2].try_into() {
-            Ok(val) => val,
-            Err(_) => {
-                uprintln!("Invalid out type flag value");
-                return 4;
-            }
-        };
-        if u64::from_le_bytes(*bytes) > 0 {
-            File::get_pipeout()
-        } else {
-            File::get_stdout()
-        }
-    };
-
     let mut buffer = [0u8; 32];
     let mut result = Vec::<u8>::new();
     loop {
-        match in_file.read(32, &mut buffer) {
+        match File::get_stdin().read(32, &mut buffer) {
             Ok(res) => {
                 if res > 0 {
                     result.extend_from_slice(&buffer);
@@ -155,7 +107,6 @@ pub extern "C" fn simple_wc(argc: usize, argv: *const &[u8]) -> u32 {
             Err(_) => break,
         };
     }
-    in_file.close();
 
     let string = from_utf8(&result[..]).unwrap().trim_matches(char::from(0));
 
@@ -170,8 +121,9 @@ pub extern "C" fn simple_wc(argc: usize, argv: *const &[u8]) -> u32 {
             return 10;
         }
     };
+    print::print(&format!("RESULT: {}\n", res));
 
-    out_file.write(&format!("{}", res).as_bytes());
+    File::get_stdout().write(&format!("{}", res).as_bytes());
     0
 }
 
@@ -180,64 +132,71 @@ static MY_PID: AtomicU64 = AtomicU64::new(0);
 #[no_mangle]
 #[inline(never)]
 pub extern "C" fn first_task(_argc: usize, _argv: *const &[u8]) -> u32 {
+    use crate::alloc::string::ToString;
     use crate::syscall::asynchronous::files::AsyncFileDescriptor;
     use crate::syscall::files::File;
     use crate::syscall::*;
     use core::str::from_utf8;
 
-    let filename = "file1";
-    let cat_to_pipe = 1usize.to_le_bytes();
-    let cat_args = [filename.as_bytes(), (&cat_to_pipe) as &[u8]];
+    let a_pid = create_task(double_chars, &[], true, None);
+    let b_pid = create_task(double_chars, &[], false, Some(a_pid));
+   
+    loop{}
+ 
+    0
+}
 
-    let cat_pid = create_task(simple_cat, &cat_args);
+pub extern "C" fn double_chars(_argc: usize, _argv: *const &[u8]) -> u32{
+    use crate::alloc::string::ToString;
+    use crate::syscall::asynchronous::files::AsyncFileDescriptor;
+    use crate::syscall::files::File;
+    use crate::syscall::*;
+    use core::str::from_utf8;
 
-    for _i in 1..10 {
-        yield_cpu();
+    let mut buffer = [0u8; 2];
+
+    let pid = get_pid();
+
+    loop{
+        let data = match File::get_stdin().read(2, &mut buffer){
+            Ok(size) => size,
+            Err(_) => break,
+        };
+        let string = match from_utf8(&buffer){
+            Ok(s) => s,
+            Err(_) => "ERROR",
+        };
+
+        File::get_stdout().write(string.as_bytes());
+        File::get_stdout().write(string.as_bytes());
+        buffer[0]=0;
+        buffer[1] = 0;
+      
     }
+    uprintln!("NO I ELO {}\n", pid);
+    0
+}
 
-    let pid = cat_pid.to_le_bytes();
-    let to_pipe = 1usize.to_le_bytes();
-    let wc_args = ["-c".as_bytes(), (&pid) as &[u8], (&to_pipe) as &[u8]];
+pub extern "C" fn B(_argc: usize, _argv: *const &[u8]) -> u32{
+    use crate::alloc::string::ToString;
+    use crate::syscall::asynchronous::files::AsyncFileDescriptor;
+    use crate::syscall::files::File;
+    use crate::syscall::*;
+    use core::str::from_utf8;
 
-    let wc_pid = create_task(simple_wc, &wc_args);
+    let mut buffer = [0u8; 2];
 
-    uprintln!(
-        "Created hello tasks with PIDs: {}, {}",
-        cat_pid, wc_pid
-    );
-    loop {
-        let ret_val = get_child_return_value(wc_pid);
-        if let Some(ret) = ret_val {
-            uprintln!("Returned value from wc: {}", ret);
-            break;
-        }
-        yield_cpu();
+    loop{
+        let data = match File::get_stdin().read(2, &mut buffer){
+            Ok(size) => size,
+            Err(_) => break,
+        };
+        let string = match from_utf8(&buffer){
+            Ok(s) => s,
+            Err(_) => "ERROR",
+        };
+        File::get_stdout().write(string.as_bytes());
     }
-
-    set_pipe_read_on_pid(wc_pid);
-
-    let mut buff = [0u8; 32];
-    let ret = File::get_pipein().read(32, &mut buff);
-    if ret.is_err() {
-        uprintln!(
-            "An error occured during the cat {} | wc -c execution",
-            filename
-        );
-    };
-    let string = from_utf8(&buff[..]).unwrap().trim_matches(char::from(0));
-    uprintln!(
-        "The file {} has {} characters",
-        filename, string
-    );
-
-    create_task(test_async_files, &[]);
-
-    let mut buff = [0u8; 32];
-    let _ret = File::get_stdin().read(10, &mut buff);
-    let string = from_utf8(&buff[..]).unwrap();
-    uprintln!("FROM STD IN {} ", string);
-    loop {}
-
     0
 }
 
