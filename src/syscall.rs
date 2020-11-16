@@ -143,11 +143,11 @@ pub fn finish_task(return_val: u32) {
     }
 }
 
-pub fn create_task(function: extern "C" fn(usize, *const &[u8]) -> u32, args: &[&[u8]]) -> u64 {
+pub fn create_task(function: extern "C" fn(usize, *const &[u8]) -> u32, args: &[&str]) -> u64 {
     unsafe {
         syscall3(
             function as *const () as usize,
-            args as *const [&[u8]] as *const () as usize,
+            args as *const [&str] as *const () as usize,
             args.len(),
             Syscalls::CreateTask as usize,
         ) as u64
