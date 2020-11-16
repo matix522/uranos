@@ -64,8 +64,6 @@ pub fn input_to_buffer() {
     // crate::println!("Buffer: {:x}", &*buffer as *const VecDeque<u8> as u64);
 
     while let Some(b) = uart.try_getb() {
-        crate::println!("byte: {}", b);
-
         buffer.push_back(b);
     }
 }

@@ -233,6 +233,13 @@ pub extern "C" fn first_task(_argc: usize, _argv: *const &[u8]) -> u32 {
 
     create_task(test_async_files, &[]);
 
+    let mut buff = [0u8; 32];
+    let ret = File::get_stdin().read(10, &mut buff);
+    let string = from_utf8(&buff[..]).unwrap();
+    print::print(&format!(
+        "FROM STD IN {} \n",
+        string
+    ));
     loop {}
 
     0
