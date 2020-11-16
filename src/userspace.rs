@@ -1,13 +1,15 @@
-use crate::syscall::print::print;
+mod print;
+
 use alloc::collections::BTreeMap;
 use alloc::string::String;
 use core::sync::atomic::{AtomicU64, Ordering};
+use crate::{uprint, uprintln};
+
 #[no_mangle]
 #[inline(never)]
 pub extern "C" fn _true(_argc: usize, _argv: *const &[u8]) -> u32 {
     0
 }
-
 #[no_mangle]
 #[inline(never)]
 pub extern "C" fn _false(_argc: usize, _argv: *const &[u8]) -> u32 {
@@ -23,7 +25,7 @@ pub extern "C" fn simple_cat(argc: usize, argv: *const &[u8]) -> u32 {
     use core::str::from_utf8;
 
     if argc != 1 && argc != 2 {
-        print("Invalid number of arguments\n");
+        uprintln!("Invalid number of arguments");
         return 1;
     }
 
@@ -32,7 +34,7 @@ pub extern "C" fn simple_cat(argc: usize, argv: *const &[u8]) -> u32 {
     let filename = match from_utf8(args[0]) {
         Ok(val) => val,
         Err(_) => {
-            print("Expected valid utf8 string\n");
+            uprintln!("Expected valid utf8 string");
             return 2;
         }
     };
@@ -41,7 +43,7 @@ pub extern "C" fn simple_cat(argc: usize, argv: *const &[u8]) -> u32 {
         let bytes: &[u8; 8] = match args[1].try_into() {
             Ok(val) => val,
             Err(_) => {
-                print("Invalid out type flag value");
+                uprintln!("Invalid out type flag value");
                 return 3;
             }
         };
@@ -57,7 +59,7 @@ pub extern "C" fn simple_cat(argc: usize, argv: *const &[u8]) -> u32 {
     let f = match File::open(filename, false) {
         Ok(f) => f,
         Err(e) => {
-            print(&format!("A file error occured during open: {:?}\n", e));
+            uprintln!("A file error occured during open: {:?}", e);
             return 3;
         }
     };
@@ -67,7 +69,7 @@ pub extern "C" fn simple_cat(argc: usize, argv: *const &[u8]) -> u32 {
         let count = match f.read(64, &mut buffer) {
             Ok(val) => val,
             Err(e) => {
-                print(&format!("A file error occured during read: {:?}\n", e));
+                uprintln!("A file error occured during read: {:?}", e);
                 return 4;
             }
         };
@@ -92,7 +94,7 @@ pub extern "C" fn simple_wc(argc: usize, argv: *const &[u8]) -> u32 {
     use core::str::from_utf8;
 
     if argc != 2 && argc != 3 {
-        print("Invalid number of arguments\n");
+        uprintln!("Invalid number of arguments");
         return 1;
     }
 
@@ -101,7 +103,7 @@ pub extern "C" fn simple_wc(argc: usize, argv: *const &[u8]) -> u32 {
     let option = match core::str::from_utf8(args[0]) {
         Ok(val) => val,
         Err(_) => {
-            print("Valid options are: -c \n");
+            uprintln!("Valid options are: -c ");
             return 2;
         }
     };
@@ -112,12 +114,12 @@ pub extern "C" fn simple_wc(argc: usize, argv: *const &[u8]) -> u32 {
         let bytes: &[u8; 8] = match args[1].try_into() {
             Ok(val) => val,
             Err(_) => {
-                print("Invalid out type pipe source val");
+                uprintln!("Invalid out type pipe source val");
                 return 3;
             }
         };
         let pid = u64::from_le_bytes(*bytes);
-        print(&format!("PID of the beginning of pipe: {}\n", pid));
+        uprintln!("PID of the beginning of pipe: {}", pid);
         set_pipe_read_on_pid(pid);
         File::get_pipein()
     };
@@ -128,7 +130,7 @@ pub extern "C" fn simple_wc(argc: usize, argv: *const &[u8]) -> u32 {
         let bytes: &[u8; 8] = match args[2].try_into() {
             Ok(val) => val,
             Err(_) => {
-                print("Invalid out type flag value");
+                uprintln!("Invalid out type flag value");
                 return 4;
             }
         };
@@ -160,11 +162,11 @@ pub extern "C" fn simple_wc(argc: usize, argv: *const &[u8]) -> u32 {
     let res = match option {
         "-c" => string.chars().count(),
         "-w" => {
-            print("not implemented yet");
+            uprintln!("not implemented yet");
             return 10;
         }
         &_ => {
-            print("not implemented yet");
+            uprintln!("not implemented yet");
             return 10;
         }
     };
@@ -199,14 +201,14 @@ pub extern "C" fn first_task(_argc: usize, _argv: *const &[u8]) -> u32 {
 
     let wc_pid = create_task(simple_wc, &wc_args);
 
-    print(&format!(
-        "Created hello tasks with PIDs: {}, {}\n",
+    uprintln!(
+        "Created hello tasks with PIDs: {}, {}",
         cat_pid, wc_pid
-    ));
+    );
     loop {
         let ret_val = get_child_return_value(wc_pid);
         if let Some(ret) = ret_val {
-            print(&format!("Returned value from wc: {}\n", ret));
+            uprintln!("Returned value from wc: {}", ret);
             break;
         }
         yield_cpu();
@@ -217,23 +219,23 @@ pub extern "C" fn first_task(_argc: usize, _argv: *const &[u8]) -> u32 {
     let mut buff = [0u8; 32];
     let ret = File::get_pipein().read(32, &mut buff);
     if ret.is_err() {
-        print(&format!(
+        uprintln!(
             "An error occured during the cat {} | wc -c execution",
             filename
-        ));
+        );
     };
     let string = from_utf8(&buff[..]).unwrap().trim_matches(char::from(0));
-    print(&format!(
-        "The file {} has {} characters\n",
+    uprintln!(
+        "The file {} has {} characters",
         filename, string
-    ));
+    );
 
     create_task(test_async_files, &[]);
 
     let mut buff = [0u8; 32];
     let _ret = File::get_stdin().read(10, &mut buff);
     let string = from_utf8(&buff[..]).unwrap();
-    print(&format!("FROM STD IN {} \n", string));
+    uprintln!("FROM STD IN {} ", string);
     loop {}
 
     0
@@ -270,22 +272,22 @@ pub extern "C" fn test_async_files(_argc: usize, _argv: *const &[u8]) -> u32 {
         )
         .then_close(7, submission_buffer);
 
-    asynchronous::async_print::async_print("Hello world!\n", 69, submission_buffer);
+    asynchronous::async_print::async_print("Hello world!", 69, submission_buffer);
 
     loop {
         match asynchronous::async_syscall::get_syscall_returned_value(completion_buffer) {
             Some(val) => {
-                print(&format!(
-                    "Received response for id: {} - {} : {}\n",
+                uprintln!(
+                    "Received response for id: {} - {} : {}",
                     val.id,
                     val.value,
                     val.value & !ONLY_MSB_OF_USIZE
-                ));
+                );
                 if val.id == 7 {
                     let string = from_utf8(&str_buffer).unwrap();
-                    print(&format!("1st Read_value: {}\n", string));
+                    uprintln!("1st Read_value: {}", string);
                     let string = from_utf8(&str_buffer1).unwrap();
-                    print(&format!("2nd Read_value: {}\n", string));
+                    uprintln!("2nd Read_value: {}", string);
                     loop {}
                 }
             }
@@ -301,11 +303,11 @@ pub extern "C" fn _loop(_: usize, _: *const &[u8]) -> u32 {
 }
 
 pub extern "C" fn pwd(_: usize, _: *const &[u8]) -> u32 {
-    print("/\n");
+    uprintln!("/");
     0
 }
 pub extern "C" fn clear(_: usize, _: *const &[u8]) -> u32 {
-    print("\x1B[2J\x1B[2;1H\x1B[2J\x1B[2;1H");
+    uprint!("\x1B[2J\x1B[2;1H\x1B[2J\x1B[2;1H");
     0
 }
 
