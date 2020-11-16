@@ -131,7 +131,7 @@ fn echo() -> ! {
 
     // config::set_debug_alloc(true);
     // config::set_debug_mmu(true);
-    let shell = scheduler::task_context::TaskContext::new(userspace::shell, &[], false)
+    let shell = scheduler::task_context::TaskContext::new(userspace::ushell, &[], false)
         .expect("Error creating task 1 context");
 
     // let _loop = scheduler::task_context::TaskContext::new(userspace::_loop, &[], false)
