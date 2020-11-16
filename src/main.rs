@@ -16,7 +16,7 @@
 #![feature(const_fn)]
 #![feature(slice_ptr_len)]
 #![feature(option_expect_none)]
-// #![feature(const_fn_fn_ptr_basics)]
+#![feature(const_fn_fn_ptr_basics)]
 #![feature(const_mut_refs)]
 
 #[macro_use]

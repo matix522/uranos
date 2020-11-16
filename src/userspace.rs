@@ -25,7 +25,7 @@ pub extern "C" fn simple_cat(argc: usize, argv: *const &[u8]) -> u32 {
     use core::str::from_utf8;
 
 
-    if argc != 1 
+    if argc != 1 {
         uprintln!("Invalid number of arguments");
         return 1;
     }
@@ -62,6 +62,7 @@ pub extern "C" fn simple_cat(argc: usize, argv: *const &[u8]) -> u32 {
         }
         File::get_stdout().write(&buffer[0..count]);
     }
+
     f.close();
     0
 }
@@ -172,7 +173,7 @@ pub extern "C" fn double_chars(_argc: usize, _argv: *const &[u8]) -> u32{
         buffer[1] = 0;
       
     }
-    print(&format!("NO I ELO {}\n", pid));
+    uprintln!("NO I ELO {}\n", pid);
     0
 }
 
