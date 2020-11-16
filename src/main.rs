@@ -76,6 +76,9 @@ fn kernel_entry() -> ! {
     }
 
     let _controller = Rpi3InterruptController::new(INTERRUPT_CONTROLLER_BASE);
+    unsafe {
+        crate::memory::allocator::init_kernel();
+    }
 
     println!("Prepare MMU Configuration");
     unsafe {
