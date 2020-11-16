@@ -92,12 +92,13 @@ pub fn read_from_vfs_handler(fd: usize, length: usize, mut buffer: *mut u8) -> u
 
 pub fn read_from_stdin_handler(length: usize, mut buffer: *mut u8) -> u64 {
     let buffer = unsafe { core::slice::from_raw_parts_mut(buffer, length) };
-    let stdin = crate::io::INPUT_BUFFER.lock();
+    let mut stdin = crate::io::INPUT_BUFFER.lock();
 
     let size = core::cmp::min(buffer.len(), stdin.len());
     for (i, byte) in stdin.iter().take(size).enumerate() {
         buffer[i] = *byte;
     }
+    stdin.drain(..size);
     size as u64
 }
 

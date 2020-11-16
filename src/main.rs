@@ -131,13 +131,13 @@ fn echo() -> ! {
 
     // config::set_debug_alloc(true);
     // config::set_debug_mmu(true);
-    let task1 = scheduler::task_context::TaskContext::new(userspace::first_task, &[], false)
+    let shell = scheduler::task_context::TaskContext::new(userspace::shell, &[], false)
         .expect("Error creating task 1 context");
 
-    let _loop = scheduler::task_context::TaskContext::new(userspace::_loop, &[], false)
-        .expect("Error creating task 1 context");
-    scheduler::add_task(task1).expect("Error adding task 1");
-    scheduler::add_task(_loop).expect("Error adding task 1");
+    // let _loop = scheduler::task_context::TaskContext::new(userspace::_loop, &[], false)
+    //     .expect("Error creating task 1 context");
+    scheduler::add_task(shell).expect("Error adding task 1");
+    // scheduler::add_task(_loop).expect("Error adding task 1");
 
     unsafe {
         interupts::init_exceptions(

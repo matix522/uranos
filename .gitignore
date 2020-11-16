@@ -8,3 +8,4 @@ kernel8*
 /deploy
 .dockerignore
 bin/
+**/target

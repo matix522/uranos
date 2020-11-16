@@ -65,11 +65,7 @@ impl Default for TaskMemoryManager {
                 ..binary_info.task_local.end
                     + (binary_info.task_local.end as *const u8).align_offset(4096)
         };
-        crate::println!(
-            "Alligned {:x} - {:x}",
-            task_local_pages.start,
-            task_local_pages.end
-        );
+
         let page_address =
             unsafe { alloc_zeroed(Layout::from_size_align(task_local_pages.len(), 4096).unwrap()) }
                 as usize;
@@ -109,15 +105,6 @@ impl Default for TaskMemoryManager {
                         .map_memory(address, offset, &memory.attribute_fields, memory.granule)
                         .unwrap();
                 }
-            }
-        }
-        unsafe {
-            match my_memory_manager
-                .additional_table_hack
-                .translate(0x1_0009_d030)
-            {
-                Ok(t) => crate::println!("Prev {:x} -> {:x}", 0x1_0009_d030u64, t as u64),
-                Err(_t) => crate::println!("Prev {:x} -> None", 0x1_0009_d030u64,),
             }
         }
 

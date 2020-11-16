@@ -62,6 +62,7 @@ pub fn get_time_quant() -> Duration {
 
 pub fn finish_current_task(return_value: u32) {
     let mut scheduler = TASK_MANAGER.lock();
+
     scheduler.finish_current_task(return_value);
 }
 
@@ -123,9 +124,11 @@ impl TaskManager {
     }
 
     pub fn get_child_task_return_val(&mut self, pid: usize) -> Option<u32> {
-        self.tasks[self.current_task]
+        let val = self.tasks[self.current_task]
             .children_return_vals
-            .remove(&pid)
+            .remove(&pid);
+
+        val
     }
 
     fn get_two_tasks(
@@ -240,11 +243,10 @@ impl TaskManager {
                 }
             }
         }
-
         if let Some(ppid) = self.tasks[task_pid].ppid {
             self.tasks[ppid]
                 .children_return_vals
-                .insert(self.current_task, return_value);
+                .insert(task_pid, return_value);
         };
         self.switch_task()
     }
