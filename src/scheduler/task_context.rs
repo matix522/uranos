@@ -1,3 +1,4 @@
+use super::task_memory_manager;
 use super::task_stack;
 use crate::alloc::collections::BTreeMap;
 use crate::syscall::asynchronous::async_returned_values::AsyncReturnedValues;
@@ -83,6 +84,7 @@ pub struct TaskContext {
     pub pipe_from: Option<usize>,
     pub mapped_fds: BTreeMap<usize, usize>,
     pipe_queue: VecDeque<Vec<u8>>,
+    pub memory_manager: task_memory_manager::TaskMemoryManager,
     pub ppid: Option<usize>,
 }
 
@@ -108,6 +110,7 @@ impl TaskContext {
             was_returned_value_read: false,
             mapped_fds: BTreeMap::<usize, usize>::new(),
             pipe_queue: VecDeque::<Vec<u8>>::new(),
+            memory_manager: Default::default(),
             ppid: None,
             pipe_from: None,
         }
@@ -152,7 +155,8 @@ impl TaskContext {
     ) -> Result<Self, TaskError> {
         let mut task: TaskContext = Self::empty();
 
-        let user_address = |address: usize| (address & !crate::KERNEL_OFFSET) as u64;
+        let user_address =
+            |address: usize| ((address & !crate::KERNEL_OFFSET) | 0x1_0000_0000) as u64;
 
         task.is_kernel = is_kernel;
 
@@ -238,7 +242,6 @@ impl TaskContext {
         task.el0_stack = Some(el0_stack);
         task.el1_stack = Some(el1_stack);
 
-        // crate::println!("{:#018x}", &task.submission_buffer as *const _ as u64);
         Ok(task)
     }
 }

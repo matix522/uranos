@@ -1,19 +1,17 @@
-use crate::alloc::collections::BTreeMap;
-use crate::alloc::string::String;
-
-pub static mut PROGRAMS: BTreeMap<String, extern "C" fn() -> u32> =
-    BTreeMap::<String, extern "C" fn() -> u32>::new();
-
+use crate::syscall::print::print;
+use alloc::collections::BTreeMap;
+use alloc::string::String;
+use core::sync::atomic::{AtomicU64, Ordering};
 #[no_mangle]
 #[inline(never)]
-pub extern "C" fn r#true() -> u32 {
-    1
+pub extern "C" fn _true(_argc: usize, _argv: *const &[u8]) -> u32 {
+    0
 }
 
 #[no_mangle]
 #[inline(never)]
-pub extern "C" fn r#false() -> u32 {
-    0
+pub extern "C" fn _false(_argc: usize, _argv: *const &[u8]) -> u32 {
+    1
 }
 
 #[no_mangle]
@@ -34,7 +32,7 @@ pub extern "C" fn simple_cat(argc: usize, argv: *const &[u8]) -> u32 {
     let filename = match from_utf8(args[0]) {
         Ok(val) => val,
         Err(_) => {
-            print::print("Expected valid utf8 string as 1st argument\n");
+            print("Expected valid utf8 string\n");
             return 2;
         }
     };
@@ -42,7 +40,7 @@ pub extern "C" fn simple_cat(argc: usize, argv: *const &[u8]) -> u32 {
     let f = match File::open(filename, false) {
         Ok(f) => f,
         Err(e) => {
-            print::print(&format!("A file error occured during open: {:?}\n", e));
+            print(&format!("A file error occured during open: {:?}\n", e));
             return 3;
         }
     };
@@ -52,7 +50,7 @@ pub extern "C" fn simple_cat(argc: usize, argv: *const &[u8]) -> u32 {
         let count = match f.read(64, &mut buffer) {
             Ok(val) => val,
             Err(e) => {
-                print::print(&format!("A file error occured during read: {:?}\n", e));
+                print(&format!("A file error occured during read: {:?}\n", e));
                 f.close();
                 return 4;
             }
@@ -87,7 +85,7 @@ pub extern "C" fn simple_wc(argc: usize, argv: *const &[u8]) -> u32 {
     let option = match from_utf8(args[0]) {
         Ok(val) => val,
         Err(_) => {
-            print::print("Valid options are: -c \n");
+            print("Valid options are: -c \n");
             return 2;
         }
     };
@@ -109,15 +107,14 @@ pub extern "C" fn simple_wc(argc: usize, argv: *const &[u8]) -> u32 {
 
     let string = from_utf8(&result[..]).unwrap().trim_matches(char::from(0));
 
-    // print::print(&format!("HANDLING STRING: {}\n", string));
     let res = match option {
         "-c" => string.chars().count(),
         "-w" => {
-            print::print("not implemented yet");
+            print("not implemented yet");
             return 10;
         }
         &_ => {
-            print::print("not implemented yet");
+            print("not implemented yet");
             return 10;
         }
     };
@@ -127,6 +124,8 @@ pub extern "C" fn simple_wc(argc: usize, argv: *const &[u8]) -> u32 {
     0
 }
 
+#[link_section = ".task_local"]
+static MY_PID: AtomicU64 = AtomicU64::new(0);
 #[no_mangle]
 #[inline(never)]
 pub extern "C" fn first_task(_argc: usize, _argv: *const &[u8]) -> u32 {
@@ -136,48 +135,65 @@ pub extern "C" fn first_task(_argc: usize, _argv: *const &[u8]) -> u32 {
     use crate::syscall::*;
     use core::str::from_utf8;
 
-    let filename = "file1";
-    let cat_pid = create_task(simple_cat, &[filename], true, None);
+    let a_pid = create_task(double_chars, &[], true, None);
+    let b_pid = create_task(double_chars, &[], false, Some(a_pid));
+   
+    loop{}
+ 
+    0
+}
 
-    for _i in 1..10 {
-        yield_cpu();
+pub extern "C" fn double_chars(_argc: usize, _argv: *const &[u8]) -> u32{
+    use crate::alloc::string::ToString;
+    use crate::syscall::asynchronous::files::AsyncFileDescriptor;
+    use crate::syscall::files::File;
+    use crate::syscall::*;
+    use core::str::from_utf8;
+
+    let mut buffer = [0u8; 2];
+
+    let pid = get_pid();
+
+    loop{
+        let data = match File::get_stdin().read(2, &mut buffer){
+            Ok(size) => size,
+            Err(_) => break,
+        };
+        let string = match from_utf8(&buffer){
+            Ok(s) => s,
+            Err(_) => "ERROR",
+        };
+
+        File::get_stdout().write(string.as_bytes());
+        File::get_stdout().write(string.as_bytes());
+        buffer[0]=0;
+        buffer[1] = 0;
+
     }
+    print(&format!("NO I ELO {}\n", pid));
+    0
+}
 
-    let wc_pid = create_task(simple_wc, &["-c"], true, Some(cat_pid));
-    let wc2_pid = create_task(simple_wc, &["-c"], true, Some(wc_pid));
+pub extern "C" fn B(_argc: usize, _argv: *const &[u8]) -> u32{
+    use crate::alloc::string::ToString;
+    use crate::syscall::asynchronous::files::AsyncFileDescriptor;
+    use crate::syscall::files::File;
+    use crate::syscall::*;
+    use core::str::from_utf8;
 
-    print::print(&format!(
-        "Created hello tasks with PIDs: {}, {}\n",
-        cat_pid, wc_pid
-    ));
-    loop {
-        let ret_val = get_child_return_value(wc2_pid);
-        if let Some(ret) = ret_val {
-            print::print(&format!("Returned value from wc: {}\n", ret));
-            break;
-        }
-        yield_cpu();
+    let mut buffer = [0u8; 2];
+
+    loop{
+        let data = match File::get_stdin().read(2, &mut buffer){
+            Ok(size) => size,
+            Err(_) => break,
+        };
+        let string = match from_utf8(&buffer){
+            Ok(s) => s,
+            Err(_) => "ERROR",
+        };
+        File::get_stdout().write(string.as_bytes());
     }
-    set_pipe_read_on_pid(wc2_pid);
-
-    let mut buff = [0u8; 32];
-    let ret = File::get_pipein().read(32, &mut buff);
-    if ret.is_err() {
-        print::print(&format!(
-            "An error occured during the cat {} | wc -c execution",
-            filename
-        ));
-    };
-    let string = from_utf8(&buff[..]).unwrap().trim_matches(char::from(0));
-    print::print(&format!(
-        "The file {} has {} characters\n",
-        filename, string
-    ));
-
-    create_task(test_async_files, &[], false, None);
-
-    loop {}
-
     0
 }
 
@@ -217,7 +233,7 @@ pub extern "C" fn test_async_files(_argc: usize, _argv: *const &[u8]) -> u32 {
     loop {
         match asynchronous::async_syscall::get_syscall_returned_value(completion_buffer) {
             Some(val) => {
-                print::print(&format!(
+                print(&format!(
                     "Received response for id: {} - {} : {}\n",
                     val.id,
                     val.value,
@@ -225,13 +241,54 @@ pub extern "C" fn test_async_files(_argc: usize, _argv: *const &[u8]) -> u32 {
                 ));
                 if val.id == 7 {
                     let string = from_utf8(&str_buffer).unwrap();
-                    print::print(&format!("1st Read_value: {}\n", string));
+                    print(&format!("1st Read_value: {}\n", string));
                     let string = from_utf8(&str_buffer1).unwrap();
-                    print::print(&format!("2nd Read_value: {}\n", string));
+                    print(&format!("2nd Read_value: {}\n", string));
                     loop {}
                 }
             }
             None => (),
         };
+    }
+}
+
+#[no_mangle]
+#[inline(never)]
+pub extern "C" fn _loop(_: usize, _: *const &[u8]) -> u32 {
+    loop {}
+}
+
+pub extern "C" fn pwd(_: usize, _: *const &[u8]) -> u32 {
+    print("/\n");
+    0
+}
+pub extern "C" fn clear(_: usize, _: *const &[u8]) -> u32 {
+    print("\x1B[2J\x1B[2;1H\x1B[2J\x1B[2;1H");
+    0
+}
+
+pub mod shell;
+
+type Program = (&'static str, extern "C" fn(usize, *const &[u8]) -> u32);
+
+const PROGRAMS: [Program; 10] = [
+    ("ush", ushell),
+    ("loop", _loop),
+    ("first_task", first_task),
+    ("test_async_files", test_async_files),
+    ("simple_wc", simple_wc),
+    ("simple_cat", simple_cat),
+    ("true", _true),
+    ("false", _false),
+    ("pwd", pwd),
+    ("clear", clear),
+];
+
+pub extern "C" fn ushell(argc: usize, argv: *const &[u8]) -> u32 {
+    let args = unsafe { core::slice::from_raw_parts(argv, argc) };
+
+    match shell::shell_impl(args) {
+        Ok(_) => 0,
+        Err(error_code) => error_code,
     }
 }

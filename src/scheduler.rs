@@ -1,7 +1,7 @@
 pub mod special_return_vals;
 pub mod task_context;
+pub mod task_memory_manager;
 pub mod task_stack;
-
 use crate::device_driver;
 use crate::interupts::ExceptionContext;
 use crate::syscall::asynchronous::handle_async_syscalls::handle_async_syscalls;
@@ -13,9 +13,14 @@ pub const MAX_TASK_COUNT: usize = 2048;
 
 extern "C" {
     /// Change CPU context from prev task to next task
-    fn cpu_switch_to(prev_task_addr: u64, next_task_addr: u64);
+    fn cpu_switch_to(
+        prev_task_addr: u64,
+        next_task_addr: u64,
+        prev_table_ptr: u64,
+        next_table_ptr: u64,
+    );
     /// Change CPU context to init task (dummy lands in unused x0 for sake of simplicity)
-    fn cpu_switch_to_first(init_task_addr: u64) -> !;
+    fn cpu_switch_to_first(init_task_addr: u64, init_table_ptr: u64) -> !;
 
 }
 
@@ -57,6 +62,7 @@ pub fn get_time_quant() -> Duration {
 
 pub fn finish_current_task(return_value: u32) {
     let mut scheduler = TASK_MANAGER.lock();
+
     scheduler.finish_current_task(return_value);
 }
 
@@ -67,7 +73,9 @@ pub fn get_current_task_pid() -> usize {
 
 pub fn get_child_task_return_val(pid: usize) -> Option<u32> {
     let mut scheduler = TASK_MANAGER.lock();
-    scheduler.get_child_task_return_val(pid)
+    let ret = scheduler.get_child_task_return_val(pid);
+    // crate::println!("CHILD RETURN VALUE: {:?}", ret);
+    ret
 }
 
 pub struct TaskManager {
@@ -118,9 +126,11 @@ impl TaskManager {
     }
 
     pub fn get_child_task_return_val(&mut self, pid: usize) -> Option<u32> {
-        self.tasks[self.current_task]
+        let val = self.tasks[self.current_task]
             .children_return_vals
-            .remove(&pid)
+            .remove(&pid);
+
+        val
     }
 
     fn get_two_tasks(
@@ -158,6 +168,9 @@ impl TaskManager {
     }
 
     pub fn switch_task(&mut self) {
+        // if !self.tasks.iter().all(|t| if let TaskStates::Dead = t.state  { true } else { false } ) {
+        //     return;
+        // }
         if !self.started {
             return;
         }
@@ -192,6 +205,8 @@ impl TaskManager {
             cpu_switch_to(
                 current_task as *const _ as u64,
                 next_task as *const _ as u64,
+                current_task.memory_manager.additional_table_hack.as_mut() as *mut _ as u64,
+                next_task.memory_manager.additional_table_hack.as_mut() as *mut _ as u64,
             );
         }
     }
@@ -204,16 +219,15 @@ impl TaskManager {
             .expect("Error during scheduler start: task 0 not found");
 
         unsafe {
-            cpu_switch_to_first(&task.gpr as *const _ as u64);
+            cpu_switch_to_first(
+                &task.gpr as *const _ as u64,
+                task.memory_manager.additional_table_hack.as_mut() as *mut _ as u64,
+            );
         }
     }
 
     pub fn finish_task(&mut self, return_value: u32, task_pid: usize) {
-        if self.tasks[task_pid].is_pipe_queue_empty() {
-            self.tasks[task_pid].state = TaskStates::Dead;
-        } else {
-            self.tasks[task_pid].state = TaskStates::Zombie;
-        }
+        self.tasks[task_pid].state = TaskStates::Zombie;
         let keys = self.tasks[task_pid]
             .children_return_vals
             .keys()
@@ -228,12 +242,12 @@ impl TaskManager {
                 }
             }
         }
-
         if let Some(ppid) = self.tasks[task_pid].ppid {
             self.tasks[ppid]
                 .children_return_vals
-                .insert(self.current_task, return_value);
+                .insert(task_pid, return_value);
         };
+        crate::println!("FINISHING TASK NO. {}", task_pid);
         self.switch_task()
     }
 
@@ -247,7 +261,6 @@ impl TaskManager {
 }
 extern "C" {
     /// Change CPU context from prev task to next task
-    #[no_mangle]
     fn drop_el0();
 }
 // #[no_mangle]

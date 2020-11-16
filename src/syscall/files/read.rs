@@ -33,6 +33,10 @@ pub fn read_from_pipe_handler(length: usize, mut buffer: *mut u8) -> u64 {
             let task: &mut TaskContext = unsafe { &mut (*task_ptr) };
             if let TaskStates::Dead = *task.get_state() {
                 return (ONLY_MSB_OF_USIZE | vfs::FileError::ReadOnClosedFile as usize) as u64;
+            }if let TaskStates::Zombie = *task.get_state() {
+                if task.is_pipe_queue_empty(){
+                    return (ONLY_MSB_OF_USIZE | vfs::FileError::ReadOnClosedFile as usize) as u64;
+                }
             }
             let mut data_to_go = length;
             loop {
@@ -70,7 +74,7 @@ pub fn read_from_pipe_handler(length: usize, mut buffer: *mut u8) -> u64 {
     return (ONLY_MSB_OF_USIZE | vfs::FileError::ReadOnClosedFile as usize) as u64;
 }
 
-pub fn read_from_vfs_handler(fd: usize, length: usize, mut buffer: *mut u8) -> u64 {
+pub fn read_from_vfs_handler(fd: usize, length: usize, buffer: *mut u8) -> u64 {
     let current_task = crate::scheduler::get_current_task_context();
     let fd_table = unsafe { &mut (*current_task).file_descriptor_table };
 
@@ -91,6 +95,19 @@ pub fn read_from_vfs_handler(fd: usize, length: usize, mut buffer: *mut u8) -> u
     }
 }
 
+pub fn read_from_stdin_handler(length: usize, buffer: *mut u8) -> u64 {
+    let buffer = unsafe { core::slice::from_raw_parts_mut(buffer, length) };
+    let mut stdin = crate::io::INPUT_BUFFER.lock();
+
+    let size = core::cmp::min(buffer.len(), stdin.len());
+    for (i, byte) in stdin.iter().take(size).enumerate() {
+        buffer[i] = *byte;
+    }
+    stdin.drain(..size);
+    size as u64
+}
+
+
 pub fn handle_read_syscall(context: &mut ExceptionContext) {
     let fd = resolve_fd(context.gpr[0] as usize);
     let length = context.gpr[1] as usize;
@@ -110,9 +127,7 @@ pub fn handle_read(fd: usize, length: usize, buffer: *mut u8) -> u64 {
     // 2: PIPEIN
     // 3: PIPEOUT
     match resolve_fd(fd) {
-        0 => {
-            panic!("Not implemented yet");
-        }
+        0 =>  read_from_stdin_handler(length,buffer) as u64,
         1 => (ONLY_MSB_OF_USIZE | vfs::FileError::CannotReadWriteOnlyFile as usize) as u64,
         2 => read_from_pipe_handler(length, buffer),
         3 => (ONLY_MSB_OF_USIZE | vfs::FileError::CannotReadWriteOnlyFile as usize) as u64,
