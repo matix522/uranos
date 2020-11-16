@@ -38,17 +38,16 @@ pub extern "C" fn simple_cat(argc: usize, argv: *const &[u8]) -> u32 {
     };
 
     let out_file = if argc == 2 {
-        let bytes: &[u8; 8] = match args[1].try_into() {
+        let pipe_flag = match from_utf8(args[1]) {
             Ok(val) => val,
             Err(_) => {
                 print("Invalid out type flag value");
                 return 3;
             }
         };
-        if u64::from_le_bytes(*bytes) > 0 {
-            File::get_pipeout()
-        } else {
-            File::get_stdout()
+        match pipe_flag {
+            "1" => File::get_pipeout(),
+            &_ => File::get_stdout(),
         }
     } else {
         File::get_stdout()
@@ -98,7 +97,7 @@ pub extern "C" fn simple_wc(argc: usize, argv: *const &[u8]) -> u32 {
 
     let args = unsafe { core::slice::from_raw_parts(argv, argc) };
 
-    let option = match core::str::from_utf8(args[0]) {
+    let option = match from_utf8(args[0]) {
         Ok(val) => val,
         Err(_) => {
             print("Valid options are: -c \n");
@@ -106,33 +105,43 @@ pub extern "C" fn simple_wc(argc: usize, argv: *const &[u8]) -> u32 {
         }
     };
 
-    let in_file = if argc == 0 {
-        File::get_stdin()
-    } else {
-        let bytes: &[u8; 8] = match args[1].try_into() {
+    let in_file = {
+        let in_file_str = match from_utf8(args[1]) {
             Ok(val) => val,
             Err(_) => {
-                print("Invalid out type pipe source val");
-                return 3;
+                print::print("Invalid pipe source value \n");
+                return 2;
             }
         };
-        let pid = u64::from_le_bytes(*bytes);
-        print(&format!("PID of the beginning of pipe: {}\n", pid));
+        let pid = match in_file_str.parse::<u64>() {
+            Ok(val) => val,
+            Err(_) => {
+                print::print("Invalid pipe source value \n");
+                return 2;
+            }
+        };
         set_pipe_read_on_pid(pid);
         File::get_pipein()
     };
 
-    let out_file = if argc == 0 {
+    let out_file = if argc == 2 {
         File::get_stdout()
     } else {
-        let bytes: &[u8; 8] = match args[2].try_into() {
+        let in_file_str = match from_utf8(args[2]) {
             Ok(val) => val,
             Err(_) => {
-                print("Invalid out type flag value");
-                return 4;
+                print::print("Invalid pipe source value \n");
+                return 2;
             }
         };
-        if u64::from_le_bytes(*bytes) > 0 {
+        let flag = match in_file_str.parse::<usize>() {
+            Ok(val) => val,
+            Err(_) => {
+                print::print("Invalid pipe source value \n");
+                return 2;
+            }
+        };
+        if flag > 0 {
             File::get_pipeout()
         } else {
             File::get_stdout()
@@ -178,26 +187,21 @@ static MY_PID: AtomicU64 = AtomicU64::new(0);
 #[no_mangle]
 #[inline(never)]
 pub extern "C" fn first_task(_argc: usize, _argv: *const &[u8]) -> u32 {
+    use crate::alloc::string::ToString;
     use crate::syscall::asynchronous::files::AsyncFileDescriptor;
     use crate::syscall::files::File;
     use crate::syscall::*;
     use core::str::from_utf8;
 
     let filename = "file1";
-    let cat_to_pipe = 1usize.to_le_bytes();
-    let cat_args = [filename.as_bytes(), (&cat_to_pipe) as &[u8]];
-
-    let cat_pid = create_task(simple_cat, &cat_args);
+    let cat_pid = create_task(simple_cat, &[filename, "1"]);
 
     for _i in 1..10 {
         yield_cpu();
     }
+    let cat_pid_str = cat_pid.to_string();
 
-    let pid = cat_pid.to_le_bytes();
-    let to_pipe = 1usize.to_le_bytes();
-    let wc_args = ["-c".as_bytes(), (&pid) as &[u8], (&to_pipe) as &[u8]];
-
-    let wc_pid = create_task(simple_wc, &wc_args);
+    let wc_pid = create_task(simple_wc, &["-c", cat_pid_str.as_str(), "1"]);
 
     print(&format!(
         "Created hello tasks with PIDs: {}, {}\n",
