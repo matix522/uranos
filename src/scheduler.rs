@@ -247,7 +247,6 @@ impl TaskManager {
                 .children_return_vals
                 .insert(task_pid, return_value);
         };
-        crate::println!("FINISHING TASK NO. {}", task_pid);
         self.switch_task()
     }
 
