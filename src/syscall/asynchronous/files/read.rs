@@ -1,7 +1,7 @@
 use super::*;
 use crate::syscall::asynchronous::async_returned_values::*;
 use crate::syscall::asynchronous::async_syscall::*;
-use crate::syscall::files::read::{read_from_pipe_handler, read_from_vfs_handler};
+use crate::syscall::files::read::{read_from_stdin_handler, read_from_pipe_handler, read_from_vfs_handler};
 use crate::utils::circullar_buffer::*;
 use crate::vfs;
 
@@ -72,9 +72,7 @@ pub(in crate::syscall::asynchronous) fn handle_async_read(
     };
 
     match fd {
-        0 => {
-            panic!("Not implemented yet");
-        }
+        0 => read_from_stdin_handler(syscall_data.length, syscall_data.buffer) as usize,
         1 => ONLY_MSB_OF_USIZE | vfs::FileError::CannotReadWriteOnlyFile as usize,
         2 => read_from_pipe_handler(syscall_data.length, syscall_data.buffer) as usize,
         3 => ONLY_MSB_OF_USIZE | vfs::FileError::CannotReadWriteOnlyFile as usize,
