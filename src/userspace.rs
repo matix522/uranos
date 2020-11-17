@@ -1,6 +1,11 @@
 mod print;
 
 use core::sync::atomic::{AtomicU64};
+
+mod neofetch;
+use alloc::collections::BTreeMap;
+use alloc::string::String;
+use core::sync::atomic::{AtomicU64, Ordering};
 use crate::{uprint, uprintln};
 
 #[no_mangle]
@@ -242,6 +247,13 @@ pub extern "C" fn test_async_files(_argc: usize, _argv: *const &[u8]) -> u32 {
 
 #[no_mangle]
 #[inline(never)]
+pub extern "C" fn hello_world(_: usize, _: *const &[u8]) -> u32 {
+    crate::println!("Hello, World!");
+    return 0;
+}
+
+#[no_mangle]
+#[inline(never)]
 pub extern "C" fn _loop(_: usize, _: *const &[u8]) -> u32 {
     loop {}
 }
@@ -254,12 +266,15 @@ pub extern "C" fn clear(_: usize, _: *const &[u8]) -> u32 {
     uprint!("\x1B[2J\x1B[2;1H\x1B[2J\x1B[2;1H");
     0
 }
-
+pub extern "C" fn neofetch(_: usize, _: *const &[u8]) -> u32 {
+    uprint!("{}", neofetch::NEOFETCH_STRING);
+    0
+}
 pub mod shell;
 
 type Program = (&'static str, extern "C" fn(usize, *const &[u8]) -> u32);
 
-const PROGRAMS: [Program; 10] = [
+const PROGRAMS: [Program; 12] = [
     ("ush", ushell),
     ("loop", _loop),
     ("first_task", first_task),
@@ -267,9 +282,11 @@ const PROGRAMS: [Program; 10] = [
     ("wc", simple_wc),
     ("cat", simple_cat),
     ("true", _true),
-    ("false", _false),
+    ("false", _false), 
     ("pwd", pwd),
     ("clear", clear),
+    ("neofetch", neofetch),
+    ("hello_world", hello_world)
 ];
 
 pub extern "C" fn ushell(argc: usize, argv: *const &[u8]) -> u32 {
