@@ -46,7 +46,9 @@ impl<T> Mutex<T> {
     /// For most cases prefer using sync method
     ///
     pub fn lock(&self) -> MutexGuard<T> {
-        self.take_lock();
+        if crate::config::debug_mutex(){
+            self.take_lock();
+        }
         MutexGuard {
             lock: &self.lock,
             data: unsafe { &mut *self.data.get() },
@@ -59,7 +61,9 @@ impl<T> Mutex<T> {
     where
         F: FnOnce(&mut T) -> R,
     {
-        self.take_lock();
+        if crate::config::debug_mutex(){
+            self.take_lock();
+        }
 
         let result = f(unsafe { &mut *self.data.get() });
 

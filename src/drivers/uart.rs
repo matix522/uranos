@@ -277,9 +277,9 @@ impl traits::Init for PL011Uart {
         self.IBRD.write(IBRD::IBRD.val(2)); // Results in 115200 baud
         self.FBRD.write(FBRD::FBRD.val(0xB));
         self.LINE_CONTROL_REGISTER
-            .write(LCR::WLEN::EightBit + LCR::FEN::FifosEnabled); // 8N1
-        self.IFLS.write(IFLS::RXIFLSEL::OneEigth); // RX FIFO fill level at 1/8
-        self.IMSC.write(IMSC::RXIM::Enabled + IMSC::RTIM::Enabled); // RX IRQ + RX timeout IRQ
+            .write(LCR::WLEN::EightBit); // + LCR::FEN::FifosEnabled); // 8N1
+        //self.IFLS.write(IFLS::RXIFLSEL::OneEigth); // RX FIFO fill level at 1/8
+       // self.IMSC.write(IMSC::RXIM::Enabled + IMSC::RTIM::Enabled); // RX IRQ + RX timeout IRQ
 
         self.CONTROL_REGISTER
             .write(CR::UART_ENABLE::Enabled + CR::TX_ENABLE::Enabled + CR::RX_ENABLE::Enabled);
