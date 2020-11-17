@@ -30,3 +30,13 @@ pub fn debug_mmu() -> bool {
 pub fn set_debug_mmu(value: bool) {
     DEBUG_MMU.store(value, Ordering::SeqCst);
 }
+
+
+static MUTEX_HACK: AtomicBool = AtomicBool::new(false);
+pub fn debug_mutex() -> bool {
+    MUTEX_HACK.load(Ordering::Relaxed)
+}
+
+pub fn set_debug_mutex(value: bool) {
+    MUTEX_HACK.store(value, Ordering::Relaxed);
+}

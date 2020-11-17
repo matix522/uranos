@@ -71,14 +71,22 @@ fn kernel_entry() -> ! {
     }
     drop(uart);
 
+    println!("Getting binary info...");
     let binary_info = binary_info::BinaryInfo::get();
+    println!("[ Ok ] Got binary info");
+    println!("Initializing exceptions");
     unsafe {
         interupts::init_exceptions(binary_info.exception_vector);
     }
+    println!("[ Ok ] Exceptions initialized");
+    println!("Initializing allocator");
 
+    
     unsafe {
         crate::memory::allocator::init_kernel();
     }
+
+    println!("Allocator initialized");
     println!("{}", binary_info);
 
     println!("Prepare MMU Configuration");
@@ -86,6 +94,8 @@ fn kernel_entry() -> ! {
         if let Err(msg) = memory::armv8::mmu::init_mmu() {
             panic!(msg);
         }
+
+        config::set_debug_mutex(true);
 
         jump_to_kernel_space(echo);
     }
