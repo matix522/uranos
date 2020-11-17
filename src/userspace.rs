@@ -5,7 +5,7 @@ use core::sync::atomic::{AtomicU64};
 mod neofetch;
 use alloc::collections::BTreeMap;
 use alloc::string::String;
-use core::sync::atomic::{AtomicU64, Ordering};
+use core::sync::atomic::{Ordering};
 use crate::{uprint, uprintln};
 
 #[no_mangle]
@@ -248,7 +248,7 @@ pub extern "C" fn test_async_files(_argc: usize, _argv: *const &[u8]) -> u32 {
 #[no_mangle]
 #[inline(never)]
 pub extern "C" fn hello_world(_: usize, _: *const &[u8]) -> u32 {
-    crate::println!("Hello, World!");
+    uprintln!("Hello, World!");
     return 0;
 }
 

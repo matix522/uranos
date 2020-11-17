@@ -70,7 +70,7 @@ impl fmt::Display for BinaryInfo {
         )?;
         writeln!(
             f,
-            "\tException Vector: [{:#10x}            ]",
+            "\tException Vector: [{:#10x}             ]",
             self.exception_vector
         )?;
         writeln!(
