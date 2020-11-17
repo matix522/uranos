@@ -1,6 +1,6 @@
 use crate::syscall::files::File;
-use crate::{uprintln,uprint};
-use crate::syscall::{create_task, get_child_return_value, yield_cpu};
+use crate::{uprintln,uprint, euprintln};
+use crate::syscall::{create_task, get_child_return_value, yield_cpu, get_pid, set_pipe_read_on_pid};
 use alloc::string::String;
 use alloc::vec::Vec;
 #[derive(Debug)]
@@ -10,6 +10,8 @@ enum ParseError {
 }
 
 type ErrorCode = u32;
+
+type Pid = u64;
 
 const UTF8_ERROR: u32 = 20;
 
@@ -146,18 +148,45 @@ fn run_commands(command_line: &str) -> Result<ErrorCode, ParseError> {
     let command_chain = command_line.shell_split("\'\"".chars(), ";".chars())?;
     for base_cmd in command_chain {
         let indivdual_comands = base_cmd.shell_split("\'\"".chars(), "|".chars())?;
-        for command in indivdual_comands {
-            match run_command(command) {
-                Ok(return_code) => uprintln!("Program exited with code {}", return_code),
-                Err(parse_error) => uprintln!("Shell Error: {:?}", parse_error),
-            }
-        }
+        
+        let my_pid = get_pid() as u64;
+        let mut input_source_pid = my_pid ;
 
-        // print(&format!("cmd: {}\n", base_cmd));
+        for command in indivdual_comands {
+            let pid = match run_command(command, input_source_pid) {
+                Ok(pid) => pid,
+                Err(parse_error) => {
+                    euprintln!("Shell Error: {:?}", parse_error);
+                    continue;
+                },
+            };
+            input_source_pid = pid;
+        }
+        if input_source_pid != my_pid{
+            set_pipe_read_on_pid(input_source_pid);
+            let end =File::get_pipein();
+
+            let mut buffer = Vec::<u8>::new();
+            buffer.resize(4096, 0);
+        
+            let buffer = &mut buffer[..];
+            
+            while let Ok (read_count ) = end.read(4096, buffer) {
+                let read_bytes = &mut buffer[..read_count];
+
+                let mut unparsed_string = core::str::from_utf8(read_bytes).unwrap_or("ERROR\n");
+                crate::uprint!("{}", unparsed_string);
+            }
+
+            let ret_val = await_child(input_source_pid);
+            crate::euprintln!("Process Exited with code {}", ret_val);
+        } 
+
+
     }
     Ok(0)
 }
-fn run_command(command: &str) -> Result<ErrorCode, ParseError> {
+fn run_command(command: &str, input_source_pid : u64) -> Result<Pid, ParseError> {
     let words = command.shell_split("\'\"".chars(), " ".chars())?;
     let (head, tail) = words.split_at(1);
     let command_name = head[0];
@@ -166,12 +195,11 @@ fn run_command(command: &str) -> Result<ErrorCode, ParseError> {
 
     for &(name, function) in super::PROGRAMS.iter() {
         if name == command_name {
-            let child_pid = create_task(function, tail, false, None);
-            let return_val = await_child(child_pid);
-            return Ok(return_val);
+            let child_pid = create_task(function, tail, true, Some(input_source_pid));
+            return Ok(child_pid);
         }
     }
-    Err(ParseError::UnknownProgram(command.into()))
+    Err(ParseError::UnknownProgram(command_name.into()))
 }
 
 fn await_child(child_pid: u64) -> u32 {
