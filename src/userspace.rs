@@ -1,4 +1,7 @@
 mod print;
+
+use core::sync::atomic::{AtomicU64};
+
 mod neofetch;
 use alloc::collections::BTreeMap;
 use alloc::string::String;
@@ -19,39 +22,40 @@ pub extern "C" fn _false(_argc: usize, _argv: *const &[u8]) -> u32 {
 #[no_mangle]
 #[inline(never)]
 pub extern "C" fn simple_cat(argc: usize, argv: *const &[u8]) -> u32 {
-    use crate::syscall::files::File;
-    use crate::syscall::*;
-    use core::convert::TryInto;
+    use crate::syscall::files::{ File};
+    use crate::vfs::FileError;
+
     use core::str::from_utf8;
 
 
-    if argc != 1 {
-        uprintln!("Invalid number of arguments");
-        return 1;
-    }
+    let f : File = if argc == 1 {
+        let args = unsafe { core::slice::from_raw_parts(argv, argc) };
 
-    let args = unsafe { core::slice::from_raw_parts(argv, argc) };
-
-    let filename = match from_utf8(args[0]) {
-        Ok(val) => val,
-        Err(_) => {
-            uprintln!("Expected valid utf8 string");
-            return 2;
+        let filename = match from_utf8(args[0]) {
+            Ok(val) => val,
+            Err(_) => {
+                uprintln!("Expected valid utf8 string");
+                return 2;
+            }
+        };
+    
+        match File::open(filename, false) {
+            Ok(f) => f,
+            Err(e) => {
+                uprintln!("A file error occured during open: {:?}", e);
+                return 3;
+            }
         }
+    } else {
+        File::get_stdin()
     };
 
-    let f = match File::open(filename, false) {
-        Ok(f) => f,
-        Err(e) => {
-            uprintln!("A file error occured during open: {:?}", e);
-            return 3;
-        }
-    };
 
     let mut buffer = [0u8; 64];
     loop {
         let count = match f.read(64, &mut buffer) {
             Ok(val) => val,
+            Err(FileError::ReadOnClosedFile) => break,
             Err(e) => {
                 uprintln!("A file error occured during read: {:?}", e);
                 return 4;
@@ -75,7 +79,6 @@ pub extern "C" fn simple_wc(argc: usize, argv: *const &[u8]) -> u32 {
     use crate::syscall::files::File;
     use crate::syscall::*;
     use alloc::vec::Vec;
-    use core::convert::TryInto;
     use core::str::from_utf8;
 
     if argc != 1 {
@@ -121,8 +124,6 @@ pub extern "C" fn simple_wc(argc: usize, argv: *const &[u8]) -> u32 {
             return 10;
         }
     };
-    print::print(&format!("RESULT: {}\n", res));
-
     File::get_stdout().write(&format!("{}", res).as_bytes());
     0
 }
@@ -132,23 +133,15 @@ static MY_PID: AtomicU64 = AtomicU64::new(0);
 #[no_mangle]
 #[inline(never)]
 pub extern "C" fn first_task(_argc: usize, _argv: *const &[u8]) -> u32 {
-    use crate::alloc::string::ToString;
-    use crate::syscall::asynchronous::files::AsyncFileDescriptor;
-    use crate::syscall::files::File;
     use crate::syscall::*;
-    use core::str::from_utf8;
 
     let a_pid = create_task(double_chars, &[], true, None);
     let b_pid = create_task(double_chars, &[], false, Some(a_pid));
    
     loop{}
- 
-    0
-}
+ }
 
 pub extern "C" fn double_chars(_argc: usize, _argv: *const &[u8]) -> u32{
-    use crate::alloc::string::ToString;
-    use crate::syscall::asynchronous::files::AsyncFileDescriptor;
     use crate::syscall::files::File;
     use crate::syscall::*;
     use core::str::from_utf8;
@@ -178,10 +171,7 @@ pub extern "C" fn double_chars(_argc: usize, _argv: *const &[u8]) -> u32{
 }
 
 pub extern "C" fn B(_argc: usize, _argv: *const &[u8]) -> u32{
-    use crate::alloc::string::ToString;
-    use crate::syscall::asynchronous::files::AsyncFileDescriptor;
     use crate::syscall::files::File;
-    use crate::syscall::*;
     use core::str::from_utf8;
 
     let mut buffer = [0u8; 2];
@@ -289,8 +279,8 @@ const PROGRAMS: [Program; 12] = [
     ("loop", _loop),
     ("first_task", first_task),
     ("test_async_files", test_async_files),
-    ("simple_wc", simple_wc),
-    ("simple_cat", simple_cat),
+    ("wc", simple_wc),
+    ("cat", simple_cat),
     ("true", _true),
     ("false", _false), 
     ("pwd", pwd),

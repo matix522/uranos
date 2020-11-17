@@ -18,11 +18,13 @@ macro_rules! uprintln {
     () => ($crate::print!("\n"));
     ($($arg:tt)*) => ($crate::uprint!("{}\n", format_args!($($arg)*)));
 }
-#[allow(unused_macros)]
+
+#[macro_export]
 macro_rules! euprint {
     ($($arg:tt)*) => ($crate::uprint!("\x1b[31m{}\x1b[0m", format_args!($($arg)*)));
 }
-#[allow(unused_macros)]
+
+#[macro_export]
 macro_rules! euprintln {
     () => ($crate::eprint!("\n"));
     ($($arg:tt)*) => ($crate::euprint!("{}\n", format_args!($($arg)*)));

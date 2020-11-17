@@ -107,51 +107,14 @@ unsafe fn jump_to_kernel_space(f: fn() -> !) -> ! {
     loop {}
 }
 fn echo() -> ! {
-    // use crate::memory::memory_controler::{map_kernel_memory, unmap_kernel_memory};
-    // unsafe {
-    //     let t_string: &'static str = "Hello String";
-    //     let ptr = t_string.as_ptr();
-    //     let size = t_string.bytes().len();
-
-    //     let user_ptr = ((!KERNEL_OFFSET) & ptr as usize) as *const u8;
-    //     let user_str = core::str::from_utf8_unchecked(core::slice::from_raw_parts(user_ptr, size));
-
-    //     let pages_containing = |pointer: *const u8, size: usize| {
-    //         let start_address = pointer.add(pointer.align_offset(4096)).offset(-4096) as usize;
-    //         let end_address = pointer.add(size).add(pointer.align_offset(4096)) as usize;
-    //         start_address..end_address
-    //     };
-    //     let p_range = pages_containing(user_ptr, size);
-    //     let v_range = p_range.start | 0x1_0000_0000..p_range.end | 0x1_0000_0000;
-
-    //     crate::println!("p_memory {:x} - {:x}", p_range.start, p_range.end);
-    //     crate::println!("v_memory {:x} - {:x}", v_range.start, v_range.end);
-
-    //     map_kernel_memory("moved_string", v_range, p_range.start, true);
-
-    //     crate::println!("ORGINAL {:#018x}: {}", t_string.as_ptr() as usize, t_string);
-    //     crate::println!("USER    {:#018x}: {}", user_str.as_ptr() as usize, user_str);
-
-    //     let moved_ptr = (ptr as u64 | 0x1_0000_0000) as *const u8;
-    //     let moved_str =
-    //         core::str::from_utf8_unchecked(core::slice::from_raw_parts(moved_ptr, size));
-
-    //     crate::println!(
-    //         "MOVED   {:#018x}: {}",
-    //         moved_str.as_ptr() as usize,
-    //         moved_str
-    //     );
-    // }
 
     // config::set_debug_alloc(true);
     // config::set_debug_mmu(true);
     let shell = scheduler::task_context::TaskContext::new(userspace::ushell, &[], false)
         .expect("Error creating task 1 context");
 
-    // let _loop = scheduler::task_context::TaskContext::new(userspace::_loop, &[], false)
-    //     .expect("Error creating task 1 context");
+
     scheduler::add_task(shell).expect("Error adding task 1");
-    // scheduler::add_task(_loop).expect("Error adding task 1");
 
     unsafe {
         interupts::init_exceptions(
@@ -160,13 +123,14 @@ fn echo() -> ! {
     }
     println!("Enabling ARM Timer");
 
-    interupts::enable_irqs();
     {
         let timer = ArmTimer {};
 
         timer.interupt_after(scheduler::get_time_quant());
         timer.enable();
     }
+    interupts::enable_irqs();
+
     println!("Kernel Initialization complete.");
 
     syscall::start_scheduling();
