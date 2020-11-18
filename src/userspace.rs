@@ -1,12 +1,12 @@
 mod print;
 
-use core::sync::atomic::{AtomicU64};
+use core::sync::atomic::AtomicU64;
 
 mod neofetch;
+use crate::{uprint, uprintln};
 use alloc::collections::BTreeMap;
 use alloc::string::String;
-use core::sync::atomic::{Ordering};
-use crate::{uprint, uprintln};
+use core::sync::atomic::Ordering;
 
 #[no_mangle]
 #[inline(never)]
@@ -22,13 +22,12 @@ pub extern "C" fn _false(_argc: usize, _argv: *const &[u8]) -> u32 {
 #[no_mangle]
 #[inline(never)]
 pub extern "C" fn simple_cat(argc: usize, argv: *const &[u8]) -> u32 {
-    use crate::syscall::files::{ File};
+    use crate::syscall::files::File;
     use crate::vfs::FileError;
 
     use core::str::from_utf8;
 
-
-    let f : File = if argc == 1 {
+    let f: File = if argc == 1 {
         let args = unsafe { core::slice::from_raw_parts(argv, argc) };
 
         let filename = match from_utf8(args[0]) {
@@ -38,7 +37,7 @@ pub extern "C" fn simple_cat(argc: usize, argv: *const &[u8]) -> u32 {
                 return 2;
             }
         };
-    
+
         match File::open(filename, false) {
             Ok(f) => f,
             Err(e) => {
@@ -49,7 +48,6 @@ pub extern "C" fn simple_cat(argc: usize, argv: *const &[u8]) -> u32 {
     } else {
         File::get_stdin()
     };
-
 
     let mut buffer = [0u8; 64];
     loop {
@@ -137,11 +135,11 @@ pub extern "C" fn first_task(_argc: usize, _argv: *const &[u8]) -> u32 {
 
     let a_pid = create_task(double_chars, &[], true, None);
     let b_pid = create_task(double_chars, &[], false, Some(a_pid));
-   
-    loop{}
- }
 
-pub extern "C" fn double_chars(_argc: usize, _argv: *const &[u8]) -> u32{
+    loop {}
+}
+
+pub extern "C" fn double_chars(_argc: usize, _argv: *const &[u8]) -> u32 {
     use crate::syscall::files::File;
     use crate::syscall::*;
     use core::str::from_utf8;
@@ -150,38 +148,37 @@ pub extern "C" fn double_chars(_argc: usize, _argv: *const &[u8]) -> u32{
 
     let pid = get_pid();
 
-    loop{
-        let data = match File::get_stdin().read(2, &mut buffer){
+    loop {
+        let data = match File::get_stdin().read(2, &mut buffer) {
             Ok(size) => size,
             Err(_) => break,
         };
-        let string = match from_utf8(&buffer){
+        let string = match from_utf8(&buffer) {
             Ok(s) => s,
             Err(_) => "ERROR",
         };
 
         File::get_stdout().write(string.as_bytes());
         File::get_stdout().write(string.as_bytes());
-        buffer[0]=0;
+        buffer[0] = 0;
         buffer[1] = 0;
-      
     }
     uprintln!("NO I ELO {}\n", pid);
     0
 }
 
-pub extern "C" fn B(_argc: usize, _argv: *const &[u8]) -> u32{
+pub extern "C" fn B(_argc: usize, _argv: *const &[u8]) -> u32 {
     use crate::syscall::files::File;
     use core::str::from_utf8;
 
     let mut buffer = [0u8; 2];
 
-    loop{
-        let data = match File::get_stdin().read(2, &mut buffer){
+    loop {
+        let data = match File::get_stdin().read(2, &mut buffer) {
             Ok(size) => size,
             Err(_) => break,
         };
-        let string = match from_utf8(&buffer){
+        let string = match from_utf8(&buffer) {
             Ok(s) => s,
             Err(_) => "ERROR",
         };
@@ -282,11 +279,11 @@ const PROGRAMS: [Program; 12] = [
     ("wc", simple_wc),
     ("cat", simple_cat),
     ("true", _true),
-    ("false", _false), 
+    ("false", _false),
     ("pwd", pwd),
     ("clear", clear),
     ("neofetch", neofetch),
-    ("hello_world", hello_world)
+    ("hello_world", hello_world),
 ];
 
 pub extern "C" fn ushell(argc: usize, argv: *const &[u8]) -> u32 {

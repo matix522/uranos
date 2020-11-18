@@ -1,5 +1,4 @@
-pub const NEOFETCH_STRING : &'static str = 
-"          \x1b[38;5;195m &&                           \x1b[38;5;159mdefault\x1b[0m@\x1b[38;5;159muranos\x1b[0m\u{1FA90}
+pub const NEOFETCH_STRING : &'static str = "          \x1b[38;5;195m &&                           \x1b[38;5;159mdefault\x1b[0m@\x1b[38;5;159muranos\x1b[0m\u{1FA90}
            \x1b[38;5;195m && \x1b[38;5;159m***********              --------------
            \x1b[38;5;159m*\x1b[38;5;195m && \x1b[38;5;159m**************          \x1b[38;5;159mOS\x1b[0m: Uranos 0.1.0\x1b[0m
           \x1b[38;5;159m***\x1b[38;5;195m && \x1b[38;5;159m***************        \x1b[38;5;159mKernel\x1b[0m: Uranos 0.1.0\x1b[0m
@@ -18,4 +17,3 @@ pub const NEOFETCH_STRING : &'static str =
                 \x1b[38;5;159m**********\x1b[38;5;195m &&
                            \x1b[38;5;195m &&\x1b[0m
 ";
-              

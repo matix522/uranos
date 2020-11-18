@@ -46,7 +46,7 @@ impl<T> Mutex<T> {
     /// For most cases prefer using sync method
     ///
     pub fn lock(&self) -> MutexGuard<T> {
-        if crate::config::debug_mutex(){
+        if crate::config::debug_mutex() {
             self.take_lock();
         }
         MutexGuard {
@@ -61,7 +61,7 @@ impl<T> Mutex<T> {
     where
         F: FnOnce(&mut T) -> R,
     {
-        if crate::config::debug_mutex(){
+        if crate::config::debug_mutex() {
             self.take_lock();
         }
 
