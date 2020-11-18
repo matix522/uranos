@@ -1,4 +1,3 @@
-
 use crate::syscall::print::print;
 struct SyscallPrint;
 
@@ -34,4 +33,3 @@ pub fn _print(args: core::fmt::Arguments) {
     use core::fmt::Write;
     SyscallPrint.write_fmt(args).expect("Print Syscall Error")
 }
-

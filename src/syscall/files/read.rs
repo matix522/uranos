@@ -33,8 +33,9 @@ pub fn read_from_pipe_handler(length: usize, mut buffer: *mut u8) -> u64 {
             let task: &mut TaskContext = unsafe { &mut (*task_ptr) };
             if let TaskStates::Dead = *task.get_state() {
                 return (ONLY_MSB_OF_USIZE | vfs::FileError::ReadOnClosedFile as usize) as u64;
-            }if let TaskStates::Zombie = *task.get_state() {
-                if task.is_pipe_queue_empty(){
+            }
+            if let TaskStates::Zombie = *task.get_state() {
+                if task.is_pipe_queue_empty() {
                     return (ONLY_MSB_OF_USIZE | vfs::FileError::ReadOnClosedFile as usize) as u64;
                 }
             }
@@ -107,7 +108,6 @@ pub fn read_from_stdin_handler(length: usize, buffer: *mut u8) -> u64 {
     size as u64
 }
 
-
 pub fn handle_read_syscall(context: &mut ExceptionContext) {
     let fd = resolve_fd(context.gpr[0] as usize);
     let length = context.gpr[1] as usize;
@@ -127,7 +127,7 @@ pub fn handle_read(fd: usize, length: usize, buffer: *mut u8) -> u64 {
     // 2: PIPEIN
     // 3: PIPEOUT
     match resolve_fd(fd) {
-        0 =>  read_from_stdin_handler(length,buffer) as u64,
+        0 => read_from_stdin_handler(length, buffer) as u64,
         1 => (ONLY_MSB_OF_USIZE | vfs::FileError::CannotReadWriteOnlyFile as usize) as u64,
         2 => read_from_pipe_handler(length, buffer),
         3 => (ONLY_MSB_OF_USIZE | vfs::FileError::CannotReadWriteOnlyFile as usize) as u64,

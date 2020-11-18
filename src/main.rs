@@ -81,7 +81,6 @@ fn kernel_entry() -> ! {
     println!("[ Ok ] Exceptions initialized");
     println!("Initializing allocator");
 
-    
     unsafe {
         crate::memory::allocator::init_kernel();
     }
@@ -107,12 +106,10 @@ unsafe fn jump_to_kernel_space(f: fn() -> !) -> ! {
     loop {}
 }
 fn echo() -> ! {
-
     // config::set_debug_alloc(true);
     // config::set_debug_mmu(true);
     let shell = scheduler::task_context::TaskContext::new(userspace::ushell, &[], false)
         .expect("Error creating task 1 context");
-
 
     scheduler::add_task(shell).expect("Error adding task 1");
 
