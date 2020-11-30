@@ -5,7 +5,7 @@ pub mod task_stack;
 use crate::device_driver;
 use crate::interupts::ExceptionContext;
 use crate::syscall::asynchronous::handle_async_syscalls::handle_async_syscalls;
-use alloc::vec::Vec;
+use alloc::{vec::Vec, collections::VecDeque};
 use core::time::Duration;
 use task_context::*;
 
@@ -129,7 +129,7 @@ impl TaskManager {
         let val = self.tasks[self.current_task]
             .children_return_vals
             .remove(&pid);
-
+        self.tasks[pid].was_returned_value_read = true; 
         val
     }
 
@@ -228,25 +228,24 @@ impl TaskManager {
 
     pub fn finish_task(&mut self, return_value: u32, task_pid: usize) {
         self.tasks[task_pid].state = TaskStates::Zombie;
-        let keys = self.tasks[task_pid]
-            .children_return_vals
-            .keys()
-            .cloned()
-            .collect::<Vec<usize>>();
-        for pid in keys {
-            if pid < self.tasks.len() {
-                if let TaskStates::Dead = self.tasks[pid].state {
-                } else if let TaskStates::Zombie = self.tasks[pid].state {
-                } else {
-                    self.finish_task(special_return_vals::PARENT_PROCESS_ENDED, pid);
+        let mut stack : VecDeque<(u32,usize)> = VecDeque::new();
+        stack.push_back((return_value,task_pid));
+        while !stack.is_empty() {
+            let (ret_val, t_pid) = stack.pop_back().unwrap(); 
+            for pid in self.tasks[t_pid].children_return_vals.keys() {
+                if *pid < self.tasks.len() {
+                    if let TaskStates::Dead | TaskStates::Zombie = self.tasks[*pid].state {
+                    } else {
+                        stack.push_back((special_return_vals::PARENT_PROCESS_ENDED, *pid));
+                    }
                 }
             }
+            if let Some(ppid) = self.tasks[t_pid].ppid {
+                self.tasks[ppid]
+                    .children_return_vals
+                    .insert(t_pid, ret_val);
+            };
         }
-        if let Some(ppid) = self.tasks[task_pid].ppid {
-            self.tasks[ppid]
-                .children_return_vals
-                .insert(task_pid, return_value);
-        };
         self.switch_task()
     }
 
